@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+html { background: #ffffff; }
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  background: #FFFFFF;
+  font-family: Arial, sans-serif;
+}
+.header {
+  background: #1B4F72;
+  padding: 15pt 30pt;
+}
+h1 {
+  color: #FFFFFF;
+  font-size: 24pt;
+  margin: 0;
+}
+.content {
+  padding: 20pt 30pt;
+  display: flex;
+  gap: 25pt;
+}
+.left-col {
+  width: 330pt;
+}
+.right-col {
+  width: 310pt;
+}
+h2 {
+  color: #1B4F72;
+  font-size: 14pt;
+  margin: 0 0 12pt 0;
+  border-bottom: 2pt solid #27AE60;
+  padding-bottom: 6pt;
+}
+.source-item {
+  background: #F8F9FA;
+  padding: 10pt 12pt;
+  margin-bottom: 8pt;
+  border-radius: 4pt;
+}
+.source-item h3 {
+  color: #1B4F72;
+  font-size: 11pt;
+  margin: 0 0 4pt 0;
+}
+.source-item p {
+  font-size: 10pt;
+  color: #5D6D7E;
+  margin: 0;
+}
+.param-table {
+  width: 100%;
+  font-size: 10pt;
+  border-collapse: collapse;
+}
+.param-table td {
+  padding: 6pt 8pt;
+  border-bottom: 1pt solid #E5E8E8;
+}
+.param-table td:first-child {
+  color: #5D6D7E;
+}
+.param-table td:last-child {
+  font-weight: bold;
+  color: #2C3E50;
+  text-align: right;
+}
+.files-box {
+  background: #2C3E50;
+  color: #FFFFFF;
+  padding: 12pt;
+  border-radius: 4pt;
+  margin-top: 15pt;
+}
+.files-box h3 {
+  color: #27AE60;
+  font-size: 11pt;
+  margin: 0 0 8pt 0;
+}
+.files-box p {
+  font-family: Courier New, monospace;
+  font-size: 9pt;
+  margin: 3pt 0;
+  color: #E8F4F8;
+}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Appendix: Data Sources and Parameters</h1>
+</div>
+<div class="content">
+  <div class="left-col">
+    <h2>Data Sources</h2>
+    <div class="source-item">
+      <h3>Solar Production Profile</h3>
+      <p>PVsyst simulation - south_lundby.csv<br/>South-facing fixed tilt, SE3 irradiance</p>
+    </div>
+    <div class="source-item">
+      <h3>Wind Production Profile</h3>
+      <p>ENTSO-E Transparency Platform<br/>SE3 actual generation 2024, normalized</p>
+    </div>
+    <div class="source-item">
+      <h3>Electricity Prices</h3>
+      <p>elprisetjustnu.se API<br/>SE3 hourly spot prices</p>
+    </div>
+    <div class="source-item">
+      <h3>Analysis Period</h3>
+      <p>Full year 2024 (leap year)<br/>8,784 hours, hourly resolution</p>
+    </div>
+  </div>
+  <div class="right-col">
+    <h2>Key Parameters</h2>
+    <table class="param-table">
+      <tr><td>Solar Installed</td><td>1.0 MW</td></tr>
+      <tr><td>Wind Installed</td><td>1.0 MW</td></tr>
+      <tr><td>Solar Capacity Factor</td><td>11.5%</td></tr>
+      <tr><td>Wind Capacity Factor</td><td>30.0%</td></tr>
+      <tr><td>Combined Capacity Factor</td><td>20.8%</td></tr>
+      <tr><td>Mean Production</td><td>0.415 MW</td></tr>
+      <tr><td>Annual Production</td><td>3,647 MWh</td></tr>
+      <tr><td>BESS Round-trip Efficiency</td><td>90%</td></tr>
+    </table>
+    <div class="files-box">
+      <h3>Analysis Files</h3>
+      <p>elpris/baseload_analysis.py</p>
+      <p>data/reports/baseload_ppa_analysis.xlsx</p>
+      <p>data/reports/insights/baseload_ppa_key_insights.md</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>

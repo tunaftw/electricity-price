@@ -1,0 +1,4 @@
+time_start,zone,psr_type,generation_mw,resolution_minutes
+2021-12-14T23:00:00+00:00,SE1,solar,0.0,60
+2021-12-15T09:00:00+00:00,SE1,solar,0.01,60
+2021-12-15T12:00:00+00:00,SE1,solar,0.0,60

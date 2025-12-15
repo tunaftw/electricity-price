@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+html { background: #ffffff; }
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  background: #FFFFFF;
+  font-family: Arial, sans-serif;
+}
+.header {
+  background: #1B4F72;
+  padding: 15pt 30pt;
+}
+h1 {
+  color: #FFFFFF;
+  font-size: 24pt;
+  margin: 0;
+}
+.content {
+  padding: 20pt 30pt;
+}
+h2 {
+  color: #1B4F72;
+  font-size: 15pt;
+  margin: 0 0 15pt 0;
+}
+p {
+  font-size: 12pt;
+  color: #2C3E50;
+  margin: 0 0 15pt 0;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11pt;
+  margin-bottom: 15pt;
+}
+th {
+  background: #1B4F72;
+  color: #FFFFFF;
+  padding: 10pt 8pt;
+  text-align: center;
+  font-weight: bold;
+}
+td {
+  padding: 10pt 8pt;
+  text-align: center;
+  border-bottom: 1pt solid #E5E8E8;
+}
+tr:nth-child(even) {
+  background: #F8F9FA;
+}
+.reduction {
+  color: #27AE60;
+  font-weight: bold;
+}
+.insight-row {
+  display: flex;
+  gap: 20pt;
+  margin-top: 15pt;
+}
+.insight-box {
+  flex: 1;
+  background: #E8F6F3;
+  border-left: 4pt solid #27AE60;
+  padding: 12pt 15pt;
+}
+.insight-box p {
+  margin: 0;
+  font-size: 11pt;
+  color: #1E8449;
+}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Key Insight: 10% Pass Reduces Battery 50-100%</h1>
+</div>
+<div class="content">
+  <h2>Effect of Allowing Non-Delivery Hours</h2>
+  <p>If the PPA allows <b>10% non-delivery</b> (878 hours/year), battery requirements drop dramatically:</p>
+  <table>
+    <tr>
+      <th>Baseload Level</th>
+      <th>100% Delivery</th>
+      <th>90% Delivery</th>
+      <th>Battery Reduction</th>
+    </tr>
+    <tr>
+      <td>50% (0.208 MW)</td>
+      <td>1.2 MWh</td>
+      <td>0 MWh</td>
+      <td class="reduction">-100%</td>
+    </tr>
+    <tr>
+      <td>80% (0.332 MW)</td>
+      <td>8.2 MWh</td>
+      <td>3.3 MWh</td>
+      <td class="reduction">-60%</td>
+    </tr>
+    <tr>
+      <td>100% (0.415 MW)</td>
+      <td>109 MWh</td>
+      <td>57 MWh</td>
+      <td class="reduction">-48%</td>
+    </tr>
+  </table>
+  <div class="insight-row">
+    <div class="insight-box">
+      <p><b>Implication:</b> The worst 10% of hours drive most of the battery requirement. Small contractual flexibility yields outsized savings.</p>
+    </div>
+    <div class="insight-box">
+      <p><b>Recommendation:</b> Negotiate for pass hours in PPA contracts - even small allowances save significant capital.</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>

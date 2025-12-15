@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+html { background: #ffffff; }
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  background: #FFFFFF;
+  font-family: Arial, sans-serif;
+}
+.header {
+  background: #1B4F72;
+  padding: 15pt 30pt;
+}
+h1 {
+  color: #FFFFFF;
+  font-size: 24pt;
+  margin: 0;
+}
+.content {
+  padding: 20pt 30pt;
+}
+h2 {
+  color: #1B4F72;
+  font-size: 15pt;
+  margin: 0 0 15pt 0;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11pt;
+}
+th {
+  background: #1B4F72;
+  color: #FFFFFF;
+  padding: 10pt 8pt;
+  text-align: center;
+  font-weight: bold;
+}
+td {
+  padding: 10pt 8pt;
+  text-align: center;
+  border-bottom: 1pt solid #E5E8E8;
+}
+tr:nth-child(even) {
+  background: #F8F9FA;
+}
+.highlight-row {
+  background: #E8F6F3;
+  font-weight: bold;
+}
+.highlight-row td {
+  border: 2pt solid #27AE60;
+}
+.warning-row {
+  background: #FDEDEC;
+}
+.insight-box {
+  background: #FEF9E7;
+  border-left: 4pt solid #F39C12;
+  padding: 12pt 15pt;
+  margin-top: 15pt;
+}
+.insight-box p {
+  margin: 0;
+  font-size: 12pt;
+  color: #7D6608;
+}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Results: Battery Sizing vs Baseload Level</h1>
+</div>
+<div class="content">
+  <h2>Non-Linear Scaling of Battery Requirements</h2>
+  <table>
+    <tr>
+      <th>Baseload %</th>
+      <th>Baseload (MW)</th>
+      <th>Deficit Hours</th>
+      <th>Deficit %</th>
+      <th>Battery (MWh)</th>
+      <th>Duration</th>
+    </tr>
+    <tr>
+      <td>50%</td>
+      <td>0.208</td>
+      <td>447</td>
+      <td>5%</td>
+      <td>1</td>
+      <td>14 hours</td>
+    </tr>
+    <tr>
+      <td>60%</td>
+      <td>0.249</td>
+      <td>1,153</td>
+      <td>13%</td>
+      <td>3</td>
+      <td>22 hours</td>
+    </tr>
+    <tr class="highlight-row">
+      <td>80%</td>
+      <td>0.332</td>
+      <td>3,319</td>
+      <td>38%</td>
+      <td>8</td>
+      <td>1.6 days</td>
+    </tr>
+    <tr>
+      <td>90%</td>
+      <td>0.374</td>
+      <td>4,560</td>
+      <td>52%</td>
+      <td>17</td>
+      <td>2.8 days</td>
+    </tr>
+    <tr class="warning-row">
+      <td>100%</td>
+      <td>0.415</td>
+      <td>5,671</td>
+      <td>65%</td>
+      <td>109</td>
+      <td>15.5 days</td>
+    </tr>
+  </table>
+  <div class="insight-box">
+    <p><b>Key Insight:</b> Going from 80% to 100% baseload increases battery need by 13x (8 to 109 MWh)</p>
+  </div>
+</div>
+</body>
+</html>

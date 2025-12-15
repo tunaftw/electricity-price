@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+html { background: #ffffff; }
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  background: #FFFFFF;
+  font-family: Arial, sans-serif;
+}
+.header {
+  background: #1B4F72;
+  padding: 15pt 30pt;
+}
+h1 {
+  color: #FFFFFF;
+  font-size: 24pt;
+  margin: 0;
+}
+.content {
+  padding: 25pt 30pt;
+}
+h2 {
+  color: #1B4F72;
+  font-size: 16pt;
+  margin: 0 0 15pt 0;
+  border-bottom: 2pt solid #27AE60;
+  padding-bottom: 8pt;
+}
+.key-finding {
+  background: #F8F9FA;
+  border-left: 4pt solid #27AE60;
+  padding: 12pt 15pt;
+  margin: 10pt 0;
+}
+.key-finding p {
+  margin: 0;
+  font-size: 13pt;
+  color: #2C3E50;
+}
+.highlight {
+  color: #1B4F72;
+  font-weight: bold;
+}
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20pt;
+}
+.stat-box {
+  text-align: center;
+  width: 150pt;
+  background: #E8F6F3;
+  padding: 15pt 10pt;
+  border-radius: 6pt;
+}
+.stat-number {
+  font-size: 28pt;
+  font-weight: bold;
+  color: #27AE60;
+}
+.stat-label {
+  font-size: 10pt;
+  color: #5D6D7E;
+  margin-top: 5pt;
+}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Executive Summary</h1>
+</div>
+<div class="content">
+  <h2>Key Findings</h2>
+  <div class="key-finding">
+    <p><span class="highlight">100% baseload is impractical</span> - requires 109 MWh battery (seasonal storage)</p>
+  </div>
+  <div class="key-finding">
+    <p><span class="highlight">80% baseload is the sweet spot</span> - only 8 MWh battery needed</p>
+  </div>
+  <div class="key-finding">
+    <p><span class="highlight">Summer nights are critical</span> - not winter as commonly assumed</p>
+  </div>
+  <div class="stat-row">
+    <div class="stat-box">
+      <p class="stat-number">20.8%</p>
+      <p class="stat-label">Combined Capacity Factor</p>
+    </div>
+    <div class="stat-box">
+      <p class="stat-number">8 MWh</p>
+      <p class="stat-label">Battery for 80% Baseload</p>
+    </div>
+    <div class="stat-box">
+      <p class="stat-number">13x</p>
+      <p class="stat-label">More Battery for 100% vs 80%</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>

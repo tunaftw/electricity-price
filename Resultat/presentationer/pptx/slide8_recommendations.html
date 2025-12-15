@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+html { background: #ffffff; }
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  background: #FFFFFF;
+  font-family: Arial, sans-serif;
+}
+.header {
+  background: #1B4F72;
+  padding: 15pt 30pt;
+}
+h1 {
+  color: #FFFFFF;
+  font-size: 24pt;
+  margin: 0;
+}
+.content {
+  padding: 20pt 30pt;
+}
+h2 {
+  color: #1B4F72;
+  font-size: 15pt;
+  margin: 0 0 15pt 0;
+}
+.rec-grid {
+  display: flex;
+  gap: 15pt;
+  margin-bottom: 20pt;
+}
+.rec-box {
+  flex: 1;
+  background: #F8F9FA;
+  padding: 15pt;
+  border-radius: 6pt;
+  border-top: 4pt solid #27AE60;
+}
+.rec-box h3 {
+  color: #1B4F72;
+  font-size: 13pt;
+  margin: 0 0 10pt 0;
+}
+.rec-box p {
+  font-size: 11pt;
+  color: #2C3E50;
+  margin: 0;
+  line-height: 1.4;
+}
+.structure-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11pt;
+}
+.structure-table th {
+  background: #1B4F72;
+  color: #FFFFFF;
+  padding: 8pt;
+  text-align: left;
+}
+.structure-table td {
+  padding: 8pt;
+  border-bottom: 1pt solid #E5E8E8;
+}
+.recommended {
+  background: #E8F6F3;
+}
+.recommended td {
+  font-weight: bold;
+}
+.premium-low { color: #27AE60; }
+.premium-med { color: #F39C12; }
+.premium-high { color: #E74C3C; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Recommendations</h1>
+</div>
+<div class="content">
+  <h2>Key Takeaways</h2>
+  <div class="rec-grid">
+    <div class="rec-box">
+      <h3>Target 80% Baseload</h3>
+      <p>Best balance between delivery guarantee and capital cost. 8 MWh battery vs 109 MWh for 100%.</p>
+    </div>
+    <div class="rec-box">
+      <h3>Negotiate Pass Hours</h3>
+      <p>10% pass allowance reduces battery by 50-100%. Focus on summer night flexibility.</p>
+    </div>
+    <div class="rec-box">
+      <h3>1:1 Solar/Wind Ratio</h3>
+      <p>Optimal complementarity for SE3. Solar covers days, wind covers nights/winter.</p>
+    </div>
+  </div>
+  <h2>Recommended PPA Structure</h2>
+  <table class="structure-table">
+    <tr>
+      <th>PPA Type</th>
+      <th>Battery Need</th>
+      <th>Risk Allocation</th>
+      <th>Premium</th>
+    </tr>
+    <tr>
+      <td>Pay-as-produced</td>
+      <td>0 MWh</td>
+      <td>Buyer takes volume risk</td>
+      <td class="premium-low">Low</td>
+    </tr>
+    <tr class="recommended">
+      <td>80% baseload + 10% pass</td>
+      <td>~3 MWh</td>
+      <td>Balanced risk</td>
+      <td class="premium-med">Medium</td>
+    </tr>
+    <tr>
+      <td>100% baseload</td>
+      <td>109 MWh</td>
+      <td>Seller takes all risk</td>
+      <td class="premium-high">Very High</td>
+    </tr>
+  </table>
+</div>
+</body>
+</html>

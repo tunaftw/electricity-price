@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+html { background: #ffffff; }
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  background: #FFFFFF;
+  font-family: Arial, sans-serif;
+}
+.header {
+  background: #1B4F72;
+  padding: 15pt 30pt;
+}
+h1 {
+  color: #FFFFFF;
+  font-size: 24pt;
+  margin: 0;
+}
+.content {
+  padding: 20pt 30pt;
+  display: flex;
+  gap: 25pt;
+}
+.left-col {
+  width: 340pt;
+}
+.right-col {
+  width: 300pt;
+}
+h2 {
+  color: #1B4F72;
+  font-size: 15pt;
+  margin: 0 0 12pt 0;
+}
+p {
+  font-size: 11pt;
+  color: #2C3E50;
+  line-height: 1.5;
+  margin: 0 0 10pt 0;
+}
+.surprise-box {
+  background: #FDEDEC;
+  border: 2pt solid #E74C3C;
+  padding: 15pt;
+  border-radius: 6pt;
+  margin-bottom: 15pt;
+}
+.surprise-box h3 {
+  color: #C0392B;
+  font-size: 14pt;
+  margin: 0 0 8pt 0;
+}
+ul {
+  margin: 0;
+  padding-left: 18pt;
+  font-size: 11pt;
+  color: #2C3E50;
+}
+li {
+  margin-bottom: 6pt;
+}
+.month-bar {
+  display: flex;
+  align-items: center;
+  margin: 6pt 0;
+}
+.month-label {
+  width: 50pt;
+  font-size: 11pt;
+  color: #2C3E50;
+}
+.bar-container {
+  flex: 1;
+  height: 18pt;
+  background: #E5E8E8;
+  border-radius: 3pt;
+  overflow: hidden;
+}
+.bar {
+  height: 100%;
+  background: #E74C3C;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 5pt;
+}
+.bar-value {
+  font-size: 9pt;
+  color: #FFFFFF;
+  font-weight: bold;
+}
+.bar-low {
+  background: #27AE60;
+}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Key Insight: Summer Nights Are the Bottleneck</h1>
+</div>
+<div class="content">
+  <div class="left-col">
+    <div class="surprise-box">
+      <h3>Counter-Intuitive Finding</h3>
+      <p>The most challenging periods are <b>summer nights</b> (July-August), NOT winter darkness!</p>
+    </div>
+    <h2>Why Summer Nights?</h2>
+    <ul>
+      <li><b>Weaker summer winds</b> - reduced pressure gradients in stable summer weather</li>
+      <li><b>Anticyclones persist</b> - high pressure systems can stall for days</li>
+      <li><b>Solar = zero at night</b> - regardless of season</li>
+      <li><b>Dunkelflaute</b> - extended periods of low wind + no sun</li>
+    </ul>
+    <h2>Critical Periods Identified</h2>
+    <ul>
+      <li>50% baseload: July 23-24 (16 hours)</li>
+      <li>80% baseload: Nov 6-9 (69 hours)</li>
+      <li>100% baseload: Multiple weeks</li>
+    </ul>
+  </div>
+  <div class="right-col">
+    <h2>Pass Hours by Month (10% worst)</h2>
+    <div class="month-bar">
+      <p class="month-label">July</p>
+      <div class="bar-container"><div class="bar" style="width: 27%;"><p class="bar-value">27%</p></div></div>
+    </div>
+    <div class="month-bar">
+      <p class="month-label">August</p>
+      <div class="bar-container"><div class="bar" style="width: 20%;"><p class="bar-value">20%</p></div></div>
+    </div>
+    <div class="month-bar">
+      <p class="month-label">June</p>
+      <div class="bar-container"><div class="bar" style="width: 17%;"><p class="bar-value">17%</p></div></div>
+    </div>
+    <div class="month-bar">
+      <p class="month-label">September</p>
+      <div class="bar-container"><div class="bar" style="width: 12%;"><p class="bar-value">12%</p></div></div>
+    </div>
+    <div class="month-bar">
+      <p class="month-label">May</p>
+      <div class="bar-container"><div class="bar" style="width: 10%;"><p class="bar-value">10%</p></div></div>
+    </div>
+    <div class="month-bar">
+      <p class="month-label">October</p>
+      <div class="bar-container"><div class="bar" style="width: 8%;"><p class="bar-value">8%</p></div></div>
+    </div>
+    <div class="month-bar">
+      <p class="month-label">January</p>
+      <div class="bar-container"><div class="bar bar-low" style="width: 1%;"><p class="bar-value"></p></div></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

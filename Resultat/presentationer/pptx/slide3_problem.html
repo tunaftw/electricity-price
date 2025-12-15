@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+html { background: #ffffff; }
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  background: #FFFFFF;
+  font-family: Arial, sans-serif;
+}
+.header {
+  background: #1B4F72;
+  padding: 15pt 30pt;
+}
+h1 {
+  color: #FFFFFF;
+  font-size: 24pt;
+  margin: 0;
+}
+.content {
+  padding: 20pt 30pt;
+  display: flex;
+  gap: 25pt;
+}
+.left-col {
+  width: 320pt;
+}
+.right-col {
+  width: 320pt;
+}
+h2 {
+  color: #1B4F72;
+  font-size: 16pt;
+  margin: 0 0 12pt 0;
+}
+p {
+  font-size: 12pt;
+  color: #2C3E50;
+  line-height: 1.5;
+  margin: 0 0 12pt 0;
+}
+.challenge-box {
+  background: #FEF5E7;
+  border: 1pt solid #F39C12;
+  padding: 12pt;
+  border-radius: 4pt;
+  margin-top: 15pt;
+}
+.challenge-box h3 {
+  color: #D68910;
+  font-size: 13pt;
+  margin: 0 0 8pt 0;
+}
+.solution-box {
+  background: #E8F6F3;
+  border: 1pt solid #27AE60;
+  padding: 12pt;
+  border-radius: 4pt;
+}
+.solution-box h3 {
+  color: #1E8449;
+  font-size: 13pt;
+  margin: 0 0 8pt 0;
+}
+ul {
+  margin: 0;
+  padding-left: 18pt;
+  font-size: 11pt;
+  color: #2C3E50;
+}
+li {
+  margin-bottom: 6pt;
+}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>The Challenge: Baseload PPA</h1>
+</div>
+<div class="content">
+  <div class="left-col">
+    <h2>What is Baseload PPA?</h2>
+    <p>A Power Purchase Agreement that guarantees <b>constant power delivery 24/7/365</b>, regardless of weather conditions.</p>
+    <p>Unlike pay-as-produced contracts, the seller bears all volume risk.</p>
+    <div class="challenge-box">
+      <h3>The Problem</h3>
+      <ul>
+        <li>Solar only produces during daytime</li>
+        <li>Wind varies unpredictably</li>
+        <li>Combined output still fluctuates significantly</li>
+        <li>Gaps must be filled somehow</li>
+      </ul>
+    </div>
+  </div>
+  <div class="right-col">
+    <h2>Analysis Question</h2>
+    <p><b>How large a battery is needed to guarantee baseload delivery from solar + wind?</b></p>
+    <div class="solution-box">
+      <h3>Our Approach</h3>
+      <ul>
+        <li>1 MW solar (PVsyst profile)</li>
+        <li>1 MW wind (ENTSO-E actual data)</li>
+        <li>Hourly simulation for full year</li>
+        <li>Calculate max cumulative deficit</li>
+        <li>Test different baseload levels</li>
+      </ul>
+    </div>
+  </div>
+</div>
+</body>
+</html>
