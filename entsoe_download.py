@@ -57,6 +57,11 @@ def main():
         default=None,
         help="ENTSO-E API token (default: from .env or ENTSOE_TOKEN env var)",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Ignore existing data and download full history from earliest date",
+    )
 
     args = parser.parse_args()
 
@@ -92,6 +97,7 @@ def main():
         end_date=args.end,
         token=token,
         verbose=True,
+        force=args.force,
     )
 
     print("\n" + "=" * 50)

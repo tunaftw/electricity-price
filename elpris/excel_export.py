@@ -189,9 +189,8 @@ def _create_parameters_sheet(
     ws.column_dimensions["B"].width = 55
     ws.column_dimensions["C"].width = 50
 
-    # Protect sheet but allow editing of input cells
+    # Protect sheet but allow editing of input cells (no password)
     ws.protection.sheet = True
-    ws.protection.password = None  # No password, just visual protection
     ws.protection.enable()
 
 

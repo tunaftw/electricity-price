@@ -35,6 +35,11 @@ def main():
         default=None,
         help="End date (YYYY-MM-DD)",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Ignore existing data and download full history from earliest date",
+    )
 
     args = parser.parse_args()
 
@@ -55,8 +60,16 @@ def main():
     print()
 
     for product in products:
-        # Use product-specific earliest date if not specified
-        start = args.start or MIMER_EARLIEST_DATES.get(product)
+        # Determine start date:
+        # - If --start provided: use that
+        # - If --force without --start: use earliest date for full history
+        # - Otherwise: None (let incremental logic in download_mimer_product decide)
+        if args.start:
+            start = args.start
+        elif args.force:
+            start = MIMER_EARLIEST_DATES.get(product)
+        else:
+            start = None
 
         print(f"\n--- {product.upper()} ---")
         try:
@@ -65,6 +78,7 @@ def main():
                 start_date=start,
                 end_date=args.end,
                 verbose=True,
+                force=args.force,
             )
             print(f"Done: {result['total_records']} records")
         except Exception as e:

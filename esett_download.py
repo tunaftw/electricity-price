@@ -45,6 +45,11 @@ def main():
         default=None,
         help="End date (YYYY-MM-DD, default: yesterday)",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Ignore existing data and download full history from earliest date",
+    )
 
     args = parser.parse_args()
 
@@ -67,6 +72,7 @@ def main():
         start_date=args.start,
         end_date=args.end,
         verbose=True,
+        force=args.force,
     )
 
     print("\n" + "=" * 50)

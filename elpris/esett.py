@@ -37,6 +37,42 @@ ESETT_DIR = DATA_DIR / "raw" / "esett"
 ESETT_EARLIEST_DATE = date(2023, 5, 22)
 
 
+def get_latest_timestamp(zone: str) -> datetime | None:
+    """
+    Get the latest timestamp from existing eSett imbalance data for a zone.
+
+    Args:
+        zone: Swedish zone ("SE1", "SE2", "SE3", "SE4")
+
+    Returns:
+        datetime of the latest record, or None if no data exists
+    """
+    zone_dir = ESETT_DIR / "imbalance" / zone
+    if not zone_dir.exists():
+        return None
+
+    # Find all year files
+    year_files = sorted(zone_dir.glob("*.csv"))
+    if not year_files:
+        return None
+
+    # Read last timestamp from the most recent year file
+    latest_file = year_files[-1]
+    last_ts = None
+
+    with open(latest_file, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            last_ts = row["time_start"]
+
+    if last_ts:
+        # eSett timestamps are like "2024-12-01T00:00:00Z"
+        ts_str = last_ts.replace("Z", "+00:00")
+        return datetime.fromisoformat(ts_str)
+
+    return None
+
+
 def _format_esett_datetime(d: date, end_of_day: bool = False) -> str:
     """Format date for eSett API (ISO 8601 with milliseconds)."""
     if end_of_day:
@@ -200,21 +236,33 @@ def download_imbalance_prices(
     start_date: date | None = None,
     end_date: date | None = None,
     verbose: bool = True,
+    force: bool = False,
 ) -> dict:
     """
     Download imbalance prices for a specific zone.
 
     Args:
         zone: Swedish zone ("SE1", "SE2", "SE3", "SE4")
-        start_date: Start date (default: earliest available)
+        start_date: Start date (default: earliest available, or day after latest existing data)
         end_date: End date (default: yesterday)
         verbose: Print progress
+        force: If True, ignore existing data and download from earliest date
 
     Returns:
         Dict with download statistics
     """
     if start_date is None:
-        start_date = ESETT_EARLIEST_DATE
+        if force:
+            start_date = ESETT_EARLIEST_DATE
+        else:
+            # Check for existing data
+            latest = get_latest_timestamp(zone)
+            if latest:
+                start_date = latest.date() + timedelta(days=1)
+                if verbose:
+                    print(f"  Found existing data up to {latest.date()}, starting from {start_date}")
+            else:
+                start_date = ESETT_EARLIEST_DATE
 
     if end_date is None:
         end_date = date.today() - timedelta(days=1)
@@ -292,6 +340,7 @@ def download_all_imbalance_prices(
     start_date: date | None = None,
     end_date: date | None = None,
     verbose: bool = True,
+    force: bool = False,
 ) -> list[dict]:
     """
     Download imbalance prices for multiple zones.
@@ -301,6 +350,7 @@ def download_all_imbalance_prices(
         start_date: Start date
         end_date: End date
         verbose: Print progress
+        force: If True, ignore existing data and download from earliest date
 
     Returns:
         List of download statistics per zone
@@ -315,6 +365,7 @@ def download_all_imbalance_prices(
             start_date=start_date,
             end_date=end_date,
             verbose=verbose,
+            force=force,
         )
         results.append(result)
 

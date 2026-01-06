@@ -451,26 +451,81 @@ def save_mimer_data(product: str, records: list[dict], year: int) -> int:
     return len(records)
 
 
+def get_latest_timestamp(product: str) -> datetime | None:
+    """
+    Get the latest timestamp from existing Mimer data for a product.
+
+    Checks all year files and returns the most recent timestamp found.
+
+    Args:
+        product: Product type ("fcr", "afrr", "mfrr_cm", "mfrr")
+
+    Returns:
+        Latest timestamp as datetime, or None if no data exists
+    """
+    product_dir = MIMER_DIR / product
+    if not product_dir.exists():
+        return None
+
+    # Find all year files
+    year_files = sorted(product_dir.glob("*.csv"))
+
+    if not year_files:
+        return None
+
+    # Read the latest year file
+    latest_file = year_files[-1]
+    last_ts = None
+
+    with open(latest_file, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            last_ts = row["time_start"]
+
+    if last_ts:
+        # Parse timestamp (format: 2025-01-01T00:00:00)
+        try:
+            return datetime.fromisoformat(last_ts)
+        except ValueError:
+            # Try adding timezone if missing
+            return datetime.fromisoformat(last_ts + "+00:00")
+
+    return None
+
+
 def download_mimer_product(
     product: str,
     start_date: date | None = None,
     end_date: date | None = None,
     verbose: bool = True,
+    force: bool = False,
 ) -> dict:
     """
     Download data for a Mimer product.
 
     Args:
         product: Product type ("fcr", "afrr", "mfrr_cm", "mfrr")
-        start_date: Start date (default: earliest available)
+        start_date: Start date (default: day after latest existing data, or earliest available)
         end_date: End date (default: yesterday)
         verbose: Print progress
+        force: If True, ignore existing data and download from earliest date
 
     Returns:
         Dict with download statistics
     """
     if start_date is None:
-        start_date = MIMER_EARLIEST_DATES.get(product, date(2021, 1, 1))
+        if force:
+            # Force full download from earliest date
+            start_date = MIMER_EARLIEST_DATES.get(product, date(2021, 1, 1))
+        else:
+            # Check for existing data and continue from where we left off
+            latest = get_latest_timestamp(product)
+            if latest:
+                start_date = latest.date() + timedelta(days=1)
+                if verbose:
+                    print(f"  Found existing data up to {latest.date()}, starting from {start_date}")
+            else:
+                start_date = MIMER_EARLIEST_DATES.get(product, date(2021, 1, 1))
 
     if end_date is None:
         end_date = date.today() - timedelta(days=1)

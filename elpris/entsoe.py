@@ -429,6 +429,47 @@ def get_generation_fieldnames() -> list[str]:
     return ["time_start", "zone", "psr_type", "generation_mw", "resolution_minutes"]
 
 
+def get_latest_timestamp(zone: str, psr_type: str) -> datetime | None:
+    """
+    Get the latest timestamp from existing ENTSO-E data for a zone/type.
+
+    Checks all year files and returns the most recent timestamp found.
+
+    Args:
+        zone: Swedish zone ("SE1", "SE2", "SE3", "SE4")
+        psr_type: Production source type ("solar", "wind_onshore", etc.)
+
+    Returns:
+        Latest timestamp as datetime, or None if no data exists
+    """
+    gen_dir = ENTSOE_DIR / "generation" / zone
+    if not gen_dir.exists():
+        return None
+
+    # Find all year files for this psr_type
+    pattern = f"{psr_type}_*.csv"
+    year_files = sorted(gen_dir.glob(pattern))
+
+    if not year_files:
+        return None
+
+    # Read the latest year file
+    latest_file = year_files[-1]
+    last_ts = None
+
+    with open(latest_file, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            last_ts = row["time_start"]
+
+    if last_ts:
+        # Parse ISO format timestamp (handles both Z and +00:00 formats)
+        ts_str = last_ts.replace("Z", "+00:00")
+        return datetime.fromisoformat(ts_str)
+
+    return None
+
+
 def save_generation_data(zone: str, psr_type: str, records: list[dict], year: int) -> int:
     """
     Save generation data to CSV file.
@@ -472,6 +513,7 @@ def download_generation(
     end_date: date | None = None,
     token: str | None = None,
     verbose: bool = True,
+    force: bool = False,
 ) -> dict:
     """
     Download actual generation data for a specific zone and source type.
@@ -479,16 +521,28 @@ def download_generation(
     Args:
         zone: Swedish zone ("SE1", "SE2", "SE3", "SE4")
         psr_type: Production source type ("solar", "wind_onshore", etc.)
-        start_date: Start date (default: 2015-01-01)
+        start_date: Start date (default: day after latest existing data, or 2015-01-01)
         end_date: End date (default: yesterday)
         token: API security token
         verbose: Print progress
+        force: If True, ignore existing data and download from earliest date
 
     Returns:
         Dict with download statistics
     """
     if start_date is None:
-        start_date = ENTSOE_EARLIEST_DATES["actual_generation"]
+        if force:
+            # Force full download from earliest date
+            start_date = ENTSOE_EARLIEST_DATES["actual_generation"]
+        else:
+            # Check for existing data and continue from where we left off
+            latest = get_latest_timestamp(zone, psr_type)
+            if latest:
+                start_date = latest.date() + timedelta(days=1)
+                if verbose:
+                    print(f"  Found existing data up to {latest.date()}, starting from {start_date}")
+            else:
+                start_date = ENTSOE_EARLIEST_DATES["actual_generation"]
 
     if end_date is None:
         end_date = date.today() - timedelta(days=1)
@@ -571,6 +625,7 @@ def download_all_generation(
     end_date: date | None = None,
     token: str | None = None,
     verbose: bool = True,
+    force: bool = False,
 ) -> list[dict]:
     """
     Download generation data for multiple zones and source types.
@@ -582,6 +637,7 @@ def download_all_generation(
         end_date: End date
         token: API token
         verbose: Print progress
+        force: If True, ignore existing data and download from earliest date
 
     Returns:
         List of download statistics per zone/type
@@ -602,6 +658,7 @@ def download_all_generation(
                 end_date=end_date,
                 token=token,
                 verbose=verbose,
+                force=force,
             )
             results.append(result)
 
