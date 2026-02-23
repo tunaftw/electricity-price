@@ -343,12 +343,13 @@ time_start,zone,mfrr_up_price_eur_mwh,mfrr_up_volume_mwh,mfrr_down_price_eur_mwh
 
 ## Dokumentation
 
-Fördjupad dokumentation finns i `docs/`:
+Projektdokumentation har flyttats till Obsidian-vaulten:
+`../SveaSolarObsidianv2/Projects/Elpris/`
 
-| Mapp | Beskrivning |
+| Mapp i vault | Beskrivning |
 |------|-------------|
-| `docs/balansmarknad/` | Svenska balansmarknaden (FCR, aFRR, mFRR) |
-| `docs/bess-dimensionering/` | Batteridimensionering för PV-prognosfel |
+| `Projects/Elpris/balansmarknad/` | Svenska balansmarknaden (FCR, aFRR, mFRR) |
+| `Projects/Elpris/bess-dimensionering/` | Batteridimensionering för PV-prognosfel |
 
 ## Framtida utveckling
 
