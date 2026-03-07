@@ -16,7 +16,8 @@ electricity-price/
 │   ├── mimer.py               # Svenska kraftnät Mimer API
 │   ├── processing.py          # Konvertering tim → quarterly (15-min)
 │   ├── solar_profile.py       # Solprofiler för capture-beräkning
-│   └── storage.py             # Filhantering för CSV-data
+│   ├── storage.py             # Filhantering för CSV-data
+│   └── dashboard_data.py      # Databeräkning för HTML-dashboard
 ├── Resultat/                  # All nedladdad data och analyser (se nedan)
 ├── data/                      # Symlinks till Resultat/ för bakåtkompatibilitet
 ├── docs/                      # Dokumentation
@@ -29,7 +30,8 @@ electricity-price/
 ├── entsoe_download.py         # Ladda ner ENTSO-E data (sol, vind, vatten, kärnkraft)
 ├── esett_download.py          # Ladda ner eSett obalanspriser
 ├── mimer_download.py          # Ladda ner reglerpriser
-└── installed_download.py      # Ladda ner installerad kapacitet
+├── installed_download.py      # Ladda ner installerad kapacitet
+└── generate_dashboard.py      # Generera HTML-dashboard (Plotly.js)
 ```
 
 ## Datakatalog
@@ -204,6 +206,12 @@ python3 esett_download.py --zones SE3 --start 2024-01-01 --end 2024-12-31
 ```bash
 python3 installed_download.py
 ```
+
+### Generera HTML-dashboard
+```bash
+python3 generate_dashboard.py
+```
+Skapar en fristående HTML-fil i `Resultat/rapporter/dashboard_elpris_YYYYMMDD.html` med Plotly.js-grafer. Visar baseload och capture prices per zon och solprofil.
 
 ### Ladda ner ENTSO-E data (faktisk produktion)
 ```bash

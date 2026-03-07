@@ -9,7 +9,8 @@ This script runs the entire update pipeline:
 5. Process raw data to quarterly format
 6. Calculate capture prices
 7. Generate Excel reports
-8. Show status
+8. Generate HTML dashboard
+9. Show status
 """
 
 from __future__ import annotations
@@ -115,7 +116,7 @@ def main():
     print(f"ENTSO-E token: {'Found' if ENTSOE_TOKEN else 'Not found'}")
     print("=" * 60)
 
-    total_steps = 8
+    total_steps = 9
     current_step = 0
     success_count = 0
 
@@ -217,7 +218,18 @@ def main():
         except Exception as e:
             print(f"  Error generating Excel: {e}")
 
-    # Step 8: Show status
+    # Step 8: Generate HTML dashboard
+    current_step += 1
+    step(current_step, total_steps, "Generating HTML dashboard")
+    try:
+        from generate_dashboard import main as generate_dashboard
+        generate_dashboard()
+        success_count += 1
+        print("  Done!")
+    except Exception as e:
+        print(f"  Error generating dashboard: {e}")
+
+    # Step 9: Show status
     current_step += 1
     step(current_step, total_steps, "Data status")
     run_script("status.py", quiet=False)
@@ -230,9 +242,8 @@ def main():
     print(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"Steps completed: {success_count}/{total_steps}")
 
-    if not args.skip_excel:
-        print()
-        print("Excel reports saved to: Resultat/rapporter/")
+    print()
+    print("Reports saved to: Resultat/rapporter/")
 
     return 0
 
