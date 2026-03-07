@@ -4,7 +4,6 @@
 Skapar en fristående HTML-fil med Plotly.js som visar:
   1. Årsöversikt — tabell och grupperat stapeldiagram
   2. Månadsvy — jämförelse av månader över flera år
-  3. Trendanalys — kronologisk tidsserie med dubbla y-axlar
 
 All data beräknas av elpris.dashboard_data.calculate_dashboard_data().
 """
@@ -384,7 +383,6 @@ tbody tr:hover {{
 <nav class="tab-nav">
     <button class="tab-btn active" onclick="switchTab('yearly')">&#128202; &Aring;rs&ouml;versikt</button>
     <button class="tab-btn" onclick="switchTab('monthly')">&#128197; M&aring;nadsvy</button>
-    <button class="tab-btn" onclick="switchTab('trend')">&#128200; Trendanalys</button>
 </nav>
 
 <div class="container">
@@ -478,49 +476,7 @@ tbody tr:hover {{
         </div>
     </div>
 
-    <!-- Chart -->
-    <div class="card">
-        <div class="card-title">M&aring;nadsm&ouml;nster &mdash; Baseload och Capture Price</div>
-        <div id="monthly-chart" class="chart-container"></div>
-    </div>
-</div>
 
-<!-- ============================================================ -->
-<!-- SECTION 3: Trendanalys                                       -->
-<!-- ============================================================ -->
-<div id="tab-trend" class="tab-content">
-
-    <div class="section-header">
-        <h2>Trendanalys
-            <span class="info-tip">&oline;
-                <span class="tip-text">Kronologisk tidsserie &ouml;ver alla m&aring;nader. Baseload och capture prices p&aring; v&auml;nster y-axel, capture ratio p&aring; h&ouml;ger y-axel. Anv&auml;nd range-slidern f&ouml;r att zooma.</span>
-            </span>
-        </h2>
-        <p>Kronologisk utveckling av priser och capture ratio m&aring;nad f&ouml;r m&aring;nad &mdash; identifiera l&aring;ngsiktiga trender.</p>
-    </div>
-
-    <!-- Filters -->
-    <div class="filters">
-        <div class="filter-group">
-            <label for="trend-zone">Zon</label>
-            <select id="trend-zone" onchange="renderTrend()">
-            </select>
-        </div>
-        <div class="filter-group">
-            <label>Profiler att visa</label>
-            <div id="trend-profiles" class="checkbox-group"></div>
-        </div>
-    </div>
-
-    <!-- Chart -->
-    <div class="card">
-        <div class="card-title">Prisutveckling &ouml;ver tid (EUR/MWh)
-            <span class="info-tip">&oline;
-                <span class="tip-text"><strong>Fyllda linjer (v&auml;nster axel):</strong> Pris i EUR/MWh.<br><br><strong>Streckad linje (h&ouml;ger axel):</strong> Capture ratio (capture / baseload).<br><br>Anv&auml;nd range-slidern nedanf&ouml;r diagrammet f&ouml;r att zooma in p&aring; en specifik period.</span>
-            </span>
-        </div>
-        <div id="trend-chart" class="chart-container" style="min-height:500px;"></div>
-    </div>
 </div>
 
 </div><!-- /container -->
@@ -649,7 +605,7 @@ function switchTab(tab) {{
     document.getElementById('tab-' + tab).classList.add('active');
     // Find button by tab name
     const btns = document.querySelectorAll('.tab-btn');
-    const names = ['yearly', 'monthly', 'trend'];
+    const names = ['yearly', 'monthly'];
     const idx = names.indexOf(tab);
     if (idx >= 0 && btns[idx]) btns[idx].classList.add('active');
 
@@ -663,14 +619,9 @@ function switchTab(tab) {{
         initMonthly();
         monthlyRendered = true;
     }}
-    if (tab === 'trend' && !trendRendered) {{
-        initTrend();
-        trendRendered = true;
-    }}
 }}
 
 let monthlyRendered = false;
-let trendRendered = false;
 
 // ============================================================
 // SECTION 1: Årsöversikt
@@ -922,228 +873,6 @@ function renderMonthly() {{
         bodyHtml += '</tr>';
     }}
     tbody.innerHTML = bodyHtml;
-
-    // === Chart ===
-    renderMonthlyChart(zone, profileKey, selectedYears);
-}}
-
-function renderMonthlyChart(zone, profileKey, selectedYears) {{
-    const monthlyData = DATA.monthly[zone] || [];
-    const traces = [];
-
-    selectedYears.forEach((year, yi) => {{
-        const color = YEAR_COLORS[yi % YEAR_COLORS.length];
-
-        const baseloadVals = [];
-        const captureVals = [];
-        const months = [];
-
-        for (let m = 1; m <= 12; m++) {{
-            const row = monthlyData.find(r => r.year === year && r.month === m);
-            months.push(MONTH_NAMES[m - 1]);
-            baseloadVals.push(row ? row.baseload : null);
-            captureVals.push(row && row.capture[profileKey] !== undefined ? row.capture[profileKey] : null);
-        }}
-
-        // Baseload line (dashed)
-        traces.push({{
-            x: months,
-            y: baseloadVals,
-            name: year + ' Baseload',
-            type: 'scatter',
-            mode: 'lines+markers',
-            line: {{ color: color, dash: 'dash', width: 2 }},
-            marker: {{ size: 5 }},
-            legendgroup: String(year),
-            hovertemplate: year + ' %{{x}}<br>Baseload: %{{y:.1f}} EUR/MWh<extra></extra>',
-        }});
-
-        // Capture line (solid)
-        traces.push({{
-            x: months,
-            y: captureVals,
-            name: year + ' Capture',
-            type: 'scatter',
-            mode: 'lines+markers',
-            line: {{ color: color, width: 2.5 }},
-            marker: {{ size: 6 }},
-            legendgroup: String(year),
-            showlegend: false,
-            hovertemplate: year + ' %{{x}}<br>Capture (' + getProfileLabel(profileKey) + '): %{{y:.1f}} EUR/MWh<extra></extra>',
-        }});
-    }});
-
-    const layout = {{
-        xaxis: {{
-            title: '',
-            type: 'category',
-        }},
-        yaxis: {{
-            title: 'EUR/MWh',
-            rangemode: 'tozero',
-        }},
-        legend: {{
-            orientation: 'h',
-            yanchor: 'bottom',
-            y: 1.02,
-            xanchor: 'center',
-            x: 0.5,
-        }},
-        margin: {{ t: 40, r: 30, b: 40, l: 60 }},
-        plot_bgcolor: '#fff',
-        paper_bgcolor: '#fff',
-        font: {{ family: 'Segoe UI, system-ui, sans-serif', size: 13 }},
-        hoverlabel: {{ bgcolor: '#1e293b', font: {{ color: '#fff', size: 13 }} }},
-        hovermode: 'x unified',
-    }};
-
-    Plotly.newPlot('monthly-chart', traces, layout, {{
-        responsive: true,
-        displayModeBar: true,
-        modeBarButtonsToRemove: ['lasso2d', 'select2d'],
-    }});
-}}
-
-// ============================================================
-// SECTION 3: Trendanalys
-// ============================================================
-function initTrend() {{
-    // Zone dropdown
-    const zoneSel = document.getElementById('trend-zone');
-    DATA.zones.forEach(z => {{
-        const opt = document.createElement('option');
-        opt.value = z;
-        opt.textContent = z;
-        if (z === 'SE3') opt.selected = true;
-        zoneSel.appendChild(opt);
-    }});
-
-    // Profile checkboxes
-    const profsDiv = document.getElementById('trend-profiles');
-    getProfileKeys().forEach((key, i) => {{
-        const lbl = document.createElement('label');
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.value = key;
-        // Default: check first 3 PVsyst profiles
-        if (!key.startsWith('entsoe_') || i < 1) cb.checked = true;
-        cb.addEventListener('change', renderTrend);
-        lbl.appendChild(cb);
-        lbl.appendChild(document.createTextNode(' ' + getProfileLabel(key)));
-        profsDiv.appendChild(lbl);
-    }});
-
-    renderTrend();
-}}
-
-function getSelectedTrendProfiles() {{
-    const cbs = document.querySelectorAll('#trend-profiles input[type="checkbox"]:checked');
-    return Array.from(cbs).map(cb => cb.value);
-}}
-
-function renderTrend() {{
-    const zone = document.getElementById('trend-zone').value;
-    const selectedProfiles = getSelectedTrendProfiles();
-    const monthlyData = (DATA.monthly[zone] || []).slice().sort((a, b) => {{
-        if (a.year !== b.year) return a.year - b.year;
-        return a.month - b.month;
-    }});
-
-    if (monthlyData.length === 0) {{
-        Plotly.purge('trend-chart');
-        return;
-    }}
-
-    // X axis labels: "2022-03" style
-    const xLabels = monthlyData.map(r => r.year + '-' + String(r.month).padStart(2, '0'));
-
-    const traces = [];
-
-    // Baseload line (primary, thick, blue)
-    traces.push({{
-        x: xLabels,
-        y: monthlyData.map(r => r.baseload),
-        name: 'Baseload',
-        type: 'scatter',
-        mode: 'lines',
-        line: {{ color: '#2563eb', width: 3 }},
-        yaxis: 'y',
-        hovertemplate: '%{{x}}<br>Baseload: %{{y:.1f}} EUR/MWh<extra></extra>',
-    }});
-
-    // Capture lines per selected profile
-    selectedProfiles.forEach(profileKey => {{
-        const color = PROFILE_COLORS[profileKey] || '#888';
-
-        // Capture price line
-        traces.push({{
-            x: xLabels,
-            y: monthlyData.map(r => r.capture[profileKey] !== undefined ? r.capture[profileKey] : null),
-            name: 'Capture ' + getProfileLabel(profileKey),
-            type: 'scatter',
-            mode: 'lines',
-            line: {{ color: color, width: 2 }},
-            yaxis: 'y',
-            legendgroup: profileKey,
-            hovertemplate: '%{{x}}<br>Capture (' + getProfileLabel(profileKey) + '): %{{y:.1f}} EUR/MWh<extra></extra>',
-        }});
-
-        // Ratio line (dashed, on y2)
-        traces.push({{
-            x: xLabels,
-            y: monthlyData.map(r => r.ratio[profileKey] !== undefined ? r.ratio[profileKey] : null),
-            name: 'Ratio ' + getProfileLabel(profileKey),
-            type: 'scatter',
-            mode: 'lines',
-            line: {{ color: color, width: 1.5, dash: 'dot' }},
-            yaxis: 'y2',
-            legendgroup: profileKey,
-            showlegend: false,
-            hovertemplate: '%{{x}}<br>Ratio (' + getProfileLabel(profileKey) + '): %{{y:.2f}}<extra></extra>',
-        }});
-    }});
-
-    const layout = {{
-        xaxis: {{
-            title: '',
-            rangeslider: {{ visible: true, thickness: 0.08 }},
-            type: 'category',
-            tickangle: -45,
-            nticks: 24,
-        }},
-        yaxis: {{
-            title: 'EUR/MWh',
-            rangemode: 'tozero',
-            side: 'left',
-        }},
-        yaxis2: {{
-            title: 'Capture Ratio',
-            overlaying: 'y',
-            side: 'right',
-            range: [0, 1.5],
-            showgrid: false,
-            tickformat: '.2f',
-        }},
-        legend: {{
-            orientation: 'h',
-            yanchor: 'bottom',
-            y: 1.02,
-            xanchor: 'center',
-            x: 0.5,
-        }},
-        margin: {{ t: 40, r: 60, b: 40, l: 60 }},
-        plot_bgcolor: '#fff',
-        paper_bgcolor: '#fff',
-        font: {{ family: 'Segoe UI, system-ui, sans-serif', size: 13 }},
-        hoverlabel: {{ bgcolor: '#1e293b', font: {{ color: '#fff', size: 13 }} }},
-        hovermode: 'x unified',
-    }};
-
-    Plotly.newPlot('trend-chart', traces, layout, {{
-        responsive: true,
-        displayModeBar: true,
-        modeBarButtonsToRemove: ['lasso2d', 'select2d'],
-    }});
 }}
 
 // ============================================================
