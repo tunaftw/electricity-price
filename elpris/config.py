@@ -19,8 +19,69 @@ REQUEST_DELAY = 0.5  # Seconds between API calls
 # Paths
 PROJECT_ROOT = Path(__file__).parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
-RAW_DIR = DATA_DIR / "raw"
+RESULTAT_DIR = PROJECT_ROOT / "Resultat"
 QUARTERLY_DIR = DATA_DIR / "quarterly"
+
+
+def _resolve_data_path(symlink_path: Path, resultat_path: Path,
+                       test_child: str | None = None) -> Path:
+    """Resolve a data path, handling broken symlinks on Windows.
+
+    On Mac/Linux, Git symlinks in data/ work natively as directories.
+    On Windows, they're stored as text files — fall back to Resultat/.
+
+    Args:
+        symlink_path: The symlink-based path (data/raw/...)
+        resultat_path: The direct path (Resultat/marknadsdata/...)
+        test_child: Optional child to test (e.g. "SE3") to verify
+                    the symlink actually works as a real directory.
+    """
+    if symlink_path.is_dir():
+        if test_child:
+            child = symlink_path / test_child
+            if not child.is_dir():
+                if resultat_path.is_dir():
+                    return resultat_path
+        else:
+            return symlink_path
+    if resultat_path.is_dir():
+        return resultat_path
+    return symlink_path
+
+
+# Raw spot price data
+RAW_DIR = _resolve_data_path(
+    DATA_DIR / "raw",
+    RESULTAT_DIR / "marknadsdata" / "spotpriser",
+    test_child="SE3",
+)
+
+# ENTSO-E generation data
+ENTSOE_DATA_DIR = _resolve_data_path(
+    DATA_DIR / "raw" / "entsoe",
+    RESULTAT_DIR / "marknadsdata" / "entsoe-produktion" / "entsoe",
+    test_child="generation",
+)
+
+# Mimer regulation prices
+MIMER_DATA_DIR = _resolve_data_path(
+    DATA_DIR / "raw" / "mimer",
+    RESULTAT_DIR / "marknadsdata" / "reglering-mimer" / "mimer",
+    test_child="fcr",
+)
+
+# eSett imbalance prices
+ESETT_DATA_DIR = _resolve_data_path(
+    DATA_DIR / "raw" / "esett",
+    RESULTAT_DIR / "marknadsdata" / "obalans-esett" / "esett",
+    test_child="imbalance",
+)
+
+# Installed capacity
+INSTALLED_DATA_DIR = _resolve_data_path(
+    DATA_DIR / "raw" / "installed",
+    RESULTAT_DIR / "marknadsdata" / "installerad-kapacitet" / "installed",
+)
 
 # CSV fieldnames
 CSV_FIELDS = ["time_start", "time_end", "SEK_per_kWh", "EUR_per_kWh", "EXR"]

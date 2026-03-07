@@ -14,7 +14,7 @@ from typing import Iterator
 
 import requests
 
-from .config import DATA_DIR
+from .config import INSTALLED_DATA_DIR
 
 # PxWeb API base URL
 PXWEB_BASE = "https://pxexternal.energimyndigheten.se/api/v1/sv/Energimyndighetens_statistikdatabas/Officiell_energistatistik"
@@ -31,7 +31,7 @@ TABLES = {
 }
 
 # Data directory
-INSTALLED_DIR = DATA_DIR / "raw" / "installed"
+INSTALLED_DIR = INSTALLED_DATA_DIR
 
 
 def fetch_table_metadata(table_key: str) -> dict:

@@ -15,7 +15,7 @@ from typing import Iterator
 import requests
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from .config import DATA_DIR, REQUEST_DELAY
+from .config import MIMER_DATA_DIR, REQUEST_DELAY
 
 # Mimer base URL
 MIMER_BASE_URL = "https://mimer.svk.se"
@@ -29,7 +29,7 @@ MIMER_ENDPOINTS = {
 }
 
 # Data directory for Mimer
-MIMER_DIR = DATA_DIR / "raw" / "mimer"
+MIMER_DIR = MIMER_DATA_DIR
 
 # Zone mapping (Mimer uses different zone names)
 MIMER_ZONES = {

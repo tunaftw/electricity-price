@@ -13,13 +13,13 @@ from pathlib import Path
 from typing import Optional
 from zoneinfo import ZoneInfo
 
-from .config import DATA_DIR
+from .config import ENTSOE_DATA_DIR
 
 # Swedish timezone for proper UTC -> local time conversion
 SWEDEN_TZ = ZoneInfo("Europe/Stockholm")
 
 # Directory for ENTSO-E generation data
-ENTSOE_DIR = DATA_DIR / "raw" / "entsoe" / "generation"
+ENTSOE_DIR = ENTSOE_DATA_DIR / "generation"
 
 # Supported generation types
 GENERATION_TYPES = ["solar", "wind_onshore"]

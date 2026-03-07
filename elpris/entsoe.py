@@ -19,7 +19,7 @@ from typing import Iterator
 import requests
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from .config import DATA_DIR, PROJECT_ROOT, REQUEST_DELAY
+from .config import DATA_DIR, ENTSOE_DATA_DIR, PROJECT_ROOT, REQUEST_DELAY
 
 # ENTSO-E API configuration
 ENTSOE_BASE_URL = "https://web-api.tp.entsoe.eu/api"
@@ -94,7 +94,7 @@ PSR_TYPES = {
 PSR_TYPE_NAMES = {v: k for k, v in PSR_TYPES.items()}
 
 # Data directory
-ENTSOE_DIR = DATA_DIR / "raw" / "entsoe"
+ENTSOE_DIR = ENTSOE_DATA_DIR
 
 # Data availability (approximate start dates for Swedish zones)
 ENTSOE_EARLIEST_DATES = {

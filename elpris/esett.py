@@ -17,7 +17,7 @@ from typing import Iterator
 import requests
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from .config import DATA_DIR, REQUEST_DELAY
+from .config import ESETT_DATA_DIR, REQUEST_DELAY
 
 # eSett API configuration
 ESETT_BASE_URL = "https://api.opendata.esett.com"
@@ -31,7 +31,7 @@ ESETT_ZONES = {
 }
 
 # Data directory
-ESETT_DIR = DATA_DIR / "raw" / "esett"
+ESETT_DIR = ESETT_DATA_DIR
 
 # Data availability (15-min resolution started May 2023)
 ESETT_EARLIEST_DATE = date(2023, 5, 22)
