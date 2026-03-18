@@ -20,6 +20,9 @@ node_modules/
 *.swp
 *.swo
 
+# Large Excel reports (>100MB)
+Resultat/rapporter/capture_prices_*.xlsx
+
 # OS
 .DS_Store
 Thumbs.db
