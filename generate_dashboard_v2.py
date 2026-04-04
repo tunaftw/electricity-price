@@ -287,6 +287,11 @@ body {{
 .footer a {{ color: var(--accent); text-decoration: none; }}
 .footer a:hover {{ text-decoration: underline; }}
 
+/* ===== Dashboard tabs ===== */
+.dash-tab {{ transition: opacity 0.2s; }}
+.dash-tab:hover {{ opacity: 0.8 !important; }}
+.dash-tab.active {{ opacity: 1 !important; }}
+
 /* ===== Responsive ===== */
 @media (max-width: 768px) {{
     .sidebar {{ display: none; }}
@@ -299,7 +304,10 @@ body {{
 
 <!-- Topbar -->
 <div class="topbar">
-    <div class="topbar-title"><span>ELPRIS</span> DASHBOARD</div>
+    <div style="display:flex;align-items:center;gap:1.2rem">
+        <div class="topbar-title dash-tab active" id="tab-capture" onclick="switchDashboard('capture')" style="cursor:pointer"><span>ELPRIS</span> CAPTURE</div>
+        <div class="topbar-title dash-tab" id="tab-futures" onclick="switchDashboard('futures')" style="cursor:pointer;opacity:0.4"><span>ELPRIS</span> FUTURES</div>
+    </div>
     <div class="zone-buttons" id="zone-buttons"></div>
     <div class="topbar-meta">Genererad: {data["generated"][:10]}</div>
 </div>
@@ -307,20 +315,38 @@ body {{
 <!-- Layout -->
 <div class="layout">
 
-    <!-- Sidebar -->
+    <!-- Sidebar (capture only) -->
     <aside class="sidebar" id="sidebar"></aside>
 
     <!-- Main -->
     <main class="main">
-        <div class="breadcrumb" id="breadcrumb"></div>
-        <div class="stats-row" id="stats-row"></div>
-        <div class="card">
-            <div class="card-title" id="chart-title">Capture Prices</div>
-            <div id="main-chart" class="chart-container"></div>
+        <!-- Capture sections -->
+        <div id="capture-view">
+            <div class="breadcrumb" id="breadcrumb"></div>
+            <div class="stats-row" id="stats-row"></div>
+            <div class="card">
+                <div class="card-title" id="chart-title">Capture Prices</div>
+                <div id="main-chart" class="chart-container"></div>
+            </div>
+            <div class="card">
+                <div class="card-title">Capture Ratio (capture / baseload)</div>
+                <div id="ratio-chart" class="chart-container chart-secondary"></div>
+            </div>
         </div>
-        <div class="card">
-            <div class="card-title">Capture Ratio (capture / baseload)</div>
-            <div id="ratio-chart" class="chart-container chart-secondary"></div>
+        <!-- Futures sections -->
+        <div id="futures-view" style="display:none">
+            <div class="card" id="forward-section">
+                <div class="card-title" id="forward-title">Forward Curve</div>
+                <div id="forward-chart" class="chart-container"></div>
+            </div>
+            <div class="card" id="epad-section">
+                <div class="card-title">EPAD Spread (alla zoner)</div>
+                <div id="epad-chart" class="chart-container chart-secondary"></div>
+            </div>
+            <div class="card" id="fwd-vs-spot-section">
+                <div class="card-title">Forward vs Realiserat Spot</div>
+                <div id="fwd-vs-spot-chart" class="chart-container chart-secondary"></div>
+            </div>
         </div>
     </main>
 </div>
@@ -330,7 +356,8 @@ body {{
     <strong>Elpris Dashboard v2</strong> &mdash; Svea Solar |
     K&auml;llor: <a href="https://www.elprisetjustnu.se/" target="_blank">elprisetjustnu.se</a>,
     <a href="https://transparency.entsoe.eu/" target="_blank">ENTSO-E</a>,
-    PVsyst |
+    PVsyst,
+    <a href="https://www.nasdaq.com/" target="_blank">Nasdaq</a> |
     Capture = &Sigma;(pris &times; produktion) / &Sigma;(produktion)
 </div>
 
@@ -344,11 +371,14 @@ const DATA = {data_json};
 // STATE
 // ================================================================
 let state = {{
+    dashboard: 'capture',
     zone: DATA.zones.includes('SE3') ? 'SE3' : DATA.zones[0],
     view: 'yearly',
     year: null,
     month: null,
-    enabled: new Set(Object.keys(DATA.profiles)),
+    enabled: new Set(Object.keys(DATA.profiles).filter(k =>
+        !k.startsWith('arb_') && k !== 'spread' && !k.startsWith('sol_bess_')
+    )),
 }};
 
 // ================================================================
@@ -390,6 +420,13 @@ function fmt(v, d) {{
     return v.toFixed(d !== undefined ? d : 1);
 }}
 
+function isRevenueProfile(k) {{
+    return (DATA.profile_meta || {{}})[k]?.type === 'revenue';
+}}
+function isSpreadProfile(k) {{
+    return (DATA.profile_meta || {{}})[k]?.type === 'spread';
+}}
+
 // ================================================================
 // INIT
 // ================================================================
@@ -422,9 +459,10 @@ function buildSidebar() {{
     // Power type sections
     const sections = [
         ['PRISER', ['baseload']],
-        ['SOL', Object.keys(DATA.profiles).filter(k => k.startsWith('sol_'))],
+        ['SOL', Object.keys(DATA.profiles).filter(k => k.startsWith('sol_') && !k.startsWith('sol_bess'))],
         ['PRODUKTION', ['wind', 'hydro', 'nuclear']],
         ['PARKER', Object.keys(DATA.profiles).filter(k => k.startsWith('park_'))],
+        ['BESS', Object.keys(DATA.profiles).filter(k => k.startsWith('arb_') || k === 'spread' || k.startsWith('sol_bess_'))],
     ];
 
     sections.forEach(([title, keys]) => {{
@@ -492,12 +530,32 @@ function updateBreadcrumb() {{
 // ================================================================
 // RENDER
 // ================================================================
-function render() {{
-    updateBreadcrumb();
+function switchDashboard(which) {{
+    state.dashboard = which;
 
-    if (state.view === 'yearly') renderYearly();
-    else if (state.view === 'monthly') renderMonthly();
-    else if (state.view === 'daily') renderDaily();
+    // Update tab styling
+    document.getElementById('tab-capture').classList.toggle('active', which === 'capture');
+    document.getElementById('tab-futures').classList.toggle('active', which === 'futures');
+    document.getElementById('tab-capture').style.opacity = which === 'capture' ? '1' : '0.4';
+    document.getElementById('tab-futures').style.opacity = which === 'futures' ? '1' : '0.4';
+
+    // Toggle views
+    document.getElementById('capture-view').style.display = which === 'capture' ? '' : 'none';
+    document.getElementById('futures-view').style.display = which === 'futures' ? '' : 'none';
+    document.getElementById('sidebar').style.display = which === 'capture' ? '' : 'none';
+
+    render();
+}}
+
+function render() {{
+    if (state.dashboard === 'capture') {{
+        updateBreadcrumb();
+        if (state.view === 'yearly') renderYearly();
+        else if (state.view === 'monthly') renderMonthly();
+        else if (state.view === 'daily') renderDaily();
+    }} else {{
+        renderForwardCurve();
+    }}
 }}
 
 // ================================================================
@@ -516,22 +574,33 @@ function renderYearly() {{
     // Main chart: grouped bars
     const traces = [];
     const profileKeys = getEnabledProfiles(zoneData);
+    const hasRevenue = profileKeys.some(isRevenueProfile);
 
     profileKeys.forEach(k => {{
+        if (isSpreadProfile(k)) return;
+
         const yearlyData = zoneData[k]?.yearly || [];
         const vals = years.map(y => {{
             const r = yearlyData.find(d => d.year === y);
             return r ? (k === 'baseload' ? r.baseload : r.capture) : null;
         }});
 
-        traces.push({{
+        const trace = {{
             x: years.map(String),
             y: vals,
             name: DATA.profiles[k],
             type: 'bar',
             marker: {{ color: DATA.colors[k] || '#888', opacity: k === 'baseload' ? 0.5 : 0.85 }},
-            hovertemplate: DATA.profiles[k] + '<br>%{{x}}: %{{y:.1f}} EUR/MWh<extra></extra>',
-        }});
+        }};
+
+        if (isRevenueProfile(k)) {{
+            trace.yaxis = 'y2';
+            trace.hovertemplate = DATA.profiles[k] + '<br>%{{x}}: %{{y:,.0f}} EUR/MW<extra></extra>';
+        }} else {{
+            trace.hovertemplate = DATA.profiles[k] + '<br>%{{x}}: %{{y:.1f}} EUR/MWh<extra></extra>';
+        }}
+
+        traces.push(trace);
     }});
 
     const layout = {{
@@ -540,6 +609,18 @@ function renderYearly() {{
         xaxis: {{ ...PLOTLY_DARK.xaxis, type: 'category' }},
         yaxis: {{ ...PLOTLY_DARK.yaxis, title: 'EUR/MWh', rangemode: 'tozero' }},
     }};
+
+    if (hasRevenue) {{
+        layout.yaxis2 = {{
+            ...PLOTLY_DARK.yaxis,
+            title: {{ text: 'EUR/MW', font: {{ color: '#8892a4', size: 11 }} }},
+            overlaying: 'y',
+            side: 'right',
+            rangemode: 'tozero',
+            showgrid: false,
+        }};
+        layout.margin = {{ ...PLOTLY_DARK.margin, r: 60 }};
+    }}
 
     Plotly.newPlot('main-chart', traces, layout, {{ responsive: true, displayModeBar: false }});
 
@@ -564,21 +645,49 @@ function updateStats(baseloadData, zoneData, years) {{
     let html = '';
     html += statCard('Baseload ' + latestYear, bl ? fmt(bl.baseload) : '\u2013', 'EUR/MWh');
 
-    ['sol_syd', 'wind', 'hydro', 'nuclear'].forEach(k => {{
+    ['sol_syd', 'sol_ov', 'sol_tracker', 'wind', 'hydro', 'nuclear'].forEach(k => {{
         if (!state.enabled.has(k) || !zoneData[k]) return;
         const d = zoneData[k].yearly?.find(r => r.year === latestYear);
         if (d) {{
-            html += statCard(DATA.profiles[k] + ' ' + latestYear, fmt(d.capture), 'EUR/MWh');
+            html += statCard(DATA.profiles[k] + ' ' + latestYear, fmt(d.capture), 'EUR/MWh', d.ratio);
+        }}
+    }});
+
+    // BESS stat cards
+    Object.keys(DATA.profiles).forEach(k => {{
+        if (!state.enabled.has(k) || !zoneData[k]) return;
+
+        if (isRevenueProfile(k)) {{
+            const d = zoneData[k]?.yearly?.find(r => r.year === latestYear);
+            if (d) {{
+                const cycleStr = d.cycles ? ' (' + Math.round(d.cycles) + ' cykler)' : '';
+                html += statCard(
+                    DATA.profiles[k] + ' ' + latestYear,
+                    d.capture ? d.capture.toLocaleString('sv-SE', {{maximumFractionDigits: 0}}) : '\u2013',
+                    'EUR/MW' + cycleStr
+                );
+            }}
+        }} else if (isSpreadProfile(k)) {{
+            const d = zoneData[k]?.yearly?.find(r => r.year === latestYear);
+            if (d) {{
+                html += statCard('Spread ' + latestYear, fmt(d.capture), 'EUR/MWh');
+            }}
         }}
     }});
 
     statsRow.innerHTML = html;
 }}
 
-function statCard(label, value, unit) {{
+function statCard(label, value, unit, ratio) {{
+    let ratioHtml = '';
+    if (ratio !== undefined && ratio !== null) {{
+        const pct = (ratio * 100).toFixed(0);
+        const color = ratio >= 0.95 ? '#10b981' : ratio >= 0.8 ? '#f59e0b' : '#ef4444';
+        ratioHtml = '<div style="font-size:0.8rem;margin-top:2px;color:' + color + ';font-weight:600">' + pct + '% av baseload</div>';
+    }}
     return '<div class="stat-card"><div class="stat-label">' + label +
            '</div><div class="stat-value">' + value +
-           ' <span class="stat-unit">' + unit + '</span></div></div>';
+           ' <span class="stat-unit">' + unit + '</span></div>' + ratioHtml + '</div>';
 }}
 
 // ================================================================
@@ -596,31 +705,63 @@ function renderMonthly() {{
     const statsRow = document.getElementById('stats-row');
     let html = '';
     html += statCard('Baseload ' + state.year, baseloadYearly ? fmt(baseloadYearly.baseload) : '\u2013', 'EUR/MWh');
-    profileKeys.filter(k => k !== 'baseload').forEach(k => {{
+    profileKeys.filter(k => k !== 'baseload' && !isRevenueProfile(k) && !isSpreadProfile(k)).forEach(k => {{
         const d = zoneData[k]?.yearly?.find(r => r.year === state.year);
-        if (d) html += statCard(DATA.profiles[k], fmt(d.capture), 'EUR/MWh');
+        if (d) html += statCard(DATA.profiles[k], fmt(d.capture), 'EUR/MWh', d.ratio);
     }});
+
+    // BESS stat cards for monthly view
+    profileKeys.forEach(k => {{
+        if (isRevenueProfile(k)) {{
+            const d = zoneData[k]?.yearly?.find(r => r.year === state.year);
+            if (d) {{
+                const cycleStr = d.cycles ? ' (' + Math.round(d.cycles) + ' cykler)' : '';
+                html += statCard(
+                    DATA.profiles[k],
+                    d.capture ? d.capture.toLocaleString('sv-SE', {{maximumFractionDigits: 0}}) : '\u2013',
+                    'EUR/MW' + cycleStr
+                );
+            }}
+        }} else if (isSpreadProfile(k)) {{
+            const d = zoneData[k]?.yearly?.find(r => r.year === state.year);
+            if (d) {{
+                html += statCard('Spread', fmt(d.capture), 'EUR/MWh');
+            }}
+        }}
+    }});
+
     statsRow.innerHTML = html;
 
     // Chart
     const months = Array.from({{length: 12}}, (_, i) => i + 1);
     const traces = [];
+    const hasRevenue = profileKeys.some(isRevenueProfile);
 
     profileKeys.forEach(k => {{
+        if (isSpreadProfile(k)) return;
+
         const monthlyData = zoneData[k]?.monthly || [];
         const vals = months.map(m => {{
             const r = monthlyData.find(d => d.year === state.year && d.month === m);
             return r ? (k === 'baseload' ? r.baseload : r.capture) : null;
         }});
 
-        traces.push({{
+        const trace = {{
             x: months.map(m => MONTH_NAMES[m - 1]),
             y: vals,
             name: DATA.profiles[k],
             type: 'bar',
             marker: {{ color: DATA.colors[k] || '#888', opacity: k === 'baseload' ? 0.5 : 0.85 }},
-            hovertemplate: DATA.profiles[k] + '<br>%{{x}} ' + state.year + ': %{{y:.1f}} EUR/MWh<extra></extra>',
-        }});
+        }};
+
+        if (isRevenueProfile(k)) {{
+            trace.yaxis = 'y2';
+            trace.hovertemplate = DATA.profiles[k] + '<br>%{{x}} ' + state.year + ': %{{y:,.0f}} EUR/MW<extra></extra>';
+        }} else {{
+            trace.hovertemplate = DATA.profiles[k] + '<br>%{{x}} ' + state.year + ': %{{y:.1f}} EUR/MWh<extra></extra>';
+        }}
+
+        traces.push(trace);
     }});
 
     const layout = {{
@@ -629,6 +770,18 @@ function renderMonthly() {{
         xaxis: {{ ...PLOTLY_DARK.xaxis, type: 'category' }},
         yaxis: {{ ...PLOTLY_DARK.yaxis, title: 'EUR/MWh', rangemode: 'tozero' }},
     }};
+
+    if (hasRevenue) {{
+        layout.yaxis2 = {{
+            ...PLOTLY_DARK.yaxis,
+            title: {{ text: 'EUR/MW', font: {{ color: '#8892a4', size: 11 }} }},
+            overlaying: 'y',
+            side: 'right',
+            rangemode: 'tozero',
+            showgrid: false,
+        }};
+        layout.margin = {{ ...PLOTLY_DARK.margin, r: 60 }};
+    }}
 
     Plotly.newPlot('main-chart', traces, layout, {{ responsive: true, displayModeBar: false }});
 
@@ -658,16 +811,40 @@ function renderDaily() {{
     const blMonthly = zoneData.baseload?.monthly?.find(r => r.year === state.year && r.month === state.month);
     let html = '';
     html += statCard('Baseload', blMonthly ? fmt(blMonthly.baseload) : '\u2013', 'EUR/MWh');
-    profileKeys.filter(k => k !== 'baseload').forEach(k => {{
+    profileKeys.filter(k => k !== 'baseload' && !isRevenueProfile(k) && !isSpreadProfile(k)).forEach(k => {{
         const d = zoneData[k]?.monthly?.find(r => r.year === state.year && r.month === state.month);
-        if (d) html += statCard(DATA.profiles[k], fmt(d.capture), 'EUR/MWh');
+        if (d) html += statCard(DATA.profiles[k], fmt(d.capture), 'EUR/MWh', d.ratio);
     }});
+
+    // BESS stat cards for daily view
+    profileKeys.forEach(k => {{
+        if (isRevenueProfile(k)) {{
+            const d = zoneData[k]?.monthly?.find(r => r.year === state.year && r.month === state.month);
+            if (d) {{
+                const cycleStr = d.cycles ? ' (' + Math.round(d.cycles) + ' cykler)' : '';
+                html += statCard(
+                    DATA.profiles[k],
+                    d.capture ? d.capture.toLocaleString('sv-SE', {{maximumFractionDigits: 0}}) : '\u2013',
+                    'EUR/MW' + cycleStr
+                );
+            }}
+        }} else if (isSpreadProfile(k)) {{
+            const d = zoneData[k]?.monthly?.find(r => r.year === state.year && r.month === state.month);
+            if (d) {{
+                html += statCard('Spread', fmt(d.capture), 'EUR/MWh');
+            }}
+        }}
+    }});
+
     statsRow.innerHTML = html;
 
     // Get daily data for this month
     const traces = [];
+    const hasRevenue = profileKeys.some(isRevenueProfile);
 
     profileKeys.forEach(k => {{
+        if (isSpreadProfile(k)) return;
+
         const dailyData = (zoneData[k]?.daily || []).filter(
             d => d.year === state.year && d.month === state.month
         );
@@ -676,17 +853,30 @@ function renderDaily() {{
         const dates = dailyData.map(d => d.date);
         const vals = dailyData.map(d => k === 'baseload' ? d.baseload : d.capture);
 
-        traces.push({{
+        const trace = {{
             x: dates,
             y: vals,
             name: DATA.profiles[k],
             type: 'scatter',
             mode: 'lines+markers',
-            line: {{ color: DATA.colors[k] || '#888', width: k === 'baseload' ? 1.5 : 2 }},
             marker: {{ size: 4 }},
-            opacity: k === 'baseload' ? 0.6 : 1,
-            hovertemplate: DATA.profiles[k] + '<br>%{{x}}: %{{y:.1f}} EUR/MWh<extra></extra>',
-        }});
+        }};
+
+        if (isRevenueProfile(k)) {{
+            trace.yaxis = 'y2';
+            trace.line = {{ color: DATA.colors[k] || '#888', width: 2 }};
+            trace.opacity = 1;
+            trace.hovertemplate = DATA.profiles[k] + '<br>%{{x|%d %b}}: %{{y:.1f}} EUR/MW' +
+                (dailyData[0]?.cycles !== undefined ? '<br>Cykler: %{{customdata:.1f}}' : '') +
+                '<extra></extra>';
+            trace.customdata = dailyData.map(d => d.cycles);
+        }} else {{
+            trace.line = {{ color: DATA.colors[k] || '#888', width: k === 'baseload' ? 1.5 : 2 }};
+            trace.opacity = k === 'baseload' ? 0.6 : 1;
+            trace.hovertemplate = DATA.profiles[k] + '<br>%{{x}}: %{{y:.1f}} EUR/MWh<extra></extra>';
+        }}
+
+        traces.push(trace);
     }});
 
     const layout = {{
@@ -695,6 +885,18 @@ function renderDaily() {{
         yaxis: {{ ...PLOTLY_DARK.yaxis, title: 'EUR/MWh', rangemode: 'tozero' }},
         showlegend: true,
     }};
+
+    if (hasRevenue) {{
+        layout.yaxis2 = {{
+            ...PLOTLY_DARK.yaxis,
+            title: {{ text: 'EUR/MW', font: {{ color: '#8892a4', size: 11 }} }},
+            overlaying: 'y',
+            side: 'right',
+            rangemode: 'tozero',
+            showgrid: false,
+        }};
+        layout.margin = {{ ...PLOTLY_DARK.margin, r: 60 }};
+    }}
 
     Plotly.newPlot('main-chart', traces, layout, {{ responsive: true, displayModeBar: true,
         modeBarButtonsToRemove: ['lasso2d', 'select2d'] }});
@@ -708,7 +910,7 @@ function renderDaily() {{
 // ================================================================
 function renderRatioChart(profileKeys, zoneData, period, xValues) {{
     const traces = [];
-    const nonBaseload = profileKeys.filter(k => k !== 'baseload');
+    const nonBaseload = profileKeys.filter(k => k !== 'baseload' && !isRevenueProfile(k) && !isSpreadProfile(k));
 
     if (period === 'yearly') {{
         nonBaseload.forEach(k => {{
@@ -748,6 +950,28 @@ function renderRatioChart(profileKeys, zoneData, period, xValues) {{
         }});
     }}
 
+    // Spread as bars on secondary axis
+    if (state.enabled.has('spread') && zoneData.spread) {{
+        const spreadData = period === 'yearly' ? zoneData.spread?.yearly : zoneData.spread?.monthly;
+        if (spreadData) {{
+            const vals = xValues.map(x => {{
+                const r = period === 'yearly'
+                    ? spreadData.find(d => d.year === x)
+                    : spreadData.find(d => d.year === state.year && d.month === x);
+                return r ? r.capture : null;
+            }});
+            traces.push({{
+                x: period === 'yearly' ? xValues.map(String) : xValues.map(m => MONTH_NAMES[m - 1]),
+                y: vals,
+                name: 'Spread',
+                type: 'bar',
+                marker: {{ color: DATA.colors.spread || '#94a3b8', opacity: 0.4 }},
+                yaxis: 'y2',
+                hovertemplate: 'Spread<br>%{{x}}: %{{y:.1f}} EUR/MWh<extra></extra>',
+            }});
+        }}
+    }}
+
     const layout = {{
         ...PLOTLY_DARK,
         xaxis: {{ ...PLOTLY_DARK.xaxis, type: 'category' }},
@@ -765,12 +989,24 @@ function renderRatioChart(profileKeys, zoneData, period, xValues) {{
         margin: {{ ...PLOTLY_DARK.margin, t: 20 }},
     }};
 
+    if (state.enabled.has('spread') && zoneData.spread) {{
+        layout.yaxis2 = {{
+            ...PLOTLY_DARK.yaxis,
+            title: {{ text: 'Spread EUR/MWh', font: {{ color: '#8892a4', size: 11 }} }},
+            overlaying: 'y',
+            side: 'right',
+            rangemode: 'tozero',
+            showgrid: false,
+        }};
+        layout.margin = {{ ...PLOTLY_DARK.margin, r: 60, t: 20 }};
+    }}
+
     Plotly.newPlot('ratio-chart', traces, layout, {{ responsive: true, displayModeBar: false }});
 }}
 
 function renderDailyRatioChart(profileKeys, zoneData) {{
     const traces = [];
-    const nonBaseload = profileKeys.filter(k => k !== 'baseload');
+    const nonBaseload = profileKeys.filter(k => k !== 'baseload' && !isRevenueProfile(k) && !isSpreadProfile(k));
 
     nonBaseload.forEach(k => {{
         const data = (zoneData[k]?.daily || []).filter(
@@ -790,6 +1026,37 @@ function renderDailyRatioChart(profileKeys, zoneData) {{
         }});
     }});
 
+    // Spread as shaded area on secondary axis
+    if (state.enabled.has('spread') && zoneData.spread) {{
+        const spreadDays = (zoneData.spread?.daily || []).filter(
+            d => d.year === state.year && d.month === state.month
+        );
+        if (spreadDays.length > 0) {{
+            traces.push({{
+                x: spreadDays.map(d => d.date),
+                y: spreadDays.map(d => d.max_price),
+                name: 'Max pris',
+                type: 'scatter',
+                mode: 'lines',
+                line: {{ color: '#94a3b8', width: 1 }},
+                yaxis: 'y2',
+                hovertemplate: 'Max: %{{y:.1f}} EUR/MWh<extra></extra>',
+            }});
+            traces.push({{
+                x: spreadDays.map(d => d.date),
+                y: spreadDays.map(d => d.min_price),
+                name: 'Min pris',
+                type: 'scatter',
+                mode: 'lines',
+                line: {{ color: '#94a3b8', width: 1 }},
+                fill: 'tonexty',
+                fillcolor: 'rgba(148, 163, 184, 0.15)',
+                yaxis: 'y2',
+                hovertemplate: 'Min: %{{y:.1f}} EUR/MWh<extra></extra>',
+            }});
+        }}
+    }}
+
     const layout = {{
         ...PLOTLY_DARK,
         xaxis: {{ ...PLOTLY_DARK.xaxis, type: 'date', tickformat: '%d %b' }},
@@ -803,6 +1070,18 @@ function renderDailyRatioChart(profileKeys, zoneData) {{
         margin: {{ ...PLOTLY_DARK.margin, t: 20 }},
     }};
 
+    if (state.enabled.has('spread') && zoneData.spread) {{
+        layout.yaxis2 = {{
+            ...PLOTLY_DARK.yaxis,
+            title: {{ text: 'EUR/MWh', font: {{ color: '#8892a4', size: 11 }} }},
+            overlaying: 'y',
+            side: 'right',
+            rangemode: 'tozero',
+            showgrid: false,
+        }};
+        layout.margin = {{ ...PLOTLY_DARK.margin, r: 60, t: 20 }};
+    }}
+
     Plotly.newPlot('ratio-chart', traces, layout, {{ responsive: true, displayModeBar: false }});
 }}
 
@@ -814,6 +1093,199 @@ function getEnabledProfiles(zoneData) {{
     return Object.keys(DATA.profiles).filter(k =>
         state.enabled.has(k) && zoneData[k]
     );
+}}
+
+// ================================================================
+// FORWARD CURVE
+// ================================================================
+function renderForwardCurve() {{
+    const fwd = DATA.forward;
+    if (!fwd || !fwd.contracts || fwd.contracts.length === 0) {{
+        return;
+    }}
+
+    const labels = fwd.contracts.map(c => c.label);
+    const zone = state.zone;
+
+    // --- Forward Curve: Stacked SYS + EPAD ---
+    document.getElementById('forward-title').textContent =
+        zone + ' — Forward Curve (settlement: ' + fwd.settlement_date + ')';
+
+    const sysVals = labels.map(l => fwd.sys[l] || null);
+    const epadVals = labels.map(l => {{
+        const e = (fwd.epad[zone] || {{}})[l];
+        return e !== undefined ? e : null;
+    }});
+    const zoneVals = labels.map(l => (fwd.zone_fwd[zone] || {{}})[l] || null);
+
+    // For stacked bar: SYS base + EPAD on top
+    // If EPAD < 0, we show SYS to the zone price level, then EPAD as negative overlay
+    const sysBarVals = labels.map((l, i) => {{
+        const s = sysVals[i];
+        const e = epadVals[i];
+        if (s === null) return null;
+        if (e !== null && e < 0) return s + e;  // zone price (SYS + negative EPAD)
+        return s;
+    }});
+
+    const epadBarVals = labels.map((l, i) => {{
+        const e = epadVals[i];
+        if (e === null) return null;
+        return Math.abs(e);
+    }});
+
+    const epadColors = epadVals.map(e => e !== null && e >= 0 ? '#10b981' : '#ef4444');
+
+    const barLabels = labels.map((l, i) => {{
+        const z = zoneVals[i];
+        const s = sysVals[i];
+        const e = epadVals[i];
+        return l + '<br>' + (z !== null ? z.toFixed(1) : '-') + ' EUR/MWh';
+    }});
+
+    const traces = [
+        {{
+            x: labels,
+            y: sysBarVals,
+            name: 'SYS',
+            type: 'bar',
+            marker: {{ color: '#4a9eff', opacity: 0.7 }},
+            hovertemplate: labels.map((l, i) =>
+                '<b>' + zone + ' ' + l + '</b><br>' +
+                'Zonpris: ' + (zoneVals[i] !== null ? zoneVals[i].toFixed(2) : '-') + ' EUR/MWh<br>' +
+                'SYS: ' + (sysVals[i] !== null ? sysVals[i].toFixed(2) : '-') + '<br>' +
+                'EPAD: ' + (epadVals[i] !== null ? (epadVals[i] >= 0 ? '+' : '') + epadVals[i].toFixed(2) : '-') +
+                '<extra></extra>'
+            ),
+        }},
+        {{
+            x: labels,
+            y: epadBarVals,
+            name: 'EPAD',
+            type: 'bar',
+            marker: {{ color: epadColors, opacity: 0.85 }},
+            hoverinfo: 'skip',
+        }},
+    ];
+
+    // Add zone price line
+    traces.push({{
+        x: labels,
+        y: zoneVals,
+        name: zone + ' zonpris',
+        type: 'scatter',
+        mode: 'lines+markers+text',
+        text: zoneVals.map(v => v !== null ? v.toFixed(1) : ''),
+        textposition: 'top center',
+        textfont: {{ color: '#e0e0e0', size: 10 }},
+        line: {{ color: '#ffffff', width: 1.5, dash: 'dot' }},
+        marker: {{ size: 5, color: '#ffffff' }},
+        hoverinfo: 'skip',
+    }});
+
+    const layout = {{
+        ...PLOTLY_DARK,
+        barmode: 'stack',
+        xaxis: {{ ...PLOTLY_DARK.xaxis, type: 'category', tickangle: -45 }},
+        yaxis: {{ ...PLOTLY_DARK.yaxis, title: 'EUR/MWh', rangemode: 'tozero' }},
+        showlegend: true,
+    }};
+
+    Plotly.newPlot('forward-chart', traces, layout, {{ responsive: true, displayModeBar: false }});
+
+    // --- EPAD Spread: all zones ---
+    renderEpadSpread(fwd, labels);
+
+    // --- Forward vs Spot ---
+    renderForwardVsSpot(fwd);
+}}
+
+function renderEpadSpread(fwd, labels) {{
+    const zoneColors = {{
+        'SE1': '#67e8f9',
+        'SE2': '#86efac',
+        'SE3': '#fde68a',
+        'SE4': '#fca5a5',
+    }};
+
+    const traces = [];
+    DATA.zones.forEach(z => {{
+        const vals = labels.map(l => {{
+            const e = (fwd.epad[z] || {{}})[l];
+            return e !== undefined ? e : null;
+        }});
+        traces.push({{
+            x: labels,
+            y: vals,
+            name: z,
+            type: 'bar',
+            marker: {{ color: zoneColors[z] || '#888', opacity: 0.8 }},
+            hovertemplate: z + ' %{{x}}: %{{y:.2f}} EUR/MWh<extra></extra>',
+        }});
+    }});
+
+    const layout = {{
+        ...PLOTLY_DARK,
+        barmode: 'group',
+        xaxis: {{ ...PLOTLY_DARK.xaxis, type: 'category', tickangle: -45 }},
+        yaxis: {{
+            ...PLOTLY_DARK.yaxis,
+            title: 'EPAD (EUR/MWh)',
+            zeroline: true,
+            zerolinecolor: '#ffffff',
+            zerolinewidth: 1,
+        }},
+        showlegend: true,
+        margin: {{ ...PLOTLY_DARK.margin, t: 20 }},
+    }};
+
+    Plotly.newPlot('epad-chart', traces, layout, {{ responsive: true, displayModeBar: false }});
+}}
+
+function renderForwardVsSpot(fwd) {{
+    const expired = fwd.expired_contracts || [];
+    const zone = state.zone;
+    const realized = fwd.spot_realized[zone] || {{}};
+
+    const labels = expired.map(c => c.label).filter(l => l in realized);
+    if (labels.length === 0) {{
+        document.getElementById('fwd-vs-spot-section').style.display = 'none';
+        return;
+    }}
+    document.getElementById('fwd-vs-spot-section').style.display = '';
+
+    const fwdVals = labels.map(l => realized[l] ? realized[l].forward : null);
+    const spotVals = labels.map(l => realized[l] ? realized[l].spot_avg : null);
+
+    const traces = [
+        {{
+            x: labels,
+            y: fwdVals,
+            name: 'Forward',
+            type: 'bar',
+            marker: {{ color: '#4a9eff', opacity: 0.7 }},
+            hovertemplate: 'Forward %{{x}}: %{{y:.1f}} EUR/MWh<extra></extra>',
+        }},
+        {{
+            x: labels,
+            y: spotVals,
+            name: 'Realiserat spot',
+            type: 'bar',
+            marker: {{ color: '#10b981', opacity: 0.8 }},
+            hovertemplate: 'Spot %{{x}}: %{{y:.1f}} EUR/MWh<extra></extra>',
+        }},
+    ];
+
+    const layout = {{
+        ...PLOTLY_DARK,
+        barmode: 'group',
+        xaxis: {{ ...PLOTLY_DARK.xaxis, type: 'category' }},
+        yaxis: {{ ...PLOTLY_DARK.yaxis, title: 'EUR/MWh', rangemode: 'tozero' }},
+        showlegend: true,
+        margin: {{ ...PLOTLY_DARK.margin, t: 20 }},
+    }};
+
+    Plotly.newPlot('fwd-vs-spot-chart', traces, layout, {{ responsive: true, displayModeBar: false }});
 }}
 
 // ================================================================

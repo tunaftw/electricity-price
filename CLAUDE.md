@@ -17,7 +17,8 @@ electricity-price/
 │   ├── processing.py          # Konvertering tim → quarterly (15-min)
 │   ├── solar_profile.py       # Solprofiler för capture-beräkning
 │   ├── storage.py             # Filhantering för CSV-data
-│   └── dashboard_data.py      # Databeräkning för HTML-dashboard
+│   ├── dashboard_data.py      # Databeräkning för HTML-dashboard
+│   └── nasdaq.py              # Nasdaq Nordic futures API
 ├── Resultat/                  # All nedladdad data och analyser (se nedan)
 ├── data/                      # Symlinks till Resultat/ för bakåtkompatibilitet
 ├── docs/                      # Dokumentation
@@ -30,6 +31,7 @@ electricity-price/
 ├── entsoe_download.py         # Ladda ner ENTSO-E data (sol, vind, vatten, kärnkraft)
 ├── esett_download.py          # Ladda ner eSett obalanspriser
 ├── mimer_download.py          # Ladda ner reglerpriser
+├── nasdaq_download.py         # Ladda ner elfutures (Nasdaq)
 ├── installed_download.py      # Ladda ner installerad kapacitet
 └── generate_dashboard.py      # Generera HTML-dashboard (Plotly.js)
 ```
@@ -67,9 +69,17 @@ Resultat/
 │   │       ├── SE3/
 │   │       └── SE4/
 │   │
-│   └── installerad/                 # Energimyndigheten statistik
-│       ├── wind_by_elarea.csv
-│       └── solar_installations.csv
+│   ├── installerad/                 # Energimyndigheten statistik
+│   │   ├── wind_by_elarea.csv
+│   │   └── solar_installations.csv
+│   │
+│   └── nasdaq/                      # Nasdaq Nordic futures
+│       └── futures/
+│           ├── sys_baseload.csv     # SYS baseload settlement prices
+│           ├── epad_se1_lul.csv     # EPAD Luleå
+│           ├── epad_se2_sun.csv     # EPAD Sundsvall
+│           ├── epad_se3_sto.csv     # EPAD Stockholm
+│           └── epad_se4_mal.csv     # EPAD Malmö
 │
 ├── profiler/                        # Beräknade produktionsprofiler
 │   ├── beraknade/                   # PVsyst-processade (ew_boda.csv, etc.)
@@ -130,6 +140,14 @@ Resultat/
 - **Format:** 15-min upplösning
 - **API:** `https://api.opendata.esett.com`
 - **Gratis:** Ingen API-nyckel krävs
+
+### 6. Elfutures (Nasdaq Nordic Commodities)
+- **SYS Baseload:** Nordic System Price futures (quarter, year)
+- **EPAD:** Electricity Price Area Differentials för SE1-SE4
+- **Format:** Daglig settlement price (daily fix) i EUR/MWh
+- **API:** `https://api.nasdaq.com/api/nordic/` (odokumenterat JSON API, ingen nyckel krävs)
+- **Tickers:** ENO (SYS), SYLUL (SE1), SYSUN (SE2), SYSTO (SE3), SYMAL (SE4)
+- **OBS:** Handel flyttad till Euronext mars 2026, men Nasdaq publicerar fortfarande dailyFix
 
 ## Kommandon
 
@@ -198,6 +216,24 @@ python3 esett_download.py --zones SE3 SE4
 
 # Specifikt intervall
 python3 esett_download.py --zones SE3 --start 2024-01-01 --end 2024-12-31
+```
+
+### Ladda ner elfutures (Nasdaq)
+```bash
+# Alla produkter (SYS + alla svenska EPADs)
+python3 nasdaq_download.py
+
+# Specifik period
+python3 nasdaq_download.py --start 2025-01-01 --end 2026-04-03
+
+# Bara SYS baseload
+python3 nasdaq_download.py --products sys
+
+# Bara svenska EPADs
+python3 nasdaq_download.py --products epad_se
+
+# Specifik zon
+python3 nasdaq_download.py --products epad_se3
 ```
 
 ### Ladda ner installerad kapacitet
@@ -306,6 +342,7 @@ ENTSOE_TOKEN=din-entso-e-token-här
 | **Mimer (SVK)** | Ingen nyckel krävs | Gratis |
 | **elprisetjustnu.se** | Ingen nyckel krävs | Gratis |
 | **Energimyndigheten** | Ingen nyckel krävs | Gratis |
+| **Nasdaq** | Ingen nyckel krävs (odokumenterat API) | Gratis |
 
 ## Dataformat
 
@@ -345,6 +382,13 @@ time_start,zone,imbl_sales_price_eur_mwh,imbl_purchase_price_eur_mwh,up_reg_pric
 ```csv
 time_start,zone,mfrr_up_price_eur_mwh,mfrr_up_volume_mwh,mfrr_down_price_eur_mwh,mfrr_down_volume_mwh
 2024-12-01T00:00:00,SE3,19.28,0,-0.5,58
+```
+
+### Nasdaq futures (settlement prices)
+```csv
+date,contract,daily_fix_eur,bid_eur,ask_eur,high_eur,low_eur,open_interest
+2026-03-31,ENOFUTBLYR-27,47.15,,,,,
+2026-03-31,SYSTOFUTBLYR-27,-4.51,,,,,
 ```
 
 ## Dokumentation

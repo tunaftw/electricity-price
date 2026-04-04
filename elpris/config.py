@@ -84,5 +84,8 @@ INSTALLED_DATA_DIR = _resolve_data_path(
     RESULTAT_DIR / "marknadsdata" / "installerad",
 )
 
+# Nasdaq futures
+NASDAQ_DATA_DIR = RESULTAT_DIR / "marknadsdata" / "nasdaq" / "futures"
+
 # CSV fieldnames
 CSV_FIELDS = ["time_start", "time_end", "SEK_per_kWh", "EUR_per_kWh", "EXR"]
