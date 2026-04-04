@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Elpris Dashboard &mdash; Sverige</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+/* ===== CSS Reset & Base ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+    --color-primary: #2563eb;
+    --color-secondary: #0d9488;
+    --color-accent: #f59e0b;
+    --color-bg: #f8fafc;
+    --color-surface: #ffffff;
+    --color-text: #1e293b;
+    --color-text-muted: #64748b;
+    --color-border: #e2e8f0;
+    --color-se1: #3b82f6;
+    --color-se2: #10b981;
+    --color-se3: #f59e0b;
+    --color-se4: #ef4444;
+    --radius: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+    --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.05);
+    --font-sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --font-mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+    font-family: var(--font-sans);
+    background: var(--color-bg);
+    color: var(--color-text);
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+/* ===== Header ===== */
+.header {
+    background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+    color: #fff;
+    padding: 2rem 1.5rem 1.5rem;
+    text-align: center;
+}
+.header h1 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.3rem;
+}
+.header .subtitle {
+    font-size: 0.95rem;
+    opacity: 0.85;
+    margin-bottom: 0.2rem;
+}
+.header .generated {
+    font-size: 0.8rem;
+    opacity: 0.65;
+}
+
+/* ===== Tab Navigation ===== */
+.tab-nav {
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    background: var(--color-surface);
+    border-bottom: 2px solid var(--color-border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--shadow);
+}
+.tab-btn {
+    padding: 0.85rem 1.8rem;
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s ease;
+    font-family: inherit;
+}
+.tab-btn:hover {
+    color: var(--color-primary);
+    background: rgba(37, 99, 235, 0.04);
+}
+.tab-btn.active {
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
+    font-weight: 600;
+}
+
+/* ===== Main Container ===== */
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1.5rem;
+}
+
+.tab-content {
+    display: none;
+}
+.tab-content.active {
+    display: block;
+}
+
+/* ===== Section Headings ===== */
+.section-header {
+    margin-bottom: 1.5rem;
+}
+.section-header h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-text);
+    margin-bottom: 0.3rem;
+}
+.section-header p {
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+    max-width: 720px;
+}
+
+/* ===== Card ===== */
+.card {
+    background: var(--color-surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+.card-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* ===== Filter Controls ===== */
+.filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-end;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: #f1f5f9;
+    border-radius: var(--radius);
+}
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+.filter-group label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.filter-group select,
+.filter-group input[type="checkbox"] {
+    font-family: inherit;
+}
+.filter-group select {
+    padding: 0.45rem 0.7rem;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    font-size: 0.88rem;
+    background: #fff;
+    color: var(--color-text);
+    cursor: pointer;
+    min-width: 140px;
+}
+.checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+}
+.checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.88rem;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    cursor: pointer;
+    color: var(--color-text);
+}
+.checkbox-group input[type="checkbox"] {
+    accent-color: var(--color-primary);
+    width: 16px;
+    height: 16px;
+}
+
+/* ===== Tables ===== */
+.table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+}
+thead th {
+    background: #f1f5f9;
+    color: var(--color-text-muted);
+    font-weight: 600;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.65rem 0.8rem;
+    text-align: right;
+    border-bottom: 2px solid var(--color-border);
+    white-space: nowrap;
+}
+thead th:first-child {
+    text-align: left;
+}
+tbody td {
+    padding: 0.55rem 0.8rem;
+    text-align: right;
+    border-bottom: 1px solid var(--color-border);
+    white-space: nowrap;
+}
+tbody td:first-child {
+    text-align: left;
+    font-weight: 500;
+}
+tbody tr:hover {
+    background: rgba(37, 99, 235, 0.03);
+}
+.zone-header {
+    background: #f8fafc;
+    font-weight: 700 !important;
+    color: var(--color-primary);
+}
+.zone-header td {
+    padding-top: 0.9rem;
+    border-bottom: 2px solid var(--color-primary);
+    font-weight: 700;
+}
+
+/* Ratio color coding */
+.ratio-good { color: #059669; font-weight: 600; }
+.ratio-ok { color: #d97706; font-weight: 600; }
+.ratio-bad { color: #dc2626; font-weight: 600; }
+
+/* ===== Tooltip / Info Icon ===== */
+.info-tip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #e2e8f0;
+    color: var(--color-text-muted);
+    font-size: 0.7rem;
+    font-weight: 700;
+    cursor: help;
+    flex-shrink: 0;
+}
+.info-tip .tip-text {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1e293b;
+    color: #fff;
+    padding: 0.6rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 400;
+    line-height: 1.45;
+    width: 280px;
+    z-index: 200;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    text-align: left;
+    white-space: normal;
+}
+.info-tip .tip-text::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: #1e293b;
+}
+.info-tip:hover .tip-text {
+    display: block;
+}
+
+/* ===== Chart Container ===== */
+.chart-container {
+    width: 100%;
+    min-height: 400px;
+}
+
+/* ===== Footer ===== */
+.footer {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    border-top: 1px solid var(--color-border);
+}
+.footer a {
+    color: var(--color-primary);
+    text-decoration: none;
+}
+.footer a:hover {
+    text-decoration: underline;
+}
+.footer .sources {
+    margin-top: 0.5rem;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 768px) {
+    .header h1 { font-size: 1.4rem; }
+    .tab-btn { padding: 0.65rem 1rem; font-size: 0.85rem; }
+    .container { padding: 1rem; }
+    .filters { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== Header ===== -->
+<div class="header">
+    <h1>Elpris Dashboard &mdash; Sverige</h1>
+    <p class="subtitle">Spotpriser, capture prices och solproduktionsanalys f&ouml;r SE1&ndash;SE4</p>
+    <p class="generated">Genererad: 2026-03-21T21:56:53</p>
+</div>
+
+<!-- ===== Tab Navigation ===== -->
+<nav class="tab-nav">
+    <button class="tab-btn active" onclick="switchTab('yearly')">&#128202; &Aring;rs&ouml;versikt</button>
+    <button class="tab-btn" onclick="switchTab('monthly')">&#128197; M&aring;nadsvy</button>
+</nav>
+
+<div class="container">
+
+<!-- ============================================================ -->
+<!-- SECTION 1: &Aring;rsöversikt                                      -->
+<!-- ============================================================ -->
+<div id="tab-yearly" class="tab-content active">
+
+    <div class="section-header">
+        <h2>&Aring;rs&ouml;versikt
+            <span class="info-tip">&oline;
+                <span class="tip-text">Denna vy visar baseload- och capture-priser sammanfattade per &aring;r f&ouml;r varje elomr&aring;de (SE1&ndash;SE4). Anv&auml;nd dropdown-menyn f&ouml;r att v&auml;lja vilken solprofil som visas.</span>
+            </span>
+        </h2>
+        <p>&Aring;rlig sammanst&auml;llning av genomsnittliga spotpriser och solproduktionsviktade capture prices per elomr&aring;de.</p>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters">
+        <div class="filter-group">
+            <label for="yearly-profile">Prim&auml;r capture-profil</label>
+            <select id="yearly-profile" onchange="renderYearly()">
+            </select>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="card">
+        <div class="card-title">
+            Priser per &aring;r och zon (EUR/MWh)
+            <span class="info-tip">&oline;
+                <span class="tip-text"><strong>Baseload:</strong> Genomsnittligt elpris f&ouml;r alla timmar under perioden.<br><br><strong>Capture price:</strong> Genomsnittligt elpris viktat mot solproduktion &mdash; priset en solanl&auml;ggning faktiskt f&aring;r.<br><br><strong>Capture ratio:</strong> Capture price / Baseload &mdash; &lt;1 betyder att sol producerar mer n&auml;r priset &auml;r l&aring;gt.</span>
+            </span>
+        </div>
+        <div class="table-wrapper">
+            <table id="yearly-table">
+                <thead id="yearly-thead"></thead>
+                <tbody id="yearly-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="card">
+        <div class="card-title">Baseload vs Capture Price per &aring;r</div>
+        <div id="yearly-chart" class="chart-container"></div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 2: M&aring;nadsvy                                         -->
+<!-- ============================================================ -->
+<div id="tab-monthly" class="tab-content">
+
+    <div class="section-header">
+        <h2>M&aring;nadsvy
+            <span class="info-tip">&oline;
+                <span class="tip-text">J&auml;mf&ouml;r m&aring;nadsm&ouml;nster &ouml;ver flera &aring;r. V&auml;lj zon, &aring;r och profil f&ouml;r att se hur priserna varierar under &aring;ret.</span>
+            </span>
+        </h2>
+        <p>J&auml;mf&ouml;r m&aring;nadspriser &ouml;ver &aring;ren f&ouml;r att identifiera s&auml;songsm&ouml;nster i baseload och capture prices.</p>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters">
+        <div class="filter-group">
+            <label for="monthly-zone">Zon</label>
+            <select id="monthly-zone" onchange="renderMonthly()">
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>&Aring;r att j&auml;mf&ouml;ra</label>
+            <div id="monthly-years" class="checkbox-group"></div>
+        </div>
+        <div class="filter-group">
+            <label for="monthly-profile">Capture-profil</label>
+            <select id="monthly-profile" onchange="renderMonthly()">
+            </select>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="card">
+        <div class="card-title">M&aring;nadspriser (EUR/MWh)</div>
+        <div class="table-wrapper">
+            <table id="monthly-table">
+                <thead id="monthly-thead"></thead>
+                <tbody id="monthly-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+
+</div>
+
+</div><!-- /container -->
+
+<!-- ===== Footer ===== -->
+<div class="footer">
+    <p><strong>Elpris Dashboard</strong> &mdash; Svea Solar Analys</p>
+    <div class="sources">
+        <p><strong>Datak&auml;llor:</strong>
+            <a href="https://www.elprisetjustnu.se/" target="_blank">elprisetjustnu.se</a> (spotpriser) &bull;
+            <a href="https://transparency.entsoe.eu/" target="_blank">ENTSO-E</a> (produktion) &bull;
+            Solprofiler fr&aring;n PVsyst-simuleringar och ENTSO-E normaliserad produktion
+        </p>
+        <p style="margin-top:0.3rem;">
+            <strong>Metod:</strong> Capture price = &Sigma;(spotpris &times; solproduktionsvikt) / &Sigma;(solproduktionsvikt).
+            Baseload = aritmetiskt medelv&auml;rde av alla spotpriser under perioden.
+        </p>
+    </div>
+</div>
+
+<!-- ===== JavaScript ===== -->
+<script>
+// ============================================================
+// Inbäddad data
+// ============================================================
+const DATA = {"generated": "2026-03-21T21:56:53", "zones": ["SE1", "SE2", "SE3", "SE4"], "profiles": {"south_lundby": "Syd (Lundby)", "ew_boda": "Öst-Väst (Böda)", "tracker_sweden": "Tracker (Hova)", "entsoe_solar_SE1": "ENTSO-E Sol SE1", "entsoe_solar_SE2": "ENTSO-E Sol SE2", "entsoe_solar_SE3": "ENTSO-E Sol SE3", "entsoe_solar_SE4": "ENTSO-E Sol SE4"}, "yearly": {"SE1": [{"year": 2021, "baseload": 54.12, "capture": {"south_lundby": 48.97, "ew_boda": 47.92, "tracker_sweden": 56.23, "entsoe_solar_SE1": 28.41, "entsoe_solar_SE2": 34.75, "entsoe_solar_SE3": 40.83, "entsoe_solar_SE4": 46.27}, "ratio": {"south_lundby": 0.9, "ew_boda": 0.89, "tracker_sweden": 1.04, "entsoe_solar_SE1": 0.52, "entsoe_solar_SE2": 0.64, "entsoe_solar_SE3": 0.75, "entsoe_solar_SE4": 0.85}, "records": 5856}, {"year": 2022, "baseload": 59.06, "capture": {"south_lundby": 49.4, "ew_boda": 51.23, "tracker_sweden": 50.06, "entsoe_solar_SE1": 49.19, "entsoe_solar_SE2": 50.67, "entsoe_solar_SE3": 51.66, "entsoe_solar_SE4": 51.73}, "ratio": {"south_lundby": 0.84, "ew_boda": 0.87, "tracker_sweden": 0.85, "entsoe_solar_SE1": 0.83, "entsoe_solar_SE2": 0.86, "entsoe_solar_SE3": 0.87, "entsoe_solar_SE4": 0.88}, "records": 35040}, {"year": 2023, "baseload": 39.97, "capture": {"south_lundby": 38.27, "ew_boda": 35.59, "tracker_sweden": 36.15, "entsoe_solar_SE1": 33.39, "entsoe_solar_SE2": 33.73, "entsoe_solar_SE3": 33.65, "entsoe_solar_SE4": 34.64}, "ratio": {"south_lundby": 0.96, "ew_boda": 0.89, "tracker_sweden": 0.9, "entsoe_solar_SE1": 0.84, "entsoe_solar_SE2": 0.84, "entsoe_solar_SE3": 0.84, "entsoe_solar_SE4": 0.87}, "records": 35040}, {"year": 2024, "baseload": 25.05, "capture": {"south_lundby": 23.15, "ew_boda": 22.69, "tracker_sweden": 22.98, "entsoe_solar_SE1": 19.73, "entsoe_solar_SE2": 19.96, "entsoe_solar_SE3": 20.28, "entsoe_solar_SE4": 20.71}, "ratio": {"south_lundby": 0.92, "ew_boda": 0.91, "tracker_sweden": 0.92, "entsoe_solar_SE1": 0.79, "entsoe_solar_SE2": 0.8, "entsoe_solar_SE3": 0.81, "entsoe_solar_SE4": 0.83}, "records": 35136}, {"year": 2025, "baseload": 16.71, "capture": {"south_lundby": 14.34, "ew_boda": 13.78, "tracker_sweden": 12.51, "entsoe_solar_SE1": 11.97, "entsoe_solar_SE2": 12.32, "entsoe_solar_SE3": 12.22, "entsoe_solar_SE4": 12.78}, "ratio": {"south_lundby": 0.86, "ew_boda": 0.82, "tracker_sweden": 0.75, "entsoe_solar_SE1": 0.72, "entsoe_solar_SE2": 0.74, "entsoe_solar_SE3": 0.73, "entsoe_solar_SE4": 0.76}, "records": 35043}, {"year": 2026, "baseload": 73.21, "capture": {"south_lundby": 57.2, "ew_boda": 55.14, "tracker_sweden": 55.45, "entsoe_solar_SE1": 37.48, "entsoe_solar_SE2": 43.83, "entsoe_solar_SE3": 48.45, "entsoe_solar_SE4": 50.68}, "ratio": {"south_lundby": 0.78, "ew_boda": 0.75, "tracker_sweden": 0.76, "entsoe_solar_SE1": 0.51, "entsoe_solar_SE2": 0.6, "entsoe_solar_SE3": 0.66, "entsoe_solar_SE4": 0.69}, "records": 7584}], "SE2": [{"year": 2021, "baseload": 54.12, "capture": {"south_lundby": 48.97, "ew_boda": 47.92, "tracker_sweden": 56.23, "entsoe_solar_SE1": 28.41, "entsoe_solar_SE2": 34.75, "entsoe_solar_SE3": 40.83, "entsoe_solar_SE4": 46.27}, "ratio": {"south_lundby": 0.9, "ew_boda": 0.89, "tracker_sweden": 1.04, "entsoe_solar_SE1": 0.52, "entsoe_solar_SE2": 0.64, "entsoe_solar_SE3": 0.75, "entsoe_solar_SE4": 0.85}, "records": 5856}, {"year": 2022, "baseload": 61.89, "capture": {"south_lundby": 54.5, "ew_boda": 55.26, "tracker_sweden": 54.42, "entsoe_solar_SE1": 54.92, "entsoe_solar_SE2": 56.06, "entsoe_solar_SE3": 56.7, "entsoe_solar_SE4": 56.87}, "ratio": {"south_lundby": 0.88, "ew_boda": 0.89, "tracker_sweden": 0.88, "entsoe_solar_SE1": 0.89, "entsoe_solar_SE2": 0.91, "entsoe_solar_SE3": 0.92, "entsoe_solar_SE4": 0.92}, "records": 35024}, {"year": 2023, "baseload": 39.98, "capture": {"south_lundby": 38.27, "ew_boda": 35.59, "tracker_sweden": 36.15, "entsoe_solar_SE1": 33.39, "entsoe_solar_SE2": 33.73, "entsoe_solar_SE3": 33.65, "entsoe_solar_SE4": 34.64}, "ratio": {"south_lundby": 0.96, "ew_boda": 0.89, "tracker_sweden": 0.9, "entsoe_solar_SE1": 0.84, "entsoe_solar_SE2": 0.84, "entsoe_solar_SE3": 0.84, "entsoe_solar_SE4": 0.87}, "records": 35040}, {"year": 2024, "baseload": 24.64, "capture": {"south_lundby": 23.13, "ew_boda": 22.77, "tracker_sweden": 23.02, "entsoe_solar_SE1": 19.75, "entsoe_solar_SE2": 20.0, "entsoe_solar_SE3": 20.32, "entsoe_solar_SE4": 20.71}, "ratio": {"south_lundby": 0.94, "ew_boda": 0.92, "tracker_sweden": 0.93, "entsoe_solar_SE1": 0.8, "entsoe_solar_SE2": 0.81, "entsoe_solar_SE3": 0.82, "entsoe_solar_SE4": 0.84}, "records": 35136}, {"year": 2025, "baseload": 16.53, "capture": {"south_lundby": 14.6, "ew_boda": 14.19, "tracker_sweden": 12.79, "entsoe_solar_SE1": 12.64, "entsoe_solar_SE2": 12.89, "entsoe_solar_SE3": 12.68, "entsoe_solar_SE4": 13.14}, "ratio": {"south_lundby": 0.88, "ew_boda": 0.86, "tracker_sweden": 0.77, "entsoe_solar_SE1": 0.76, "entsoe_solar_SE2": 0.78, "entsoe_solar_SE3": 0.77, "entsoe_solar_SE4": 0.79}, "records": 35043}, {"year": 2026, "baseload": 72.8, "capture": {"south_lundby": 57.89, "ew_boda": 54.57, "tracker_sweden": 54.81, "entsoe_solar_SE1": 36.92, "entsoe_solar_SE2": 43.6, "entsoe_solar_SE3": 48.31, "entsoe_solar_SE4": 50.79}, "ratio": {"south_lundby": 0.8, "ew_boda": 0.75, "tracker_sweden": 0.75, "entsoe_solar_SE1": 0.51, "entsoe_solar_SE2": 0.6, "entsoe_solar_SE3": 0.66, "entsoe_solar_SE4": 0.7}, "records": 7584}], "SE3": [{"year": 2021, "baseload": 129.91, "capture": {"south_lundby": 139.64, "ew_boda": 135.99, "tracker_sweden": 134.47, "entsoe_solar_SE1": 89.14, "entsoe_solar_SE2": 96.11, "entsoe_solar_SE3": 123.92, "entsoe_solar_SE4": 126.01}, "ratio": {"south_lundby": 1.07, "ew_boda": 1.05, "tracker_sweden": 1.04, "entsoe_solar_SE1": 0.69, "entsoe_solar_SE2": 0.74, "entsoe_solar_SE3": 0.95, "entsoe_solar_SE4": 0.97}, "records": 5852}, {"year": 2022, "baseload": 129.21, "capture": {"south_lundby": 143.74, "ew_boda": 149.65, "tracker_sweden": 145.43, "entsoe_solar_SE1": 150.05, "entsoe_solar_SE2": 153.01, "entsoe_solar_SE3": 154.33, "entsoe_solar_SE4": 154.94}, "ratio": {"south_lundby": 1.11, "ew_boda": 1.16, "tracker_sweden": 1.13, "entsoe_solar_SE1": 1.16, "entsoe_solar_SE2": 1.18, "entsoe_solar_SE3": 1.19, "entsoe_solar_SE4": 1.2}, "records": 35040}, {"year": 2023, "baseload": 51.7, "capture": {"south_lundby": 47.21, "ew_boda": 44.62, "tracker_sweden": 44.51, "entsoe_solar_SE1": 40.01, "entsoe_solar_SE2": 40.82, "entsoe_solar_SE3": 41.37, "entsoe_solar_SE4": 42.84}, "ratio": {"south_lundby": 0.91, "ew_boda": 0.86, "tracker_sweden": 0.86, "entsoe_solar_SE1": 0.77, "entsoe_solar_SE2": 0.79, "entsoe_solar_SE3": 0.8, "entsoe_solar_SE4": 0.83}, "records": 35040}, {"year": 2024, "baseload": 35.77, "capture": {"south_lundby": 27.79, "ew_boda": 27.0, "tracker_sweden": 27.28, "entsoe_solar_SE1": 22.49, "entsoe_solar_SE2": 22.94, "entsoe_solar_SE3": 23.51, "entsoe_solar_SE4": 24.3}, "ratio": {"south_lundby": 0.78, "ew_boda": 0.75, "tracker_sweden": 0.76, "entsoe_solar_SE1": 0.63, "entsoe_solar_SE2": 0.64, "entsoe_solar_SE3": 0.66, "entsoe_solar_SE4": 0.68}, "records": 35136}, {"year": 2025, "baseload": 46.23, "capture": {"south_lundby": 31.52, "ew_boda": 32.8, "tracker_sweden": 31.93, "entsoe_solar_SE1": 26.6, "entsoe_solar_SE2": 26.93, "entsoe_solar_SE3": 27.64, "entsoe_solar_SE4": 28.33}, "ratio": {"south_lundby": 0.68, "ew_boda": 0.71, "tracker_sweden": 0.69, "entsoe_solar_SE1": 0.58, "entsoe_solar_SE2": 0.58, "entsoe_solar_SE3": 0.6, "entsoe_solar_SE4": 0.61}, "records": 35043}, {"year": 2026, "baseload": 92.44, "capture": {"south_lundby": 72.89, "ew_boda": 76.29, "tracker_sweden": 77.81, "entsoe_solar_SE1": 61.13, "entsoe_solar_SE2": 64.34, "entsoe_solar_SE3": 70.38, "entsoe_solar_SE4": 70.89}, "ratio": {"south_lundby": 0.79, "ew_boda": 0.83, "tracker_sweden": 0.84, "entsoe_solar_SE1": 0.66, "entsoe_solar_SE2": 0.7, "entsoe_solar_SE3": 0.76, "entsoe_solar_SE4": 0.77}, "records": 7584}], "SE4": [{"year": 2021, "baseload": 147.49, "capture": {"south_lundby": 190.45, "ew_boda": 168.92, "tracker_sweden": 154.86, "entsoe_solar_SE1": 131.94, "entsoe_solar_SE2": 131.64, "entsoe_solar_SE3": 155.7, "entsoe_solar_SE4": 153.04}, "ratio": {"south_lundby": 1.29, "ew_boda": 1.15, "tracker_sweden": 1.05, "entsoe_solar_SE1": 0.89, "entsoe_solar_SE2": 0.89, "entsoe_solar_SE3": 1.06, "entsoe_solar_SE4": 1.04}, "records": 5856}, {"year": 2022, "baseload": 152.1, "capture": {"south_lundby": 165.73, "ew_boda": 174.14, "tracker_sweden": 171.34, "entsoe_solar_SE1": 173.72, "entsoe_solar_SE2": 175.58, "entsoe_solar_SE3": 176.15, "entsoe_solar_SE4": 175.76}, "ratio": {"south_lundby": 1.09, "ew_boda": 1.14, "tracker_sweden": 1.13, "entsoe_solar_SE1": 1.14, "entsoe_solar_SE2": 1.15, "entsoe_solar_SE3": 1.16, "entsoe_solar_SE4": 1.16}, "records": 35040}, {"year": 2023, "baseload": 64.88, "capture": {"south_lundby": 60.03, "ew_boda": 58.29, "tracker_sweden": 58.91, "entsoe_solar_SE1": 52.52, "entsoe_solar_SE2": 53.43, "entsoe_solar_SE3": 53.75, "entsoe_solar_SE4": 54.23}, "ratio": {"south_lundby": 0.93, "ew_boda": 0.9, "tracker_sweden": 0.91, "entsoe_solar_SE1": 0.81, "entsoe_solar_SE2": 0.82, "entsoe_solar_SE3": 0.83, "entsoe_solar_SE4": 0.84}, "records": 35040}, {"year": 2024, "baseload": 49.71, "capture": {"south_lundby": 37.37, "ew_boda": 38.35, "tracker_sweden": 39.21, "entsoe_solar_SE1": 33.18, "entsoe_solar_SE2": 32.71, "entsoe_solar_SE3": 32.97, "entsoe_solar_SE4": 33.07}, "ratio": {"south_lundby": 0.75, "ew_boda": 0.77, "tracker_sweden": 0.79, "entsoe_solar_SE1": 0.67, "entsoe_solar_SE2": 0.66, "entsoe_solar_SE3": 0.66, "entsoe_solar_SE4": 0.67}, "records": 35136}, {"year": 2025, "baseload": 60.42, "capture": {"south_lundby": 39.74, "ew_boda": 41.92, "tracker_sweden": 41.86, "entsoe_solar_SE1": 33.86, "entsoe_solar_SE2": 34.05, "entsoe_solar_SE3": 34.84, "entsoe_solar_SE4": 35.44}, "ratio": {"south_lundby": 0.66, "ew_boda": 0.69, "tracker_sweden": 0.69, "entsoe_solar_SE1": 0.56, "entsoe_solar_SE2": 0.56, "entsoe_solar_SE3": 0.58, "entsoe_solar_SE4": 0.59}, "records": 35043}, {"year": 2026, "baseload": 101.24, "capture": {"south_lundby": 80.44, "ew_boda": 83.9, "tracker_sweden": 86.1, "entsoe_solar_SE1": 69.28, "entsoe_solar_SE2": 71.79, "entsoe_solar_SE3": 78.76, "entsoe_solar_SE4": 79.18}, "ratio": {"south_lundby": 0.79, "ew_boda": 0.83, "tracker_sweden": 0.85, "entsoe_solar_SE1": 0.68, "entsoe_solar_SE2": 0.71, "entsoe_solar_SE3": 0.78, "entsoe_solar_SE4": 0.78}, "records": 7584}]}, "monthly": {"SE1": [{"year": 2021, "month": 11, "baseload": 43.04, "capture": {"south_lundby": 31.29, "ew_boda": 43.67, "tracker_sweden": 46.82, "entsoe_solar_SE1": 22.64, "entsoe_solar_SE2": 26.88, "entsoe_solar_SE3": 29.78, "entsoe_solar_SE4": 36.34}, "ratio": {"south_lundby": 0.73, "ew_boda": 1.01, "tracker_sweden": 1.09, "entsoe_solar_SE1": 0.53, "entsoe_solar_SE2": 0.62, "entsoe_solar_SE3": 0.69, "entsoe_solar_SE4": 0.84}, "records": 2880}, {"year": 2021, "month": 12, "baseload": 64.85, "capture": {"south_lundby": 80.23, "ew_boda": 58.6, "tracker_sweden": 77.68, "entsoe_solar_SE1": 79.4, "entsoe_solar_SE2": 84.17, "entsoe_solar_SE3": 70.78, "entsoe_solar_SE4": 70.36}, "ratio": {"south_lundby": 1.24, "ew_boda": 0.9, "tracker_sweden": 1.2, "entsoe_solar_SE1": 1.22, "entsoe_solar_SE2": 1.3, "entsoe_solar_SE3": 1.09, "entsoe_solar_SE4": 1.09}, "records": 2976}, {"year": 2022, "month": 1, "baseload": 28.08, "capture": {"south_lundby": 33.87, "ew_boda": 27.27, "tracker_sweden": 24.74, "entsoe_solar_SE1": 27.27, "entsoe_solar_SE2": 44.76, "entsoe_solar_SE3": 27.62, "entsoe_solar_SE4": 27.45}, "ratio": {"south_lundby": 1.21, "ew_boda": 0.97, "tracker_sweden": 0.88, "entsoe_solar_SE1": 0.97, "entsoe_solar_SE2": 1.59, "entsoe_solar_SE3": 0.98, "entsoe_solar_SE4": 0.98}, "records": 2976}, {"year": 2022, "month": 2, "baseload": 24.5, "capture": {"south_lundby": 33.82, "ew_boda": 31.28, "tracker_sweden": 27.77, "entsoe_solar_SE1": 28.0, "entsoe_solar_SE2": 28.57, "entsoe_solar_SE3": 32.28, "entsoe_solar_SE4": 34.73}, "ratio": {"south_lundby": 1.38, "ew_boda": 1.28, "tracker_sweden": 1.13, "entsoe_solar_SE1": 1.14, "entsoe_solar_SE2": 1.17, "entsoe_solar_SE3": 1.32, "entsoe_solar_SE4": 1.42}, "records": 2688}, {"year": 2022, "month": 3, "baseload": 21.78, "capture": {"south_lundby": 21.95, "ew_boda": 24.95, "tracker_sweden": 27.51, "entsoe_solar_SE1": 23.41, "entsoe_solar_SE2": 24.59, "entsoe_solar_SE3": 24.11, "entsoe_solar_SE4": 23.8}, "ratio": {"south_lundby": 1.01, "ew_boda": 1.15, "tracker_sweden": 1.26, "entsoe_solar_SE1": 1.07, "entsoe_solar_SE2": 1.13, "entsoe_solar_SE3": 1.11, "entsoe_solar_SE4": 1.09}, "records": 2972}, {"year": 2022, "month": 4, "baseload": 51.22, "capture": {"south_lundby": 56.45, "ew_boda": 52.11, "tracker_sweden": 53.07, "entsoe_solar_SE1": 54.85, "entsoe_solar_SE2": 53.36, "entsoe_solar_SE3": 52.3, "entsoe_solar_SE4": 51.04}, "ratio": {"south_lundby": 1.1, "ew_boda": 1.02, "tracker_sweden": 1.04, "entsoe_solar_SE1": 1.07, "entsoe_solar_SE2": 1.04, "entsoe_solar_SE3": 1.02, "entsoe_solar_SE4": 1.0}, "records": 2880}, {"year": 2022, "month": 5, "baseload": 55.16, "capture": {"south_lundby": 63.99, "ew_boda": 73.89, "tracker_sweden": 66.17, "entsoe_solar_SE1": 70.45, "entsoe_solar_SE2": 69.65, "entsoe_solar_SE3": 69.98, "entsoe_solar_SE4": 69.44}, "ratio": {"south_lundby": 1.16, "ew_boda": 1.34, "tracker_sweden": 1.2, "entsoe_solar_SE1": 1.28, "entsoe_solar_SE2": 1.26, "entsoe_solar_SE3": 1.27, "entsoe_solar_SE4": 1.26}, "records": 2976}, {"year": 2022, "month": 6, "baseload": 48.38, "capture": {"south_lundby": 52.04, "ew_boda": 59.39, "tracker_sweden": 55.49, "entsoe_solar_SE1": 55.48, "entsoe_solar_SE2": 55.52, "entsoe_solar_SE3": 55.48, "entsoe_solar_SE4": 55.14}, "ratio": {"south_lundby": 1.08, "ew_boda": 1.23, "tracker_sweden": 1.15, "entsoe_solar_SE1": 1.15, "entsoe_solar_SE2": 1.15, "entsoe_solar_SE3": 1.15, "entsoe_solar_SE4": 1.14}, "records": 2880}, {"year": 2022, "month": 7, "baseload": 21.34, "capture": {"south_lundby": 24.37, "ew_boda": 26.44, "tracker_sweden": 21.96, "entsoe_solar_SE1": 24.97, "entsoe_solar_SE2": 26.29, "entsoe_solar_SE3": 27.68, "entsoe_solar_SE4": 27.01}, "ratio": {"south_lundby": 1.14, "ew_boda": 1.24, "tracker_sweden": 1.03, "entsoe_solar_SE1": 1.17, "entsoe_solar_SE2": 1.23, "entsoe_solar_SE3": 1.3, "entsoe_solar_SE4": 1.27}, "records": 2976}, {"year": 2022, "month": 8, "baseload": 17.33, "capture": {"south_lundby": 19.28, "ew_boda": 24.31, "tracker_sweden": 22.96, "entsoe_solar_SE1": 20.76, "entsoe_solar_SE2": 22.05, "entsoe_solar_SE3": 22.46, "entsoe_solar_SE4": 22.95}, "ratio": {"south_lundby": 1.11, "ew_boda": 1.4, "tracker_sweden": 1.33, "entsoe_solar_SE1": 1.2, "entsoe_solar_SE2": 1.27, "entsoe_solar_SE3": 1.3, "entsoe_solar_SE4": 1.32}, "records": 2976}, {"year": 2022, "month": 9, "baseload": 93.51, "capture": {"south_lundby": 107.29, "ew_boda": 93.76, "tracker_sweden": 111.1, "entsoe_solar_SE1": 105.98, "entsoe_solar_SE2": 107.56, "entsoe_solar_SE3": 107.46, "entsoe_solar_SE4": 106.0}, "ratio": {"south_lundby": 1.15, "ew_boda": 1.0, "tracker_sweden": 1.19, "entsoe_solar_SE1": 1.13, "entsoe_solar_SE2": 1.15, "entsoe_solar_SE3": 1.15, "entsoe_solar_SE4": 1.13}, "records": 2880}, {"year": 2022, "month": 10, "baseload": 46.09, "capture": {"south_lundby": 41.68, "ew_boda": 53.41, "tracker_sweden": 57.3, "entsoe_solar_SE1": 54.87, "entsoe_solar_SE2": 55.8, "entsoe_solar_SE3": 53.52, "entsoe_solar_SE4": 53.82}, "ratio": {"south_lundby": 0.9, "ew_boda": 1.16, "tracker_sweden": 1.24, "entsoe_solar_SE1": 1.19, "entsoe_solar_SE2": 1.21, "entsoe_solar_SE3": 1.16, "entsoe_solar_SE4": 1.17}, "records": 2980}, {"year": 2022, "month": 11, "baseload": 111.9, "capture": {"south_lundby": 75.56, "ew_boda": 102.17, "tracker_sweden": 127.48, "entsoe_solar_SE1": 72.11, "entsoe_solar_SE2": 77.87, "entsoe_solar_SE3": 99.01, "entsoe_solar_SE4": 110.15}, "ratio": {"south_lundby": 0.68, "ew_boda": 0.91, "tracker_sweden": 1.14, "entsoe_solar_SE1": 0.64, "entsoe_solar_SE2": 0.7, "entsoe_solar_SE3": 0.88, "entsoe_solar_SE4": 0.98}, "records": 2880}, {"year": 2022, "month": 12, "baseload": 188.24, "capture": {"south_lundby": 267.59, "ew_boda": 218.36, "tracker_sweden": 196.27, "entsoe_solar_SE1": 199.84, "entsoe_solar_SE2": 215.1, "entsoe_solar_SE3": 172.07, "entsoe_solar_SE4": 179.52}, "ratio": {"south_lundby": 1.42, "ew_boda": 1.16, "tracker_sweden": 1.04, "entsoe_solar_SE1": 1.06, "entsoe_solar_SE2": 1.14, "entsoe_solar_SE3": 0.91, "entsoe_solar_SE4": 0.95}, "records": 2976}, {"year": 2023, "month": 1, "baseload": 62.85, "capture": {"south_lundby": 69.4, "ew_boda": 65.05, "tracker_sweden": 63.39, "entsoe_solar_SE1": 60.33, "entsoe_solar_SE2": 79.41, "entsoe_solar_SE3": 67.38, "entsoe_solar_SE4": 74.47}, "ratio": {"south_lundby": 1.1, "ew_boda": 1.03, "tracker_sweden": 1.01, "entsoe_solar_SE1": 0.96, "entsoe_solar_SE2": 1.26, "entsoe_solar_SE3": 1.07, "entsoe_solar_SE4": 1.18}, "records": 2976}, {"year": 2023, "month": 2, "baseload": 46.46, "capture": {"south_lundby": 50.51, "ew_boda": 47.39, "tracker_sweden": 41.37, "entsoe_solar_SE1": 45.24, "entsoe_solar_SE2": 45.91, "entsoe_solar_SE3": 47.54, "entsoe_solar_SE4": 50.4}, "ratio": {"south_lundby": 1.09, "ew_boda": 1.02, "tracker_sweden": 0.89, "entsoe_solar_SE1": 0.97, "entsoe_solar_SE2": 0.99, "entsoe_solar_SE3": 1.02, "entsoe_solar_SE4": 1.08}, "records": 2688}, {"year": 2023, "month": 3, "baseload": 50.28, "capture": {"south_lundby": 57.94, "ew_boda": 55.2, "tracker_sweden": 54.0, "entsoe_solar_SE1": 53.84, "entsoe_solar_SE2": 55.4, "entsoe_solar_SE3": 55.42, "entsoe_solar_SE4": 55.71}, "ratio": {"south_lundby": 1.15, "ew_boda": 1.1, "tracker_sweden": 1.07, "entsoe_solar_SE1": 1.07, "entsoe_solar_SE2": 1.1, "entsoe_solar_SE3": 1.1, "entsoe_solar_SE4": 1.11}, "records": 2972}, {"year": 2023, "month": 4, "baseload": 58.63, "capture": {"south_lundby": 59.82, "ew_boda": 61.84, "tracker_sweden": 61.08, "entsoe_solar_SE1": 59.28, "entsoe_solar_SE2": 59.47, "entsoe_solar_SE3": 58.88, "entsoe_solar_SE4": 59.94}, "ratio": {"south_lundby": 1.02, "ew_boda": 1.05, "tracker_sweden": 1.04, "entsoe_solar_SE1": 1.01, "entsoe_solar_SE2": 1.01, "entsoe_solar_SE3": 1.0, "entsoe_solar_SE4": 1.02}, "records": 2880}, {"year": 2023, "month": 5, "baseload": 24.61, "capture": {"south_lundby": 31.62, "ew_boda": 25.61, "tracker_sweden": 23.64, "entsoe_solar_SE1": 23.57, "entsoe_solar_SE2": 23.17, "entsoe_solar_SE3": 24.35, "entsoe_solar_SE4": 25.71}, "ratio": {"south_lundby": 1.28, "ew_boda": 1.04, "tracker_sweden": 0.96, "entsoe_solar_SE1": 0.96, "entsoe_solar_SE2": 0.94, "entsoe_solar_SE3": 0.99, "entsoe_solar_SE4": 1.04}, "records": 2976}, {"year": 2023, "month": 6, "baseload": 44.19, "capture": {"south_lundby": 44.35, "ew_boda": 42.86, "tracker_sweden": 43.99, "entsoe_solar_SE1": 46.68, "entsoe_solar_SE2": 46.55, "entsoe_solar_SE3": 45.49, "entsoe_solar_SE4": 45.6}, "ratio": {"south_lundby": 1.0, "ew_boda": 0.97, "tracker_sweden": 1.0, "entsoe_solar_SE1": 1.06, "entsoe_solar_SE2": 1.05, "entsoe_solar_SE3": 1.03, "entsoe_solar_SE4": 1.03}, "records": 2880}, {"year": 2023, "month": 7, "baseload": 31.95, "capture": {"south_lundby": 33.28, "ew_boda": 30.92, "tracker_sweden": 32.65, "entsoe_solar_SE1": 31.34, "entsoe_solar_SE2": 31.4, "entsoe_solar_SE3": 30.47, "entsoe_solar_SE4": 30.4}, "ratio": {"south_lundby": 1.04, "ew_boda": 0.97, "tracker_sweden": 1.02, "entsoe_solar_SE1": 0.98, "entsoe_solar_SE2": 0.98, "entsoe_solar_SE3": 0.95, "entsoe_solar_SE4": 0.95}, "records": 2976}, {"year": 2023, "month": 8, "baseload": 20.07, "capture": {"south_lundby": 22.06, "ew_boda": 22.66, "tracker_sweden": 22.41, "entsoe_solar_SE1": 20.97, "entsoe_solar_SE2": 21.81, "entsoe_solar_SE3": 22.14, "entsoe_solar_SE4": 22.41}, "ratio": {"south_lundby": 1.1, "ew_boda": 1.13, "tracker_sweden": 1.12, "entsoe_solar_SE1": 1.05, "entsoe_solar_SE2": 1.09, "entsoe_solar_SE3": 1.1, "entsoe_solar_SE4": 1.12}, "records": 2976}, {"year": 2023, "month": 9, "baseload": 9.16, "capture": {"south_lundby": 12.71, "ew_boda": 12.04, "tracker_sweden": 12.62, "entsoe_solar_SE1": 12.78, "entsoe_solar_SE2": 12.33, "entsoe_solar_SE3": 12.15, "entsoe_solar_SE4": 12.3}, "ratio": {"south_lundby": 1.39, "ew_boda": 1.32, "tracker_sweden": 1.38, "entsoe_solar_SE1": 1.4, "entsoe_solar_SE2": 1.35, "entsoe_solar_SE3": 1.33, "entsoe_solar_SE4": 1.34}, "records": 2880}, {"year": 2023, "month": 10, "baseload": 14.99, "capture": {"south_lundby": 18.39, "ew_boda": 16.09, "tracker_sweden": 13.75, "entsoe_solar_SE1": 8.77, "entsoe_solar_SE2": 10.16, "entsoe_solar_SE3": 9.88, "entsoe_solar_SE4": 10.81}, "ratio": {"south_lundby": 1.23, "ew_boda": 1.07, "tracker_sweden": 0.92, "entsoe_solar_SE1": 0.58, "entsoe_solar_SE2": 0.68, "entsoe_solar_SE3": 0.66, "entsoe_solar_SE4": 0.72}, "records": 2980}, {"year": 2023, "month": 11, "baseload": 52.79, "capture": {"south_lundby": 54.41, "ew_boda": 52.51, "tracker_sweden": 56.65, "entsoe_solar_SE1": 55.44, "entsoe_solar_SE2": 54.93, "entsoe_solar_SE3": 61.92, "entsoe_solar_SE4": 59.88}, "ratio": {"south_lundby": 1.03, "ew_boda": 0.99, "tracker_sweden": 1.07, "entsoe_solar_SE1": 1.05, "entsoe_solar_SE2": 1.04, "entsoe_solar_SE3": 1.17, "entsoe_solar_SE4": 1.13}, "records": 2880}, {"year": 2023, "month": 12, "baseload": 64.54, "capture": {"south_lundby": 89.36, "ew_boda": 75.2, "tracker_sweden": 84.62, "entsoe_solar_SE1": 76.81, "entsoe_solar_SE2": 80.13, "entsoe_solar_SE3": 63.91, "entsoe_solar_SE4": 65.37}, "ratio": {"south_lundby": 1.38, "ew_boda": 1.17, "tracker_sweden": 1.31, "entsoe_solar_SE1": 1.19, "entsoe_solar_SE2": 1.24, "entsoe_solar_SE3": 0.99, "entsoe_solar_SE4": 1.01}, "records": 2976}, {"year": 2024, "month": 1, "baseload": 54.22, "capture": {"south_lundby": 76.05, "ew_boda": 54.16, "tracker_sweden": 57.4, "entsoe_solar_SE1": 53.97, "entsoe_solar_SE2": 36.37, "entsoe_solar_SE3": 51.5, "entsoe_solar_SE4": 56.92}, "ratio": {"south_lundby": 1.4, "ew_boda": 1.0, "tracker_sweden": 1.06, "entsoe_solar_SE1": 1.0, "entsoe_solar_SE2": 0.67, "entsoe_solar_SE3": 0.95, "entsoe_solar_SE4": 1.05}, "records": 2976}, {"year": 2024, "month": 2, "baseload": 39.76, "capture": {"south_lundby": 42.3, "ew_boda": 42.69, "tracker_sweden": 45.51, "entsoe_solar_SE1": 40.74, "entsoe_solar_SE2": 42.22, "entsoe_solar_SE3": 44.86, "entsoe_solar_SE4": 41.45}, "ratio": {"south_lundby": 1.06, "ew_boda": 1.07, "tracker_sweden": 1.14, "entsoe_solar_SE1": 1.02, "entsoe_solar_SE2": 1.06, "entsoe_solar_SE3": 1.13, "entsoe_solar_SE4": 1.04}, "records": 2784}, {"year": 2024, "month": 3, "baseload": 50.06, "capture": {"south_lundby": 51.77, "ew_boda": 49.85, "tracker_sweden": 49.53, "entsoe_solar_SE1": 49.97, "entsoe_solar_SE2": 48.86, "entsoe_solar_SE3": 49.88, "entsoe_solar_SE4": 49.77}, "ratio": {"south_lundby": 1.03, "ew_boda": 1.0, "tracker_sweden": 0.99, "entsoe_solar_SE1": 1.0, "entsoe_solar_SE2": 0.98, "entsoe_solar_SE3": 1.0, "entsoe_solar_SE4": 0.99}, "records": 2972}, {"year": 2024, "month": 4, "baseload": 43.47, "capture": {"south_lundby": 44.14, "ew_boda": 46.82, "tracker_sweden": 48.65, "entsoe_solar_SE1": 43.83, "entsoe_solar_SE2": 44.66, "entsoe_solar_SE3": 43.33, "entsoe_solar_SE4": 41.92}, "ratio": {"south_lundby": 1.02, "ew_boda": 1.08, "tracker_sweden": 1.12, "entsoe_solar_SE1": 1.01, "entsoe_solar_SE2": 1.03, "entsoe_solar_SE3": 1.0, "entsoe_solar_SE4": 0.96}, "records": 2880}, {"year": 2024, "month": 5, "baseload": 15.14, "capture": {"south_lundby": 14.52, "ew_boda": 14.68, "tracker_sweden": 12.74, "entsoe_solar_SE1": 12.81, "entsoe_solar_SE2": 12.64, "entsoe_solar_SE3": 12.83, "entsoe_solar_SE4": 13.45}, "ratio": {"south_lundby": 0.96, "ew_boda": 0.97, "tracker_sweden": 0.84, "entsoe_solar_SE1": 0.85, "entsoe_solar_SE2": 0.83, "entsoe_solar_SE3": 0.85, "entsoe_solar_SE4": 0.89}, "records": 2976}, {"year": 2024, "month": 6, "baseload": 21.29, "capture": {"south_lundby": 19.17, "ew_boda": 21.06, "tracker_sweden": 19.61, "entsoe_solar_SE1": 20.25, "entsoe_solar_SE2": 20.75, "entsoe_solar_SE3": 20.1, "entsoe_solar_SE4": 20.12}, "ratio": {"south_lundby": 0.9, "ew_boda": 0.99, "tracker_sweden": 0.92, "entsoe_solar_SE1": 0.95, "entsoe_solar_SE2": 0.97, "entsoe_solar_SE3": 0.94, "entsoe_solar_SE4": 0.94}, "records": 2880}, {"year": 2024, "month": 7, "baseload": 17.85, "capture": {"south_lundby": 16.8, "ew_boda": 17.66, "tracker_sweden": 16.8, "entsoe_solar_SE1": 17.37, "entsoe_solar_SE2": 16.95, "entsoe_solar_SE3": 16.91, "entsoe_solar_SE4": 16.41}, "ratio": {"south_lundby": 0.94, "ew_boda": 0.99, "tracker_sweden": 0.94, "entsoe_solar_SE1": 0.97, "entsoe_solar_SE2": 0.95, "entsoe_solar_SE3": 0.95, "entsoe_solar_SE4": 0.92}, "records": 2976}, {"year": 2024, "month": 8, "baseload": 7.68, "capture": {"south_lundby": 9.34, "ew_boda": 8.89, "tracker_sweden": 8.63, "entsoe_solar_SE1": 9.04, "entsoe_solar_SE2": 8.26, "entsoe_solar_SE3": 8.29, "entsoe_solar_SE4": 8.1}, "ratio": {"south_lundby": 1.22, "ew_boda": 1.16, "tracker_sweden": 1.12, "entsoe_solar_SE1": 1.18, "entsoe_solar_SE2": 1.08, "entsoe_solar_SE3": 1.08, "entsoe_solar_SE4": 1.05}, "records": 2976}, {"year": 2024, "month": 9, "baseload": 8.44, "capture": {"south_lundby": 8.69, "ew_boda": 8.88, "tracker_sweden": 8.95, "entsoe_solar_SE1": 8.47, "entsoe_solar_SE2": 8.46, "entsoe_solar_SE3": 8.75, "entsoe_solar_SE4": 8.63}, "ratio": {"south_lundby": 1.03, "ew_boda": 1.05, "tracker_sweden": 1.06, "entsoe_solar_SE1": 1.0, "entsoe_solar_SE2": 1.0, "entsoe_solar_SE3": 1.04, "entsoe_solar_SE4": 1.02}, "records": 2880}, {"year": 2024, "month": 10, "baseload": 11.09, "capture": {"south_lundby": 14.16, "ew_boda": 13.05, "tracker_sweden": 16.67, "entsoe_solar_SE1": 18.97, "entsoe_solar_SE2": 17.2, "entsoe_solar_SE3": 16.97, "entsoe_solar_SE4": 16.26}, "ratio": {"south_lundby": 1.28, "ew_boda": 1.18, "tracker_sweden": 1.5, "entsoe_solar_SE1": 1.71, "entsoe_solar_SE2": 1.55, "entsoe_solar_SE3": 1.53, "entsoe_solar_SE4": 1.47}, "records": 2980}, {"year": 2024, "month": 11, "baseload": 21.54, "capture": {"south_lundby": 27.99, "ew_boda": 22.59, "tracker_sweden": 24.53, "entsoe_solar_SE1": 21.17, "entsoe_solar_SE2": 18.68, "entsoe_solar_SE3": 19.76, "entsoe_solar_SE4": 20.49}, "ratio": {"south_lundby": 1.3, "ew_boda": 1.05, "tracker_sweden": 1.14, "entsoe_solar_SE1": 0.98, "entsoe_solar_SE2": 0.87, "entsoe_solar_SE3": 0.92, "entsoe_solar_SE4": 0.95}, "records": 2880}, {"year": 2024, "month": 12, "baseload": 10.93, "capture": {"south_lundby": 10.72, "ew_boda": 11.38, "tracker_sweden": 9.34, "entsoe_solar_SE1": 12.24, "entsoe_solar_SE2": 10.51, "entsoe_solar_SE3": 9.82, "entsoe_solar_SE4": 9.38}, "ratio": {"south_lundby": 0.98, "ew_boda": 1.04, "tracker_sweden": 0.85, "entsoe_solar_SE1": 1.12, "entsoe_solar_SE2": 0.96, "entsoe_solar_SE3": 0.9, "entsoe_solar_SE4": 0.86}, "records": 2976}, {"year": 2025, "month": 1, "baseload": 20.69, "capture": {"south_lundby": 17.45, "ew_boda": 26.49, "tracker_sweden": 22.95, "entsoe_solar_SE1": 23.68, "entsoe_solar_SE2": 70.76, "entsoe_solar_SE3": 25.94, "entsoe_solar_SE4": 25.68}, "ratio": {"south_lundby": 0.84, "ew_boda": 1.28, "tracker_sweden": 1.11, "entsoe_solar_SE1": 1.14, "entsoe_solar_SE2": 3.42, "entsoe_solar_SE3": 1.25, "entsoe_solar_SE4": 1.24}, "records": 2976}, {"year": 2025, "month": 2, "baseload": 11.38, "capture": {"south_lundby": 19.0, "ew_boda": 14.58, "tracker_sweden": 13.66, "entsoe_solar_SE1": 16.03, "entsoe_solar_SE2": 15.25, "entsoe_solar_SE3": 17.3, "entsoe_solar_SE4": 19.16}, "ratio": {"south_lundby": 1.67, "ew_boda": 1.28, "tracker_sweden": 1.2, "entsoe_solar_SE1": 1.41, "entsoe_solar_SE2": 1.34, "entsoe_solar_SE3": 1.52, "entsoe_solar_SE4": 1.68}, "records": 2688}, {"year": 2025, "month": 3, "baseload": 14.4, "capture": {"south_lundby": 15.95, "ew_boda": 16.29, "tracker_sweden": 15.5, "entsoe_solar_SE1": 15.69, "entsoe_solar_SE2": 15.3, "entsoe_solar_SE3": 14.56, "entsoe_solar_SE4": 13.46}, "ratio": {"south_lundby": 1.11, "ew_boda": 1.13, "tracker_sweden": 1.08, "entsoe_solar_SE1": 1.09, "entsoe_solar_SE2": 1.06, "entsoe_solar_SE3": 1.01, "entsoe_solar_SE4": 0.93}, "records": 2972}, {"year": 2025, "month": 4, "baseload": 13.08, "capture": {"south_lundby": 17.19, "ew_boda": 15.94, "tracker_sweden": 14.18, "entsoe_solar_SE1": 11.72, "entsoe_solar_SE2": 13.06, "entsoe_solar_SE3": 11.75, "entsoe_solar_SE4": 10.95}, "ratio": {"south_lundby": 1.31, "ew_boda": 1.22, "tracker_sweden": 1.08, "entsoe_solar_SE1": 0.9, "entsoe_solar_SE2": 1.0, "entsoe_solar_SE3": 0.9, "entsoe_solar_SE4": 0.84}, "records": 2880}, {"year": 2025, "month": 5, "baseload": 12.91, "capture": {"south_lundby": 13.12, "ew_boda": 11.15, "tracker_sweden": 6.85, "entsoe_solar_SE1": 10.98, "entsoe_solar_SE2": 9.54, "entsoe_solar_SE3": 10.33, "entsoe_solar_SE4": 12.25}, "ratio": {"south_lundby": 1.02, "ew_boda": 0.86, "tracker_sweden": 0.53, "entsoe_solar_SE1": 0.85, "entsoe_solar_SE2": 0.74, "entsoe_solar_SE3": 0.8, "entsoe_solar_SE4": 0.95}, "records": 2976}, {"year": 2025, "month": 6, "baseload": 2.77, "capture": {"south_lundby": 2.05, "ew_boda": 3.15, "tracker_sweden": 3.08, "entsoe_solar_SE1": 2.61, "entsoe_solar_SE2": 2.38, "entsoe_solar_SE3": 2.23, "entsoe_solar_SE4": 2.11}, "ratio": {"south_lundby": 0.74, "ew_boda": 1.14, "tracker_sweden": 1.11, "entsoe_solar_SE1": 0.94, "entsoe_solar_SE2": 0.86, "entsoe_solar_SE3": 0.81, "entsoe_solar_SE4": 0.76}, "records": 2880}, {"year": 2025, "month": 7, "baseload": 12.14, "capture": {"south_lundby": 11.49, "ew_boda": 12.88, "tracker_sweden": 12.01, "entsoe_solar_SE1": 12.5, "entsoe_solar_SE2": 12.76, "entsoe_solar_SE3": 13.01, "entsoe_solar_SE4": 13.1}, "ratio": {"south_lundby": 0.95, "ew_boda": 1.06, "tracker_sweden": 0.99, "entsoe_solar_SE1": 1.03, "entsoe_solar_SE2": 1.05, "entsoe_solar_SE3": 1.07, "entsoe_solar_SE4": 1.08}, "records": 2976}, {"year": 2025, "month": 8, "baseload": 21.32, "capture": {"south_lundby": 23.31, "ew_boda": 20.96, "tracker_sweden": 22.41, "entsoe_solar_SE1": 19.97, "entsoe_solar_SE2": 20.34, "entsoe_solar_SE3": 19.18, "entsoe_solar_SE4": 19.8}, "ratio": {"south_lundby": 1.09, "ew_boda": 0.98, "tracker_sweden": 1.05, "entsoe_solar_SE1": 0.94, "entsoe_solar_SE2": 0.95, "entsoe_solar_SE3": 0.9, "entsoe_solar_SE4": 0.93}, "records": 2976}, {"year": 2025, "month": 9, "baseload": 15.72, "capture": {"south_lundby": 17.0, "ew_boda": 20.08, "tracker_sweden": 17.21, "entsoe_solar_SE1": 19.06, "entsoe_solar_SE2": 17.75, "entsoe_solar_SE3": 17.15, "entsoe_solar_SE4": 16.88}, "ratio": {"south_lundby": 1.08, "ew_boda": 1.28, "tracker_sweden": 1.1, "entsoe_solar_SE1": 1.21, "entsoe_solar_SE2": 1.13, "entsoe_solar_SE3": 1.09, "entsoe_solar_SE4": 1.07}, "records": 2880}, {"year": 2025, "month": 10, "baseload": 12.96, "capture": {"south_lundby": 17.34, "ew_boda": 13.88, "tracker_sweden": 16.8, "entsoe_solar_SE1": 9.98, "entsoe_solar_SE2": 11.27, "entsoe_solar_SE3": 11.6, "entsoe_solar_SE4": 11.85}, "ratio": {"south_lundby": 1.34, "ew_boda": 1.07, "tracker_sweden": 1.3, "entsoe_solar_SE1": 0.77, "entsoe_solar_SE2": 0.87, "entsoe_solar_SE3": 0.9, "entsoe_solar_SE4": 0.91}, "records": 2983}, {"year": 2025, "month": 11, "baseload": 33.63, "capture": {"south_lundby": 28.23, "ew_boda": 28.59, "tracker_sweden": 34.21, "entsoe_solar_SE1": 29.03, "entsoe_solar_SE2": 27.59, "entsoe_solar_SE3": 36.22, "entsoe_solar_SE4": 36.38}, "ratio": {"south_lundby": 0.84, "ew_boda": 0.85, "tracker_sweden": 1.02, "entsoe_solar_SE1": 0.86, "entsoe_solar_SE2": 0.82, "entsoe_solar_SE3": 1.08, "entsoe_solar_SE4": 1.08}, "records": 2880}, {"year": 2025, "month": 12, "baseload": 28.98, "capture": {"south_lundby": 35.06, "ew_boda": 32.93, "tracker_sweden": 43.45, "entsoe_solar_SE1": 38.76, "entsoe_solar_SE2": 38.31, "entsoe_solar_SE3": 31.46, "entsoe_solar_SE4": 31.77}, "ratio": {"south_lundby": 1.21, "ew_boda": 1.14, "tracker_sweden": 1.5, "entsoe_solar_SE1": 1.34, "entsoe_solar_SE2": 1.32, "entsoe_solar_SE3": 1.09, "entsoe_solar_SE4": 1.1}, "records": 2976}, {"year": 2026, "month": 1, "baseload": 87.91, "capture": {"south_lundby": 84.67, "ew_boda": 100.7, "tracker_sweden": 101.34, "entsoe_solar_SE1": 107.65, "entsoe_solar_SE2": 82.65, "entsoe_solar_SE3": 104.17, "entsoe_solar_SE4": 104.07}, "ratio": {"south_lundby": 0.96, "ew_boda": 1.15, "tracker_sweden": 1.15, "entsoe_solar_SE1": 1.22, "entsoe_solar_SE2": 0.94, "entsoe_solar_SE3": 1.18, "entsoe_solar_SE4": 1.18}, "records": 2976}, {"year": 2026, "month": 2, "baseload": 92.92, "capture": {"south_lundby": 103.24, "ew_boda": 98.07, "tracker_sweden": 86.34, "entsoe_solar_SE1": 95.0, "entsoe_solar_SE2": 95.99, "entsoe_solar_SE3": 101.06, "entsoe_solar_SE4": 99.36}, "ratio": {"south_lundby": 1.11, "ew_boda": 1.06, "tracker_sweden": 0.93, "entsoe_solar_SE1": 1.02, "entsoe_solar_SE2": 1.03, "entsoe_solar_SE3": 1.09, "entsoe_solar_SE4": 1.07}, "records": 2688}, {"year": 2026, "month": 3, "baseload": 22.82, "capture": {"south_lundby": 28.76, "ew_boda": 23.52, "tracker_sweden": 21.63, "entsoe_solar_SE1": 22.9, "entsoe_solar_SE2": 22.77, "entsoe_solar_SE3": 23.84, "entsoe_solar_SE4": 24.53}, "ratio": {"south_lundby": 1.26, "ew_boda": 1.03, "tracker_sweden": 0.95, "entsoe_solar_SE1": 1.0, "entsoe_solar_SE2": 1.0, "entsoe_solar_SE3": 1.04, "entsoe_solar_SE4": 1.07}, "records": 1920}], "SE2": [{"year": 2021, "month": 11, "baseload": 43.04, "capture": {"south_lundby": 31.29, "ew_boda": 43.67, "tracker_sweden": 46.82, "entsoe_solar_SE1": 22.64, "entsoe_solar_SE2": 26.88, "entsoe_solar_SE3": 29.78, "entsoe_solar_SE4": 36.34}, "ratio": {"south_lundby": 0.73, "ew_boda": 1.01, "tracker_sweden": 1.09, "entsoe_solar_SE1": 0.53, "entsoe_solar_SE2": 0.62, "entsoe_solar_SE3": 0.69, "entsoe_solar_SE4": 0.84}, "records": 2880}, {"year": 2021, "month": 12, "baseload": 64.85, "capture": {"south_lundby": 80.23, "ew_boda": 58.6, "tracker_sweden": 77.68, "entsoe_solar_SE1": 79.4, "entsoe_solar_SE2": 84.17, "entsoe_solar_SE3": 70.78, "entsoe_solar_SE4": 70.36}, "ratio": {"south_lundby": 1.24, "ew_boda": 0.9, "tracker_sweden": 1.2, "entsoe_solar_SE1": 1.22, "entsoe_solar_SE2": 1.3, "entsoe_solar_SE3": 1.09, "entsoe_solar_SE4": 1.09}, "records": 2976}, {"year": 2022, "month": 1, "baseload": 28.08, "capture": {"south_lundby": 33.87, "ew_boda": 27.27, "tracker_sweden": 24.74, "entsoe_solar_SE1": 27.27, "entsoe_solar_SE2": 44.76, "entsoe_solar_SE3": 27.62, "entsoe_solar_SE4": 27.45}, "ratio": {"south_lundby": 1.21, "ew_boda": 0.97, "tracker_sweden": 0.88, "entsoe_solar_SE1": 0.97, "entsoe_solar_SE2": 1.59, "entsoe_solar_SE3": 0.98, "entsoe_solar_SE4": 0.98}, "records": 2976}, {"year": 2022, "month": 2, "baseload": 24.5, "capture": {"south_lundby": 33.82, "ew_boda": 31.28, "tracker_sweden": 27.77, "entsoe_solar_SE1": 28.0, "entsoe_solar_SE2": 28.57, "entsoe_solar_SE3": 32.28, "entsoe_solar_SE4": 34.73}, "ratio": {"south_lundby": 1.38, "ew_boda": 1.28, "tracker_sweden": 1.13, "entsoe_solar_SE1": 1.14, "entsoe_solar_SE2": 1.17, "entsoe_solar_SE3": 1.32, "entsoe_solar_SE4": 1.42}, "records": 2688}, {"year": 2022, "month": 3, "baseload": 21.78, "capture": {"south_lundby": 21.95, "ew_boda": 24.95, "tracker_sweden": 27.51, "entsoe_solar_SE1": 23.41, "entsoe_solar_SE2": 24.59, "entsoe_solar_SE3": 24.11, "entsoe_solar_SE4": 23.8}, "ratio": {"south_lundby": 1.01, "ew_boda": 1.15, "tracker_sweden": 1.26, "entsoe_solar_SE1": 1.07, "entsoe_solar_SE2": 1.13, "entsoe_solar_SE3": 1.11, "entsoe_solar_SE4": 1.09}, "records": 2972}, {"year": 2022, "month": 4, "baseload": 51.94, "capture": {"south_lundby": 58.6, "ew_boda": 53.36, "tracker_sweden": 55.34, "entsoe_solar_SE1": 56.44, "entsoe_solar_SE2": 54.78, "entsoe_solar_SE3": 53.21, "entsoe_solar_SE4": 51.83}, "ratio": {"south_lundby": 1.13, "ew_boda": 1.03, "tracker_sweden": 1.07, "entsoe_solar_SE1": 1.09, "entsoe_solar_SE2": 1.05, "entsoe_solar_SE3": 1.02, "entsoe_solar_SE4": 1.0}, "records": 2880}, {"year": 2022, "month": 5, "baseload": 55.16, "capture": {"south_lundby": 63.99, "ew_boda": 73.89, "tracker_sweden": 66.17, "entsoe_solar_SE1": 70.45, "entsoe_solar_SE2": 69.65, "entsoe_solar_SE3": 69.98, "entsoe_solar_SE4": 69.44}, "ratio": {"south_lundby": 1.16, "ew_boda": 1.34, "tracker_sweden": 1.2, "entsoe_solar_SE1": 1.28, "entsoe_solar_SE2": 1.26, "entsoe_solar_SE3": 1.27, "entsoe_solar_SE4": 1.26}, "records": 2976}, {"year": 2022, "month": 6, "baseload": 48.38, "capture": {"south_lundby": 52.04, "ew_boda": 59.39, "tracker_sweden": 55.49, "entsoe_solar_SE1": 55.48, "entsoe_solar_SE2": 55.52, "entsoe_solar_SE3": 55.48, "entsoe_solar_SE4": 55.14}, "ratio": {"south_lundby": 1.08, "ew_boda": 1.23, "tracker_sweden": 1.15, "entsoe_solar_SE1": 1.15, "entsoe_solar_SE2": 1.15, "entsoe_solar_SE3": 1.15, "entsoe_solar_SE4": 1.14}, "records": 2880}, {"year": 2022, "month": 7, "baseload": 21.34, "capture": {"south_lundby": 24.37, "ew_boda": 26.44, "tracker_sweden": 21.96, "entsoe_solar_SE1": 24.97, "entsoe_solar_SE2": 26.29, "entsoe_solar_SE3": 27.68, "entsoe_solar_SE4": 27.01}, "ratio": {"south_lundby": 1.14, "ew_boda": 1.24, "tracker_sweden": 1.03, "entsoe_solar_SE1": 1.17, "entsoe_solar_SE2": 1.23, "entsoe_solar_SE3": 1.3, "entsoe_solar_SE4": 1.27}, "records": 2976}, {"year": 2022, "month": 8, "baseload": 49.45, "capture": {"south_lundby": 56.04, "ew_boda": 52.95, "tracker_sweden": 55.29, "entsoe_solar_SE1": 58.52, "entsoe_solar_SE2": 58.35, "entsoe_solar_SE3": 56.73, "entsoe_solar_SE4": 58.09}, "ratio": {"south_lundby": 1.13, "ew_boda": 1.07, "tracker_sweden": 1.12, "entsoe_solar_SE1": 1.18, "entsoe_solar_SE2": 1.18, "entsoe_solar_SE3": 1.15, "entsoe_solar_SE4": 1.17}, "records": 2976}, {"year": 2022, "month": 9, "baseload": 93.35, "capture": {"south_lundby": 107.84, "ew_boda": 94.27, "tracker_sweden": 111.95, "entsoe_solar_SE1": 106.6, "entsoe_solar_SE2": 108.23, "entsoe_solar_SE3": 108.0, "entsoe_solar_SE4": 106.57}, "ratio": {"south_lundby": 1.16, "ew_boda": 1.01, "tracker_sweden": 1.2, "entsoe_solar_SE1": 1.14, "entsoe_solar_SE2": 1.16, "entsoe_solar_SE3": 1.16, "entsoe_solar_SE4": 1.14}, "records": 2868}, {"year": 2022, "month": 10, "baseload": 46.82, "capture": {"south_lundby": 42.12, "ew_boda": 55.51, "tracker_sweden": 58.25, "entsoe_solar_SE1": 55.98, "entsoe_solar_SE2": 56.86, "entsoe_solar_SE3": 54.39, "entsoe_solar_SE4": 54.9}, "ratio": {"south_lundby": 0.9, "ew_boda": 1.19, "tracker_sweden": 1.24, "entsoe_solar_SE1": 1.2, "entsoe_solar_SE2": 1.21, "entsoe_solar_SE3": 1.16, "entsoe_solar_SE4": 1.17}, "records": 2976}, {"year": 2022, "month": 11, "baseload": 111.9, "capture": {"south_lundby": 75.56, "ew_boda": 102.17, "tracker_sweden": 127.48, "entsoe_solar_SE1": 72.11, "entsoe_solar_SE2": 77.87, "entsoe_solar_SE3": 99.01, "entsoe_solar_SE4": 110.15}, "ratio": {"south_lundby": 0.68, "ew_boda": 0.91, "tracker_sweden": 1.14, "entsoe_solar_SE1": 0.64, "entsoe_solar_SE2": 0.7, "entsoe_solar_SE3": 0.88, "entsoe_solar_SE4": 0.98}, "records": 2880}, {"year": 2022, "month": 12, "baseload": 188.31, "capture": {"south_lundby": 267.59, "ew_boda": 218.36, "tracker_sweden": 196.27, "entsoe_solar_SE1": 199.84, "entsoe_solar_SE2": 215.1, "entsoe_solar_SE3": 172.08, "entsoe_solar_SE4": 179.52}, "ratio": {"south_lundby": 1.42, "ew_boda": 1.16, "tracker_sweden": 1.04, "entsoe_solar_SE1": 1.06, "entsoe_solar_SE2": 1.14, "entsoe_solar_SE3": 0.91, "entsoe_solar_SE4": 0.95}, "records": 2976}, {"year": 2023, "month": 1, "baseload": 62.85, "capture": {"south_lundby": 69.4, "ew_boda": 65.05, "tracker_sweden": 63.39, "entsoe_solar_SE1": 60.33, "entsoe_solar_SE2": 79.41, "entsoe_solar_SE3": 67.38, "entsoe_solar_SE4": 74.47}, "ratio": {"south_lundby": 1.1, "ew_boda": 1.03, "tracker_sweden": 1.01, "entsoe_solar_SE1": 0.96, "entsoe_solar_SE2": 1.26, "entsoe_solar_SE3": 1.07, "entsoe_solar_SE4": 1.18}, "records": 2976}, {"year": 2023, "month": 2, "baseload": 46.46, "capture": {"south_lundby": 50.51, "ew_boda": 47.39, "tracker_sweden": 41.37, "entsoe_solar_SE1": 45.24, "entsoe_solar_SE2": 45.91, "entsoe_solar_SE3": 47.54, "entsoe_solar_SE4": 50.4}, "ratio": {"south_lundby": 1.09, "ew_boda": 1.02, "tracker_sweden": 0.89, "entsoe_solar_SE1": 0.97, "entsoe_solar_SE2": 0.99, "entsoe_solar_SE3": 1.02, "entsoe_solar_SE4": 1.08}, "records": 2688}, {"year": 2023, "month": 3, "baseload": 50.28, "capture": {"south_lundby": 57.94, "ew_boda": 55.2, "tracker_sweden": 54.0, "entsoe_solar_SE1": 53.84, "entsoe_solar_SE2": 55.4, "entsoe_solar_SE3": 55.42, "entsoe_solar_SE4": 55.71}, "ratio": {"south_lundby": 1.15, "ew_boda": 1.1, "tracker_sweden": 1.07, "entsoe_solar_SE1": 1.07, "entsoe_solar_SE2": 1.1, "entsoe_solar_SE3": 1.1, "entsoe_solar_SE4": 1.11}, "records": 2972}, {"year": 2023, "month": 4, "baseload": 58.63, "capture": {"south_lundby": 59.82, "ew_boda": 61.84, "tracker_sweden": 61.08, "entsoe_solar_SE1": 59.28, "entsoe_solar_SE2": 59.47, "entsoe_solar_SE3": 58.88, "entsoe_solar_SE4": 59.94}, "ratio": {"south_lundby": 1.02, "ew_boda": 1.05, "tracker_sweden": 1.04, "entsoe_solar_SE1": 1.01, "entsoe_solar_SE2": 1.01, "entsoe_solar_SE3": 1.0, "entsoe_solar_SE4": 1.02}, "records": 2880}, {"year": 2023, "month": 5, "baseload": 24.67, "capture": {"south_lundby": 31.62, "ew_boda": 25.62, "tracker_sweden": 23.64, "entsoe_solar_SE1": 23.57, "entsoe_solar_SE2": 23.18, "entsoe_solar_SE3": 24.35, "entsoe_solar_SE4": 25.71}, "ratio": {"south_lundby": 1.28, "ew_boda": 1.04, "tracker_sweden": 0.96, "entsoe_solar_SE1": 0.96, "entsoe_solar_SE2": 0.94, "entsoe_solar_SE3": 0.99, "entsoe_solar_SE4": 1.04}, "records": 2976}, {"year": 2023, "month": 6, "baseload": 44.19, "capture": {"south_lundby": 44.35, "ew_boda": 42.86, "tracker_sweden": 43.99, "entsoe_solar_SE1": 46.68, "entsoe_solar_SE2": 46.55, "entsoe_solar_SE3": 45.49, "entsoe_solar_SE4": 45.6}, "ratio": {"south_lundby": 1.0, "ew_boda": 0.97, "tracker_sweden": 1.0, "entsoe_solar_SE1": 1.06, "entsoe_solar_SE2": 1.05, "entsoe_solar_SE3": 1.03, "entsoe_solar_SE4": 1.03}, "records": 2880}, {"year": 2023, "month": 7, "baseload": 31.95, "capture": {"south_lundby": 33.28, "ew_boda": 30.92, "tracker_sweden": 32.65, "entsoe_solar_SE1": 31.34, "entsoe_solar_SE2": 31.4, "entsoe_solar_SE3": 30.47, "entsoe_solar_SE4": 30.4}, "ratio": {"south_lundby": 1.04, "ew_boda": 0.97, "tracker_sweden": 1.02, "entsoe_solar_SE1": 0.98, "entsoe_solar_SE2": 0.98, "entsoe_solar_SE3": 0.95, "entsoe_solar_SE4": 0.95}, "records": 2976}, {"year": 2023, "month": 8, "baseload": 20.07, "capture": {"south_lundby": 22.06, "ew_boda": 22.66, "tracker_sweden": 22.41, "entsoe_solar_SE1": 20.97, "entsoe_solar_SE2": 21.81, "entsoe_solar_SE3": 22.14, "entsoe_solar_SE4": 22.41}, "ratio": {"south_lundby": 1.1, "ew_boda": 1.13, "tracker_sweden": 1.12, "entsoe_solar_SE1": 1.05, "entsoe_solar_SE2": 1.09, "entsoe_solar_SE3": 1.1, "entsoe_solar_SE4": 1.12}, "records": 2976}, {"year": 2023, "month": 9, "baseload": 9.16, "capture": {"south_lundby": 12.71, "ew_boda": 12.04, "tracker_sweden": 12.62, "entsoe_solar_SE1": 12.78, "entsoe_solar_SE2": 12.33, "entsoe_solar_SE3": 12.15, "entsoe_solar_SE4": 12.3}, "ratio": {"south_lundby": 1.39, "ew_boda": 1.32, "tracker_sweden": 1.38, "entsoe_solar_SE1": 1.4, "entsoe_solar_SE2": 1.35, "entsoe_solar_SE3": 1.33, "entsoe_solar_SE4": 1.34}, "records": 2880}, {"year": 2023, "month": 10, "baseload": 14.99, "capture": {"south_lundby": 18.39, "ew_boda": 16.09, "tracker_sweden": 13.75, "entsoe_solar_SE1": 8.77, "entsoe_solar_SE2": 10.16, "entsoe_solar_SE3": 9.88, "entsoe_solar_SE4": 10.81}, "ratio": {"south_lundby": 1.23, "ew_boda": 1.07, "tracker_sweden": 0.92, "entsoe_solar_SE1": 0.58, "entsoe_solar_SE2": 0.68, "entsoe_solar_SE3": 0.66, "entsoe_solar_SE4": 0.72}, "records": 2980}, {"year": 2023, "month": 11, "baseload": 52.79, "capture": {"south_lundby": 54.41, "ew_boda": 52.51, "tracker_sweden": 56.65, "entsoe_solar_SE1": 55.44, "entsoe_solar_SE2": 54.93, "entsoe_solar_SE3": 61.92, "entsoe_solar_SE4": 59.88}, "ratio": {"south_lundby": 1.03, "ew_boda": 0.99, "tracker_sweden": 1.07, "entsoe_solar_SE1": 1.05, "entsoe_solar_SE2": 1.04, "entsoe_solar_SE3": 1.17, "entsoe_solar_SE4": 1.13}, "records": 2880}, {"year": 2023, "month": 12, "baseload": 64.54, "capture": {"south_lundby": 89.36, "ew_boda": 75.2, "tracker_sweden": 84.62, "entsoe_solar_SE1": 76.81, "entsoe_solar_SE2": 80.13, "entsoe_solar_SE3": 63.91, "entsoe_solar_SE4": 65.37}, "ratio": {"south_lundby": 1.38, "ew_boda": 1.17, "tracker_sweden": 1.31, "entsoe_solar_SE1": 1.19, "entsoe_solar_SE2": 1.24, "entsoe_solar_SE3": 0.99, "entsoe_solar_SE4": 1.01}, "records": 2976}, {"year": 2024, "month": 1, "baseload": 54.32, "capture": {"south_lundby": 76.11, "ew_boda": 54.42, "tracker_sweden": 57.58, "entsoe_solar_SE1": 54.21, "entsoe_solar_SE2": 36.46, "entsoe_solar_SE3": 51.72, "entsoe_solar_SE4": 57.02}, "ratio": {"south_lundby": 1.4, "ew_boda": 1.0, "tracker_sweden": 1.06, "entsoe_solar_SE1": 1.0, "entsoe_solar_SE2": 0.67, "entsoe_solar_SE3": 0.95, "entsoe_solar_SE4": 1.05}, "records": 2976}, {"year": 2024, "month": 2, "baseload": 39.9, "capture": {"south_lundby": 42.3, "ew_boda": 42.69, "tracker_sweden": 45.51, "entsoe_solar_SE1": 40.74, "entsoe_solar_SE2": 42.23, "entsoe_solar_SE3": 44.86, "entsoe_solar_SE4": 41.45}, "ratio": {"south_lundby": 1.06, "ew_boda": 1.07, "tracker_sweden": 1.14, "entsoe_solar_SE1": 1.02, "entsoe_solar_SE2": 1.06, "entsoe_solar_SE3": 1.12, "entsoe_solar_SE4": 1.04}, "records": 2784}, {"year": 2024, "month": 3, "baseload": 50.06, "capture": {"south_lundby": 51.77, "ew_boda": 49.85, "tracker_sweden": 49.53, "entsoe_solar_SE1": 49.97, "entsoe_solar_SE2": 48.86, "entsoe_solar_SE3": 49.88, "entsoe_solar_SE4": 49.77}, "ratio": {"south_lundby": 1.03, "ew_boda": 1.0, "tracker_sweden": 0.99, "entsoe_solar_SE1": 1.0, "entsoe_solar_SE2": 0.98, "entsoe_solar_SE3": 1.0, "entsoe_solar_SE4": 0.99}, "records": 2972}, {"year": 2024, "month": 4, "baseload": 43.75, "capture": {"south_lundby": 44.42, "ew_boda": 47.07, "tracker_sweden": 48.99, "entsoe_solar_SE1": 44.01, "entsoe_solar_SE2": 44.83, "entsoe_solar_SE3": 43.47, "entsoe_solar_SE4": 42.03}, "ratio": {"south_lundby": 1.02, "ew_boda": 1.08, "tracker_sweden": 1.12, "entsoe_solar_SE1": 1.01, "entsoe_solar_SE2": 1.02, "entsoe_solar_SE3": 0.99, "entsoe_solar_SE4": 0.96}, "records": 2880}, {"year": 2024, "month": 5, "baseload": 15.14, "capture": {"south_lundby": 14.52, "ew_boda": 14.68, "tracker_sweden": 12.74, "entsoe_solar_SE1": 12.81, "entsoe_solar_SE2": 12.64, "entsoe_solar_SE3": 12.83, "entsoe_solar_SE4": 13.45}, "ratio": {"south_lundby": 0.96, "ew_boda": 0.97, "tracker_sweden": 0.84, "entsoe_solar_SE1": 0.85, "entsoe_solar_SE2": 0.83, "entsoe_solar_SE3": 0.85, "entsoe_solar_SE4": 0.89}, "records": 2976}, {"year": 2024, "month": 6, "baseload": 21.29, "capture": {"south_lundby": 19.17, "ew_boda": 21.06, "tracker_sweden": 19.61, "entsoe_solar_SE1": 20.25, "entsoe_solar_SE2": 20.75, "entsoe_solar_SE3": 20.1, "entsoe_solar_SE4": 20.12}, "ratio": {"south_lundby": 0.9, "ew_boda": 0.99, "tracker_sweden": 0.92, "entsoe_solar_SE1": 0.95, "entsoe_solar_SE2": 0.97, "entsoe_solar_SE3": 0.94, "entsoe_solar_SE4": 0.94}, "records": 2880}, {"year": 2024, "month": 7, "baseload": 17.8, "capture": {"south_lundby": 16.61, "ew_boda": 17.57, "tracker_sweden": 16.71, "entsoe_solar_SE1": 17.26, "entsoe_solar_SE2": 16.82, "entsoe_solar_SE3": 16.8, "entsoe_solar_SE4": 16.3}, "ratio": {"south_lundby": 0.93, "ew_boda": 0.99, "tracker_sweden": 0.94, "entsoe_solar_SE1": 0.97, "entsoe_solar_SE2": 0.95, "entsoe_solar_SE3": 0.94, "entsoe_solar_SE4": 0.92}, "records": 2976}, {"year": 2024, "month": 8, "baseload": 7.38, "capture": {"south_lundby": 8.55, "ew_boda": 8.43, "tracker_sweden": 7.73, "entsoe_solar_SE1": 8.18, "entsoe_solar_SE2": 7.46, "entsoe_solar_SE3": 7.3, "entsoe_solar_SE4": 7.18}, "ratio": {"south_lundby": 1.16, "ew_boda": 1.14, "tracker_sweden": 1.05, "entsoe_solar_SE1": 1.11, "entsoe_solar_SE2": 1.01, "entsoe_solar_SE3": 0.99, "entsoe_solar_SE4": 0.97}, "records": 2976}, {"year": 2024, "month": 9, "baseload": 9.6, "capture": {"south_lundby": 10.59, "ew_boda": 10.91, "tracker_sweden": 10.38, "entsoe_solar_SE1": 9.9, "entsoe_solar_SE2": 9.89, "entsoe_solar_SE3": 10.3, "entsoe_solar_SE4": 10.05}, "ratio": {"south_lundby": 1.1, "ew_boda": 1.14, "tracker_sweden": 1.08, "entsoe_solar_SE1": 1.03, "entsoe_solar_SE2": 1.03, "entsoe_solar_SE3": 1.07, "entsoe_solar_SE4": 1.05}, "records": 2880}, {"year": 2024, "month": 10, "baseload": 11.9, "capture": {"south_lundby": 14.87, "ew_boda": 13.86, "tracker_sweden": 19.49, "entsoe_solar_SE1": 20.87, "entsoe_solar_SE2": 18.84, "entsoe_solar_SE3": 18.75, "entsoe_solar_SE4": 17.78}, "ratio": {"south_lundby": 1.25, "ew_boda": 1.16, "tracker_sweden": 1.64, "entsoe_solar_SE1": 1.75, "entsoe_solar_SE2": 1.58, "entsoe_solar_SE3": 1.58, "entsoe_solar_SE4": 1.49}, "records": 2980}, {"year": 2024, "month": 11, "baseload": 15.62, "capture": {"south_lundby": 20.58, "ew_boda": 16.12, "tracker_sweden": 16.39, "entsoe_solar_SE1": 14.85, "entsoe_solar_SE2": 12.73, "entsoe_solar_SE3": 14.3, "entsoe_solar_SE4": 14.52}, "ratio": {"south_lundby": 1.32, "ew_boda": 1.03, "tracker_sweden": 1.05, "entsoe_solar_SE1": 0.95, "entsoe_solar_SE2": 0.81, "entsoe_solar_SE3": 0.92, "entsoe_solar_SE4": 0.93}, "records": 2880}, {"year": 2024, "month": 12, "baseload": 9.74, "capture": {"south_lundby": 8.88, "ew_boda": 9.56, "tracker_sweden": 7.81, "entsoe_solar_SE1": 9.98, "entsoe_solar_SE2": 8.33, "entsoe_solar_SE3": 8.35, "entsoe_solar_SE4": 7.83}, "ratio": {"south_lundby": 0.91, "ew_boda": 0.98, "tracker_sweden": 0.8, "entsoe_solar_SE1": 1.03, "entsoe_solar_SE2": 0.86, "entsoe_solar_SE3": 0.86, "entsoe_solar_SE4": 0.8}, "records": 2976}, {"year": 2025, "month": 1, "baseload": 21.17, "capture": {"south_lundby": 17.88, "ew_boda": 27.28, "tracker_sweden": 24.24, "entsoe_solar_SE1": 24.31, "entsoe_solar_SE2": 70.14, "entsoe_solar_SE3": 26.68, "entsoe_solar_SE4": 26.96}, "ratio": {"south_lundby": 0.84, "ew_boda": 1.29, "tracker_sweden": 1.15, "entsoe_solar_SE1": 1.15, "entsoe_solar_SE2": 3.31, "entsoe_solar_SE3": 1.26, "entsoe_solar_SE4": 1.27}, "records": 2976}, {"year": 2025, "month": 2, "baseload": 12.8, "capture": {"south_lundby": 23.0, "ew_boda": 19.12, "tracker_sweden": 15.21, "entsoe_solar_SE1": 18.73, "entsoe_solar_SE2": 18.31, "entsoe_solar_SE3": 21.49, "entsoe_solar_SE4": 24.17}, "ratio": {"south_lundby": 1.8, "ew_boda": 1.49, "tracker_sweden": 1.19, "entsoe_solar_SE1": 1.46, "entsoe_solar_SE2": 1.43, "entsoe_solar_SE3": 1.68, "entsoe_solar_SE4": 1.89}, "records": 2688}, {"year": 2025, "month": 3, "baseload": 9.98, "capture": {"south_lundby": 11.16, "ew_boda": 11.06, "tracker_sweden": 9.83, "entsoe_solar_SE1": 11.54, "entsoe_solar_SE2": 11.36, "entsoe_solar_SE3": 10.74, "entsoe_solar_SE4": 10.2}, "ratio": {"south_lundby": 1.12, "ew_boda": 1.11, "tracker_sweden": 0.99, "entsoe_solar_SE1": 1.16, "entsoe_solar_SE2": 1.14, "entsoe_solar_SE3": 1.08, "entsoe_solar_SE4": 1.02}, "records": 2972}, {"year": 2025, "month": 4, "baseload": 12.91, "capture": {"south_lundby": 16.76, "ew_boda": 15.62, "tracker_sweden": 13.81, "entsoe_solar_SE1": 11.33, "entsoe_solar_SE2": 12.61, "entsoe_solar_SE3": 11.34, "entsoe_solar_SE4": 10.56}, "ratio": {"south_lundby": 1.3, "ew_boda": 1.21, "tracker_sweden": 1.07, "entsoe_solar_SE1": 0.88, "entsoe_solar_SE2": 0.98, "entsoe_solar_SE3": 0.88, "entsoe_solar_SE4": 0.82}, "records": 2880}, {"year": 2025, "month": 5, "baseload": 13.83, "capture": {"south_lundby": 13.13, "ew_boda": 11.45, "tracker_sweden": 6.71, "entsoe_solar_SE1": 11.29, "entsoe_solar_SE2": 9.82, "entsoe_solar_SE3": 10.63, "entsoe_solar_SE4": 12.56}, "ratio": {"south_lundby": 0.95, "ew_boda": 0.83, "tracker_sweden": 0.49, "entsoe_solar_SE1": 0.82, "entsoe_solar_SE2": 0.71, "entsoe_solar_SE3": 0.77, "entsoe_solar_SE4": 0.91}, "records": 2976}, {"year": 2025, "month": 6, "baseload": 4.54, "capture": {"south_lundby": 3.61, "ew_boda": 5.77, "tracker_sweden": 5.16, "entsoe_solar_SE1": 4.44, "entsoe_solar_SE2": 4.04, "entsoe_solar_SE3": 3.68, "entsoe_solar_SE4": 3.44}, "ratio": {"south_lundby": 0.79, "ew_boda": 1.27, "tracker_sweden": 1.14, "entsoe_solar_SE1": 0.98, "entsoe_solar_SE2": 0.89, "entsoe_solar_SE3": 0.81, "entsoe_solar_SE4": 0.76}, "records": 2880}, {"year": 2025, "month": 7, "baseload": 14.25, "capture": {"south_lundby": 14.54, "ew_boda": 14.99, "tracker_sweden": 15.8, "entsoe_solar_SE1": 15.62, "entsoe_solar_SE2": 15.76, "entsoe_solar_SE3": 15.86, "entsoe_solar_SE4": 15.94}, "ratio": {"south_lundby": 1.02, "ew_boda": 1.05, "tracker_sweden": 1.11, "entsoe_solar_SE1": 1.1, "entsoe_solar_SE2": 1.11, "entsoe_solar_SE3": 1.11, "entsoe_solar_SE4": 1.12}, "records": 2976}, {"year": 2025, "month": 8, "baseload": 20.7, "capture": {"south_lundby": 22.42, "ew_boda": 19.89, "tracker_sweden": 21.63, "entsoe_solar_SE1": 19.17, "entsoe_solar_SE2": 19.42, "entsoe_solar_SE3": 18.36, "entsoe_solar_SE4": 18.98}, "ratio": {"south_lundby": 1.08, "ew_boda": 0.96, "tracker_sweden": 1.05, "entsoe_solar_SE1": 0.93, "entsoe_solar_SE2": 0.94, "entsoe_solar_SE3": 0.89, "entsoe_solar_SE4": 0.92}, "records": 2976}, {"year": 2025, "month": 9, "baseload": 14.84, "capture": {"south_lundby": 16.92, "ew_boda": 21.02, "tracker_sweden": 15.82, "entsoe_solar_SE1": 19.17, "entsoe_solar_SE2": 18.76, "entsoe_solar_SE3": 17.97, "entsoe_solar_SE4": 17.03}, "ratio": {"south_lundby": 1.14, "ew_boda": 1.42, "tracker_sweden": 1.07, "entsoe_solar_SE1": 1.29, "entsoe_solar_SE2": 1.26, "entsoe_solar_SE3": 1.21, "entsoe_solar_SE4": 1.15}, "records": 2880}, {"year": 2025, "month": 10, "baseload": 12.29, "capture": {"south_lundby": 18.03, "ew_boda": 13.34, "tracker_sweden": 16.72, "entsoe_solar_SE1": 8.57, "entsoe_solar_SE2": 10.13, "entsoe_solar_SE3": 10.54, "entsoe_solar_SE4": 11.07}, "ratio": {"south_lundby": 1.47, "ew_boda": 1.09, "tracker_sweden": 1.36, "entsoe_solar_SE1": 0.7, "entsoe_solar_SE2": 0.82, "entsoe_solar_SE3": 0.86, "entsoe_solar_SE4": 0.9}, "records": 2983}, {"year": 2025, "month": 11, "baseload": 31.23, "capture": {"south_lundby": 26.23, "ew_boda": 26.57, "tracker_sweden": 32.31, "entsoe_solar_SE1": 26.74, "entsoe_solar_SE2": 25.24, "entsoe_solar_SE3": 34.18, "entsoe_solar_SE4": 34.37}, "ratio": {"south_lundby": 0.84, "ew_boda": 0.85, "tracker_sweden": 1.03, "entsoe_solar_SE1": 0.86, "entsoe_solar_SE2": 0.81, "entsoe_solar_SE3": 1.09, "entsoe_solar_SE4": 1.1}, "records": 2880}, {"year": 2025, "month": 12, "baseload": 29.39, "capture": {"south_lundby": 35.79, "ew_boda": 33.21, "tracker_sweden": 44.07, "entsoe_solar_SE1": 38.89, "entsoe_solar_SE2": 38.48, "entsoe_solar_SE3": 31.63, "entsoe_solar_SE4": 32.05}, "ratio": {"south_lundby": 1.22, "ew_boda": 1.13, "tracker_sweden": 1.5, "entsoe_solar_SE1": 1.32, "entsoe_solar_SE2": 1.31, "entsoe_solar_SE3": 1.08, "entsoe_solar_SE4": 1.09}, "records": 2976}, {"year": 2026, "month": 1, "baseload": 88.14, "capture": {"south_lundby": 84.86, "ew_boda": 99.99, "tracker_sweden": 101.91, "entsoe_solar_SE1": 106.18, "entsoe_solar_SE2": 84.6, "entsoe_solar_SE3": 103.5, "entsoe_solar_SE4": 104.1}, "ratio": {"south_lundby": 0.96, "ew_boda": 1.13, "tracker_sweden": 1.16, "entsoe_solar_SE1": 1.2, "entsoe_solar_SE2": 0.96, "entsoe_solar_SE3": 1.17, "entsoe_solar_SE4": 1.18}, "records": 2976}, {"year": 2026, "month": 2, "baseload": 92.65, "capture": {"south_lundby": 103.57, "ew_boda": 97.96, "tracker_sweden": 86.26, "entsoe_solar_SE1": 95.03, "entsoe_solar_SE2": 96.11, "entsoe_solar_SE3": 100.89, "entsoe_solar_SE4": 99.53}, "ratio": {"south_lundby": 1.12, "ew_boda": 1.06, "tracker_sweden": 0.93, "entsoe_solar_SE1": 1.03, "entsoe_solar_SE2": 1.04, "entsoe_solar_SE3": 1.09, "entsoe_solar_SE4": 1.07}, "records": 2688}, {"year": 2026, "month": 3, "baseload": 21.25, "capture": {"south_lundby": 29.72, "ew_boda": 22.74, "tracker_sweden": 20.28, "entsoe_solar_SE1": 22.23, "entsoe_solar_SE2": 22.12, "entsoe_solar_SE3": 23.77, "entsoe_solar_SE4": 24.64}, "ratio": {"south_lundby": 1.4, "ew_boda": 1.07, "tracker_sweden": 0.95, "entsoe_solar_SE1": 1.05, "entsoe_solar_SE2": 1.04, "entsoe_solar_SE3": 1.12, "entsoe_solar_SE4": 1.16}, "records": 1920}], "SE3": [{"year": 2021, "month": 11, "baseload": 82.5, "capture": {"south_lundby": 82.53, "ew_boda": 103.35, "tracker_sweden": 106.78, "entsoe_solar_SE1": 74.47, "entsoe_solar_SE2": 80.96, "entsoe_solar_SE3": 90.59, "entsoe_solar_SE4": 95.77}, "ratio": {"south_lundby": 1.0, "ew_boda": 1.25, "tracker_sweden": 1.29, "entsoe_solar_SE1": 0.9, "entsoe_solar_SE2": 0.98, "entsoe_solar_SE3": 1.1, "entsoe_solar_SE4": 1.16}, "records": 2876}, {"year": 2021, "month": 12, "baseload": 175.74, "capture": {"south_lundby": 240.57, "ew_boda": 217.85, "tracker_sweden": 197.62, "entsoe_solar_SE1": 218.82, "entsoe_solar_SE2": 191.25, "entsoe_solar_SE3": 214.35, "entsoe_solar_SE4": 199.43}, "ratio": {"south_lundby": 1.37, "ew_boda": 1.24, "tracker_sweden": 1.12, "entsoe_solar_SE1": 1.25, "entsoe_solar_SE2": 1.09, "entsoe_solar_SE3": 1.22, "entsoe_solar_SE4": 1.13}, "records": 2976}, {"year": 2022, "month": 1, "baseload": 100.89, "capture": {"south_lundby": 125.17, "ew_boda": 121.15, "tracker_sweden": 133.11, "entsoe_solar_SE1": 120.12, "entsoe_solar_SE2": 189.2, "entsoe_solar_SE3": 126.34, "entsoe_solar_SE4": 123.2}, "ratio": {"south_lundby": 1.24, "ew_boda": 1.2, "tracker_sweden": 1.32, "entsoe_solar_SE1": 1.19, "entsoe_solar_SE2": 1.88, "entsoe_solar_SE3": 1.25, "entsoe_solar_SE4": 1.22}, "records": 2976}, {"year": 2022, "month": 2, "baseload": 73.49, "capture": {"south_lundby": 76.11, "ew_boda": 86.85, "tracker_sweden": 91.2, "entsoe_solar_SE1": 87.33, "entsoe_solar_SE2": 85.79, "entsoe_solar_SE3": 85.97, "entsoe_solar_SE4": 87.19}, "ratio": {"south_lundby": 1.04, "ew_boda": 1.18, "tracker_sweden": 1.24, "entsoe_solar_SE1": 1.19, "entsoe_solar_SE2": 1.17, "entsoe_solar_SE3": 1.17, "entsoe_solar_SE4": 1.19}, "records": 2688}, {"year": 2022, "month": 3, "baseload": 122.9, "capture": {"south_lundby": 139.88, "ew_boda": 128.67, "tracker_sweden": 117.94, "entsoe_solar_SE1": 118.01, "entsoe_solar_SE2": 122.28, "entsoe_solar_SE3": 123.1, "entsoe_solar_SE4": 126.05}, "ratio": {"south_lundby": 1.14, "ew_boda": 1.05, "tracker_sweden": 0.96, "entsoe_solar_SE1": 0.96, "entsoe_solar_SE2": 0.99, "entsoe_solar_SE3": 1.0, "entsoe_solar_SE4": 1.03}, "records": 2972}, {"year": 2022, "month": 4, "baseload": 86.3, "capture": {"south_lundby": 94.37, "ew_boda": 101.55, "tracker_sweden": 99.13, "entsoe_solar_SE1": 98.21, "entsoe_solar_SE2": 93.26, "entsoe_solar_SE3": 95.72, "entsoe_solar_SE4": 95.52}, "ratio": {"south_lundby": 1.09, "ew_boda": 1.18, "tracker_sweden": 1.15, "entsoe_solar_SE1": 1.14, "entsoe_solar_SE2": 1.08, "entsoe_solar_SE3": 1.11, "entsoe_solar_SE4": 1.11}, "records": 2880}, {"year": 2022, "month": 5, "baseload": 98.15, "capture": {"south_lundby": 112.37, "ew_boda": 116.94, "tracker_sweden": 110.63, "entsoe_solar_SE1": 113.48, "entsoe_solar_SE2": 111.22, "entsoe_solar_SE3": 111.42, "entsoe_solar_SE4": 109.65}, "ratio": {"south_lundby": 1.14, "ew_boda": 1.19, "tracker_sweden": 1.13, "entsoe_solar_SE1": 1.16, "entsoe_solar_SE2": 1.13, "entsoe_solar_SE3": 1.14, "entsoe_solar_SE4": 1.12}, "records": 2976}, {"year": 2022, "month": 6, "baseload": 119.14, "capture": {"south_lundby": 137.7, "ew_boda": 141.09, "tracker_sweden": 141.55, "entsoe_solar_SE1": 147.45, "entsoe_solar_SE2": 145.19, "entsoe_solar_SE3": 144.94, "entsoe_solar_SE4": 144.61}, "ratio": {"south_lundby": 1.16, "ew_boda": 1.18, "tracker_sweden": 1.19, "entsoe_solar_SE1": 1.24, "entsoe_solar_SE2": 1.22, "entsoe_solar_SE3": 1.22, "entsoe_solar_SE4": 1.21}, "records": 2880}, {"year": 2022, "month": 7, "baseload": 81.79, "capture": {"south_lundby": 103.62, "ew_boda": 107.02, "tracker_sweden": 107.23, "entsoe_solar_SE1": 104.57, "entsoe_solar_SE2": 109.53, "entsoe_solar_SE3": 110.1, "entsoe_solar_SE4": 108.47}, "ratio": {"south_lundby": 1.27, "ew_boda": 1.31, "tracker_sweden": 1.31, "entsoe_solar_SE1": 1.28, "entsoe_solar_SE2": 1.34, "entsoe_solar_SE3": 1.35, "entsoe_solar_SE4": 1.33}, "records": 2976}, {"year": 2022, "month": 8, "baseload": 211.4, "capture": {"south_lundby": 252.51, "ew_boda": 275.91, "tracker_sweden": 266.53, "entsoe_solar_SE1": 270.53, "entsoe_solar_SE2": 285.35, "entsoe_solar_SE3": 282.19, "entsoe_solar_SE4": 288.08}, "ratio": {"south_lundby": 1.19, "ew_boda": 1.31, "tracker_sweden": 1.26, "entsoe_solar_SE1": 1.28, "entsoe_solar_SE2": 1.35, "entsoe_solar_SE3": 1.33, "entsoe_solar_SE4": 1.36}, "records": 2976}, {"year": 2022, "month": 9, "baseload": 212.3, "capture": {"south_lundby": 254.64, "ew_boda": 251.36, "tracker_sweden": 263.64, "entsoe_solar_SE1": 252.84, "entsoe_solar_SE2": 250.09, "entsoe_solar_SE3": 253.18, "entsoe_solar_SE4": 254.99}, "ratio": {"south_lundby": 1.2, "ew_boda": 1.18, "tracker_sweden": 1.24, "entsoe_solar_SE1": 1.19, "entsoe_solar_SE2": 1.18, "entsoe_solar_SE3": 1.19, "entsoe_solar_SE4": 1.2}, "records": 2880}, {"year": 2022, "month": 10, "baseload": 73.58, "capture": {"south_lundby": 65.65, "ew_boda": 87.17, "tracker_sweden": 87.64, "entsoe_solar_SE1": 86.45, "entsoe_solar_SE2": 88.39, "entsoe_solar_SE3": 87.35, "entsoe_solar_SE4": 89.49}, "ratio": {"south_lundby": 0.89, "ew_boda": 1.18, "tracker_sweden": 1.19, "entsoe_solar_SE1": 1.17, "entsoe_solar_SE2": 1.2, "entsoe_solar_SE3": 1.19, "entsoe_solar_SE4": 1.22}, "records": 2980}, {"year": 2022, "month": 11, "baseload": 120.04, "capture": {"south_lundby": 80.76, "ew_boda": 110.79, "tracker_sweden": 135.29, "entsoe_solar_SE1": 76.28, "entsoe_solar_SE2": 83.54, "entsoe_solar_SE3": 105.31, "entsoe_solar_SE4": 117.59}, "ratio": {"south_lundby": 0.67, "ew_boda": 0.92, "tracker_sweden": 1.13, "entsoe_solar_SE1": 0.64, "entsoe_solar_SE2": 0.7, "entsoe_solar_SE3": 0.88, "entsoe_solar_SE4": 0.98}, "records": 2880}, {"year": 2022, "month": 12, "baseload": 245.84, "capture": {"south_lundby": 333.14, "ew_boda": 318.65, "tracker_sweden": 252.04, "entsoe_solar_SE1": 264.57, "entsoe_solar_SE2": 267.94, "entsoe_solar_SE3": 231.13, "entsoe_solar_SE4": 242.55}, "ratio": {"south_lundby": 1.36, "ew_boda": 1.3, "tracker_sweden": 1.03, "entsoe_solar_SE1": 1.08, "entsoe_solar_SE2": 1.09, "entsoe_solar_SE3": 0.94, "entsoe_solar_SE4": 0.99}, "records": 2976}, {"year": 2023, "month": 1, "baseload": 82.72, "capture": {"south_lundby": 93.92, "ew_boda": 100.23, "tracker_sweden": 91.28, "entsoe_solar_SE1": 99.81, "entsoe_solar_SE2": 112.58, "entsoe_solar_SE3": 100.32, "entsoe_solar_SE4": 106.85}, "ratio": {"south_lundby": 1.14, "ew_boda": 1.21, "tracker_sweden": 1.1, "entsoe_solar_SE1": 1.21, "entsoe_solar_SE2": 1.36, "entsoe_solar_SE3": 1.21, "entsoe_solar_SE4": 1.29}, "records": 2976}, {"year": 2023, "month": 2, "baseload": 73.67, "capture": {"south_lundby": 93.03, "ew_boda": 73.52, "tracker_sweden": 72.99, "entsoe_solar_SE1": 80.67, "entsoe_solar_SE2": 79.52, "entsoe_solar_SE3": 79.17, "entsoe_solar_SE4": 80.04}, "ratio": {"south_lundby": 1.26, "ew_boda": 1.0, "tracker_sweden": 0.99, "entsoe_solar_SE1": 1.1, "entsoe_solar_SE2": 1.08, "entsoe_solar_SE3": 1.07, "entsoe_solar_SE4": 1.09}, "records": 2688}, {"year": 2023, "month": 3, "baseload": 71.79, "capture": {"south_lundby": 80.77, "ew_boda": 77.98, "tracker_sweden": 75.14, "entsoe_solar_SE1": 73.1, "entsoe_solar_SE2": 74.13, "entsoe_solar_SE3": 76.96, "entsoe_solar_SE4": 78.67}, "ratio": {"south_lundby": 1.13, "ew_boda": 1.09, "tracker_sweden": 1.05, "entsoe_solar_SE1": 1.02, "entsoe_solar_SE2": 1.03, "entsoe_solar_SE3": 1.07, "entsoe_solar_SE4": 1.1}, "records": 2972}, {"year": 2023, "month": 4, "baseload": 60.6, "capture": {"south_lundby": 60.93, "ew_boda": 63.91, "tracker_sweden": 62.93, "entsoe_solar_SE1": 60.12, "entsoe_solar_SE2": 60.35, "entsoe_solar_SE3": 59.75, "entsoe_solar_SE4": 60.73}, "ratio": {"south_lundby": 1.01, "ew_boda": 1.05, "tracker_sweden": 1.04, "entsoe_solar_SE1": 0.99, "entsoe_solar_SE2": 1.0, "entsoe_solar_SE3": 0.99, "entsoe_solar_SE4": 1.0}, "records": 2880}, {"year": 2023, "month": 5, "baseload": 34.44, "capture": {"south_lundby": 39.96, "ew_boda": 37.05, "tracker_sweden": 35.44, "entsoe_solar_SE1": 33.98, "entsoe_solar_SE2": 32.97, "entsoe_solar_SE3": 34.1, "entsoe_solar_SE4": 34.72}, "ratio": {"south_lundby": 1.16, "ew_boda": 1.08, "tracker_sweden": 1.03, "entsoe_solar_SE1": 0.99, "entsoe_solar_SE2": 0.96, "entsoe_solar_SE3": 0.99, "entsoe_solar_SE4": 1.01}, "records": 2976}, {"year": 2023, "month": 6, "baseload": 45.43, "capture": {"south_lundby": 45.36, "ew_boda": 44.29, "tracker_sweden": 45.68, "entsoe_solar_SE1": 47.87, "entsoe_solar_SE2": 47.8, "entsoe_solar_SE3": 46.85, "entsoe_solar_SE4": 46.91}, "ratio": {"south_lundby": 1.0, "ew_boda": 0.97, "tracker_sweden": 1.01, "entsoe_solar_SE1": 1.05, "entsoe_solar_SE2": 1.05, "entsoe_solar_SE3": 1.03, "entsoe_solar_SE4": 1.03}, "records": 2880}, {"year": 2023, "month": 7, "baseload": 32.16, "capture": {"south_lundby": 33.47, "ew_boda": 31.12, "tracker_sweden": 33.0, "entsoe_solar_SE1": 31.62, "entsoe_solar_SE2": 31.67, "entsoe_solar_SE3": 30.69, "entsoe_solar_SE4": 30.59}, "ratio": {"south_lundby": 1.04, "ew_boda": 0.97, "tracker_sweden": 1.03, "entsoe_solar_SE1": 0.98, "entsoe_solar_SE2": 0.98, "entsoe_solar_SE3": 0.95, "entsoe_solar_SE4": 0.95}, "records": 2976}, {"year": 2023, "month": 8, "baseload": 31.15, "capture": {"south_lundby": 31.62, "ew_boda": 33.0, "tracker_sweden": 31.09, "entsoe_solar_SE1": 28.81, "entsoe_solar_SE2": 30.58, "entsoe_solar_SE3": 31.06, "entsoe_solar_SE4": 31.82}, "ratio": {"south_lundby": 1.02, "ew_boda": 1.06, "tracker_sweden": 1.0, "entsoe_solar_SE1": 0.92, "entsoe_solar_SE2": 0.98, "entsoe_solar_SE3": 1.0, "entsoe_solar_SE4": 1.02}, "records": 2976}, {"year": 2023, "month": 9, "baseload": 20.45, "capture": {"south_lundby": 28.38, "ew_boda": 27.36, "tracker_sweden": 29.01, "entsoe_solar_SE1": 30.43, "entsoe_solar_SE2": 29.34, "entsoe_solar_SE3": 27.37, "entsoe_solar_SE4": 27.32}, "ratio": {"south_lundby": 1.39, "ew_boda": 1.34, "tracker_sweden": 1.42, "entsoe_solar_SE1": 1.49, "entsoe_solar_SE2": 1.43, "entsoe_solar_SE3": 1.34, "entsoe_solar_SE4": 1.34}, "records": 2880}, {"year": 2023, "month": 10, "baseload": 28.28, "capture": {"south_lundby": 44.54, "ew_boda": 41.72, "tracker_sweden": 27.78, "entsoe_solar_SE1": 25.37, "entsoe_solar_SE2": 23.65, "entsoe_solar_SE3": 25.39, "entsoe_solar_SE4": 26.84}, "ratio": {"south_lundby": 1.57, "ew_boda": 1.48, "tracker_sweden": 0.98, "entsoe_solar_SE1": 0.9, "entsoe_solar_SE2": 0.84, "entsoe_solar_SE3": 0.9, "entsoe_solar_SE4": 0.95}, "records": 2980}, {"year": 2023, "month": 11, "baseload": 71.31, "capture": {"south_lundby": 70.64, "ew_boda": 69.95, "tracker_sweden": 76.9, "entsoe_solar_SE1": 67.41, "entsoe_solar_SE2": 67.69, "entsoe_solar_SE3": 74.34, "entsoe_solar_SE4": 76.53}, "ratio": {"south_lundby": 0.99, "ew_boda": 0.98, "tracker_sweden": 1.08, "entsoe_solar_SE1": 0.95, "entsoe_solar_SE2": 0.95, "entsoe_solar_SE3": 1.04, "entsoe_solar_SE4": 1.07}, "records": 2880}, {"year": 2023, "month": 12, "baseload": 70.34, "capture": {"south_lundby": 101.8, "ew_boda": 79.26, "tracker_sweden": 93.67, "entsoe_solar_SE1": 86.55, "entsoe_solar_SE2": 92.62, "entsoe_solar_SE3": 71.8, "entsoe_solar_SE4": 76.38}, "ratio": {"south_lundby": 1.45, "ew_boda": 1.13, "tracker_sweden": 1.33, "entsoe_solar_SE1": 1.23, "entsoe_solar_SE2": 1.32, "entsoe_solar_SE3": 1.02, "entsoe_solar_SE4": 1.09}, "records": 2976}, {"year": 2024, "month": 1, "baseload": 71.24, "capture": {"south_lundby": 86.85, "ew_boda": 71.83, "tracker_sweden": 70.79, "entsoe_solar_SE1": 77.18, "entsoe_solar_SE2": 76.95, "entsoe_solar_SE3": 71.66, "entsoe_solar_SE4": 75.84}, "ratio": {"south_lundby": 1.22, "ew_boda": 1.01, "tracker_sweden": 0.99, "entsoe_solar_SE1": 1.08, "entsoe_solar_SE2": 1.08, "entsoe_solar_SE3": 1.01, "entsoe_solar_SE4": 1.06}, "records": 2976}, {"year": 2024, "month": 2, "baseload": 44.71, "capture": {"south_lundby": 50.05, "ew_boda": 46.32, "tracker_sweden": 53.63, "entsoe_solar_SE1": 46.09, "entsoe_solar_SE2": 46.9, "entsoe_solar_SE3": 49.19, "entsoe_solar_SE4": 45.41}, "ratio": {"south_lundby": 1.12, "ew_boda": 1.04, "tracker_sweden": 1.2, "entsoe_solar_SE1": 1.03, "entsoe_solar_SE2": 1.05, "entsoe_solar_SE3": 1.1, "entsoe_solar_SE4": 1.02}, "records": 2784}, {"year": 2024, "month": 3, "baseload": 52.6, "capture": {"south_lundby": 52.64, "ew_boda": 51.95, "tracker_sweden": 51.06, "entsoe_solar_SE1": 52.57, "entsoe_solar_SE2": 50.7, "entsoe_solar_SE3": 51.51, "entsoe_solar_SE4": 51.43}, "ratio": {"south_lundby": 1.0, "ew_boda": 0.99, "tracker_sweden": 0.97, "entsoe_solar_SE1": 1.0, "entsoe_solar_SE2": 0.96, "entsoe_solar_SE3": 0.98, "entsoe_solar_SE4": 0.98}, "records": 2972}, {"year": 2024, "month": 4, "baseload": 48.5, "capture": {"south_lundby": 48.87, "ew_boda": 51.13, "tracker_sweden": 53.57, "entsoe_solar_SE1": 46.84, "entsoe_solar_SE2": 47.79, "entsoe_solar_SE3": 46.28, "entsoe_solar_SE4": 44.69}, "ratio": {"south_lundby": 1.01, "ew_boda": 1.05, "tracker_sweden": 1.1, "entsoe_solar_SE1": 0.97, "entsoe_solar_SE2": 0.99, "entsoe_solar_SE3": 0.95, "entsoe_solar_SE4": 0.92}, "records": 2880}, {"year": 2024, "month": 5, "baseload": 20.37, "capture": {"south_lundby": 18.41, "ew_boda": 19.05, "tracker_sweden": 16.52, "entsoe_solar_SE1": 17.26, "entsoe_solar_SE2": 16.6, "entsoe_solar_SE3": 17.06, "entsoe_solar_SE4": 18.26}, "ratio": {"south_lundby": 0.9, "ew_boda": 0.94, "tracker_sweden": 0.81, "entsoe_solar_SE1": 0.85, "entsoe_solar_SE2": 0.81, "entsoe_solar_SE3": 0.84, "entsoe_solar_SE4": 0.9}, "records": 2976}, {"year": 2024, "month": 6, "baseload": 24.15, "capture": {"south_lundby": 22.62, "ew_boda": 24.46, "tracker_sweden": 22.07, "entsoe_solar_SE1": 23.1, "entsoe_solar_SE2": 23.44, "entsoe_solar_SE3": 22.76, "entsoe_solar_SE4": 22.68}, "ratio": {"south_lundby": 0.94, "ew_boda": 1.01, "tracker_sweden": 0.91, "entsoe_solar_SE1": 0.96, "entsoe_solar_SE2": 0.97, "entsoe_solar_SE3": 0.94, "entsoe_solar_SE4": 0.94}, "records": 2880}, {"year": 2024, "month": 7, "baseload": 18.0, "capture": {"south_lundby": 16.87, "ew_boda": 17.8, "tracker_sweden": 16.94, "entsoe_solar_SE1": 17.51, "entsoe_solar_SE2": 17.02, "entsoe_solar_SE3": 17.02, "entsoe_solar_SE4": 16.55}, "ratio": {"south_lundby": 0.94, "ew_boda": 0.99, "tracker_sweden": 0.94, "entsoe_solar_SE1": 0.97, "entsoe_solar_SE2": 0.95, "entsoe_solar_SE3": 0.95, "entsoe_solar_SE4": 0.92}, "records": 2976}, {"year": 2024, "month": 8, "baseload": 7.41, "capture": {"south_lundby": 8.57, "ew_boda": 8.48, "tracker_sweden": 7.74, "entsoe_solar_SE1": 8.23, "entsoe_solar_SE2": 7.5, "entsoe_solar_SE3": 7.34, "entsoe_solar_SE4": 7.22}, "ratio": {"south_lundby": 1.16, "ew_boda": 1.15, "tracker_sweden": 1.05, "entsoe_solar_SE1": 1.11, "entsoe_solar_SE2": 1.01, "entsoe_solar_SE3": 0.99, "entsoe_solar_SE4": 0.97}, "records": 2976}, {"year": 2024, "month": 9, "baseload": 14.49, "capture": {"south_lundby": 17.39, "ew_boda": 18.67, "tracker_sweden": 20.09, "entsoe_solar_SE1": 16.24, "entsoe_solar_SE2": 14.86, "entsoe_solar_SE3": 16.07, "entsoe_solar_SE4": 16.15}, "ratio": {"south_lundby": 1.2, "ew_boda": 1.29, "tracker_sweden": 1.39, "entsoe_solar_SE1": 1.12, "entsoe_solar_SE2": 1.03, "entsoe_solar_SE3": 1.11, "entsoe_solar_SE4": 1.12}, "records": 2880}, {"year": 2024, "month": 10, "baseload": 20.19, "capture": {"south_lundby": 28.82, "ew_boda": 25.99, "tracker_sweden": 30.98, "entsoe_solar_SE1": 27.66, "entsoe_solar_SE2": 27.55, "entsoe_solar_SE3": 26.59, "entsoe_solar_SE4": 24.76}, "ratio": {"south_lundby": 1.43, "ew_boda": 1.29, "tracker_sweden": 1.53, "entsoe_solar_SE1": 1.37, "entsoe_solar_SE2": 1.36, "entsoe_solar_SE3": 1.32, "entsoe_solar_SE4": 1.23}, "records": 2980}, {"year": 2024, "month": 11, "baseload": 57.76, "capture": {"south_lundby": 70.78, "ew_boda": 61.16, "tracker_sweden": 78.88, "entsoe_solar_SE1": 61.81, "entsoe_solar_SE2": 55.52, "entsoe_solar_SE3": 57.64, "entsoe_solar_SE4": 60.7}, "ratio": {"south_lundby": 1.23, "ew_boda": 1.06, "tracker_sweden": 1.37, "entsoe_solar_SE1": 1.07, "entsoe_solar_SE2": 0.96, "entsoe_solar_SE3": 1.0, "entsoe_solar_SE4": 1.05}, "records": 2880}, {"year": 2024, "month": 12, "baseload": 50.54, "capture": {"south_lundby": 78.62, "ew_boda": 69.86, "tracker_sweden": 69.81, "entsoe_solar_SE1": 65.17, "entsoe_solar_SE2": 58.8, "entsoe_solar_SE3": 52.06, "entsoe_solar_SE4": 52.6}, "ratio": {"south_lundby": 1.56, "ew_boda": 1.38, "tracker_sweden": 1.38, "entsoe_solar_SE1": 1.29, "entsoe_solar_SE2": 1.16, "entsoe_solar_SE3": 1.03, "entsoe_solar_SE4": 1.04}, "records": 2976}, {"year": 2025, "month": 1, "baseload": 55.25, "capture": {"south_lundby": 73.14, "ew_boda": 67.24, "tracker_sweden": 68.19, "entsoe_solar_SE1": 66.42, "entsoe_solar_SE2": 85.23, "entsoe_solar_SE3": 72.18, "entsoe_solar_SE4": 77.58}, "ratio": {"south_lundby": 1.32, "ew_boda": 1.22, "tracker_sweden": 1.23, "entsoe_solar_SE1": 1.2, "entsoe_solar_SE2": 1.54, "entsoe_solar_SE3": 1.31, "entsoe_solar_SE4": 1.4}, "records": 2976}, {"year": 2025, "month": 2, "baseload": 68.28, "capture": {"south_lundby": 77.36, "ew_boda": 75.32, "tracker_sweden": 75.93, "entsoe_solar_SE1": 77.63, "entsoe_solar_SE2": 76.17, "entsoe_solar_SE3": 79.18, "entsoe_solar_SE4": 80.08}, "ratio": {"south_lundby": 1.13, "ew_boda": 1.1, "tracker_sweden": 1.11, "entsoe_solar_SE1": 1.14, "entsoe_solar_SE2": 1.12, "entsoe_solar_SE3": 1.16, "entsoe_solar_SE4": 1.17}, "records": 2688}, {"year": 2025, "month": 3, "baseload": 46.32, "capture": {"south_lundby": 37.31, "ew_boda": 44.6, "tracker_sweden": 46.33, "entsoe_solar_SE1": 40.7, "entsoe_solar_SE2": 38.63, "entsoe_solar_SE3": 36.82, "entsoe_solar_SE4": 34.47}, "ratio": {"south_lundby": 0.81, "ew_boda": 0.96, "tracker_sweden": 1.0, "entsoe_solar_SE1": 0.88, "entsoe_solar_SE2": 0.83, "entsoe_solar_SE3": 0.79, "entsoe_solar_SE4": 0.74}, "records": 2972}, {"year": 2025, "month": 4, "baseload": 34.24, "capture": {"south_lundby": 30.21, "ew_boda": 29.93, "tracker_sweden": 28.42, "entsoe_solar_SE1": 22.06, "entsoe_solar_SE2": 23.5, "entsoe_solar_SE3": 22.55, "entsoe_solar_SE4": 21.37}, "ratio": {"south_lundby": 0.88, "ew_boda": 0.87, "tracker_sweden": 0.83, "entsoe_solar_SE1": 0.64, "entsoe_solar_SE2": 0.69, "entsoe_solar_SE3": 0.66, "entsoe_solar_SE4": 0.62}, "records": 2880}, {"year": 2025, "month": 5, "baseload": 39.41, "capture": {"south_lundby": 24.2, "ew_boda": 24.95, "tracker_sweden": 19.96, "entsoe_solar_SE1": 22.26, "entsoe_solar_SE2": 19.93, "entsoe_solar_SE3": 20.72, "entsoe_solar_SE4": 22.13}, "ratio": {"south_lundby": 0.61, "ew_boda": 0.63, "tracker_sweden": 0.51, "entsoe_solar_SE1": 0.56, "entsoe_solar_SE2": 0.51, "entsoe_solar_SE3": 0.53, "entsoe_solar_SE4": 0.56}, "records": 2976}, {"year": 2025, "month": 6, "baseload": 20.75, "capture": {"south_lundby": 10.85, "ew_boda": 14.21, "tracker_sweden": 14.17, "entsoe_solar_SE1": 11.45, "entsoe_solar_SE2": 10.34, "entsoe_solar_SE3": 9.93, "entsoe_solar_SE4": 9.35}, "ratio": {"south_lundby": 0.52, "ew_boda": 0.68, "tracker_sweden": 0.68, "entsoe_solar_SE1": 0.55, "entsoe_solar_SE2": 0.5, "entsoe_solar_SE3": 0.48, "entsoe_solar_SE4": 0.45}, "records": 2880}, {"year": 2025, "month": 7, "baseload": 33.07, "capture": {"south_lundby": 28.19, "ew_boda": 30.55, "tracker_sweden": 31.24, "entsoe_solar_SE1": 29.94, "entsoe_solar_SE2": 30.11, "entsoe_solar_SE3": 30.0, "entsoe_solar_SE4": 30.04}, "ratio": {"south_lundby": 0.85, "ew_boda": 0.92, "tracker_sweden": 0.94, "entsoe_solar_SE1": 0.91, "entsoe_solar_SE2": 0.91, "entsoe_solar_SE3": 0.91, "entsoe_solar_SE4": 0.91}, "records": 2976}, {"year": 2025, "month": 8, "baseload": 43.55, "capture": {"south_lundby": 33.83, "ew_boda": 33.08, "tracker_sweden": 35.09, "entsoe_solar_SE1": 30.28, "entsoe_solar_SE2": 29.85, "entsoe_solar_SE3": 29.16, "entsoe_solar_SE4": 29.65}, "ratio": {"south_lundby": 0.78, "ew_boda": 0.76, "tracker_sweden": 0.81, "entsoe_solar_SE1": 0.7, "entsoe_solar_SE2": 0.69, "entsoe_solar_SE3": 0.67, "entsoe_solar_SE4": 0.68}, "records": 2976}, {"year": 2025, "month": 9, "baseload": 47.56, "capture": {"south_lundby": 38.45, "ew_boda": 44.95, "tracker_sweden": 42.58, "entsoe_solar_SE1": 38.1, "entsoe_solar_SE2": 38.01, "entsoe_solar_SE3": 37.18, "entsoe_solar_SE4": 36.09}, "ratio": {"south_lundby": 0.81, "ew_boda": 0.95, "tracker_sweden": 0.9, "entsoe_solar_SE1": 0.8, "entsoe_solar_SE2": 0.8, "entsoe_solar_SE3": 0.78, "entsoe_solar_SE4": 0.76}, "records": 2880}, {"year": 2025, "month": 10, "baseload": 57.1, "capture": {"south_lundby": 65.04, "ew_boda": 63.6, "tracker_sweden": 69.03, "entsoe_solar_SE1": 57.79, "entsoe_solar_SE2": 55.79, "entsoe_solar_SE3": 58.04, "entsoe_solar_SE4": 57.57}, "ratio": {"south_lundby": 1.14, "ew_boda": 1.11, "tracker_sweden": 1.21, "entsoe_solar_SE1": 1.01, "entsoe_solar_SE2": 0.98, "entsoe_solar_SE3": 1.02, "entsoe_solar_SE4": 1.01}, "records": 2983}, {"year": 2025, "month": 11, "baseload": 63.35, "capture": {"south_lundby": 61.39, "ew_boda": 62.33, "tracker_sweden": 67.09, "entsoe_solar_SE1": 61.09, "entsoe_solar_SE2": 57.14, "entsoe_solar_SE3": 65.79, "entsoe_solar_SE4": 66.37}, "ratio": {"south_lundby": 0.97, "ew_boda": 0.98, "tracker_sweden": 1.06, "entsoe_solar_SE1": 0.96, "entsoe_solar_SE2": 0.9, "entsoe_solar_SE3": 1.04, "entsoe_solar_SE4": 1.05}, "records": 2880}, {"year": 2025, "month": 12, "baseload": 47.39, "capture": {"south_lundby": 55.47, "ew_boda": 53.79, "tracker_sweden": 60.74, "entsoe_solar_SE1": 59.24, "entsoe_solar_SE2": 56.89, "entsoe_solar_SE3": 51.99, "entsoe_solar_SE4": 51.04}, "ratio": {"south_lundby": 1.17, "ew_boda": 1.13, "tracker_sweden": 1.28, "entsoe_solar_SE1": 1.25, "entsoe_solar_SE2": 1.2, "entsoe_solar_SE3": 1.1, "entsoe_solar_SE4": 1.08}, "records": 2976}, {"year": 2026, "month": 1, "baseload": 101.47, "capture": {"south_lundby": 98.67, "ew_boda": 115.78, "tracker_sweden": 118.35, "entsoe_solar_SE1": 121.96, "entsoe_solar_SE2": 90.04, "entsoe_solar_SE3": 117.57, "entsoe_solar_SE4": 116.39}, "ratio": {"south_lundby": 0.97, "ew_boda": 1.14, "tracker_sweden": 1.17, "entsoe_solar_SE1": 1.2, "entsoe_solar_SE2": 0.89, "entsoe_solar_SE3": 1.16, "entsoe_solar_SE4": 1.15}, "records": 2976}, {"year": 2026, "month": 2, "baseload": 103.72, "capture": {"south_lundby": 108.53, "ew_boda": 113.68, "tracker_sweden": 99.72, "entsoe_solar_SE1": 106.26, "entsoe_solar_SE2": 106.2, "entsoe_solar_SE3": 112.85, "entsoe_solar_SE4": 110.98}, "ratio": {"south_lundby": 1.05, "ew_boda": 1.1, "tracker_sweden": 0.96, "entsoe_solar_SE1": 1.02, "entsoe_solar_SE2": 1.02, "entsoe_solar_SE3": 1.09, "entsoe_solar_SE4": 1.07}, "records": 2688}, {"year": 2026, "month": 3, "baseload": 62.64, "capture": {"south_lundby": 50.05, "ew_boda": 48.79, "tracker_sweden": 51.74, "entsoe_solar_SE1": 49.54, "entsoe_solar_SE2": 48.26, "entsoe_solar_SE3": 50.3, "entsoe_solar_SE4": 49.14}, "ratio": {"south_lundby": 0.8, "ew_boda": 0.78, "tracker_sweden": 0.83, "entsoe_solar_SE1": 0.79, "entsoe_solar_SE2": 0.77, "entsoe_solar_SE3": 0.8, "entsoe_solar_SE4": 0.78}, "records": 1920}], "SE4": [{"year": 2021, "month": 11, "baseload": 111.6, "capture": {"south_lundby": 157.89, "ew_boda": 144.54, "tracker_sweden": 132.97, "entsoe_solar_SE1": 121.31, "entsoe_solar_SE2": 121.36, "entsoe_solar_SE3": 131.74, "entsoe_solar_SE4": 131.06}, "ratio": {"south_lundby": 1.41, "ew_boda": 1.3, "tracker_sweden": 1.19, "entsoe_solar_SE1": 1.09, "entsoe_solar_SE2": 1.09, "entsoe_solar_SE3": 1.18, "entsoe_solar_SE4": 1.17}, "records": 2880}, {"year": 2021, "month": 12, "baseload": 182.21, "capture": {"south_lundby": 247.99, "ew_boda": 230.04, "tracker_sweden": 204.78, "entsoe_solar_SE1": 225.88, "entsoe_solar_SE2": 196.26, "entsoe_solar_SE3": 220.68, "entsoe_solar_SE4": 206.4}, "ratio": {"south_lundby": 1.36, "ew_boda": 1.26, "tracker_sweden": 1.12, "entsoe_solar_SE1": 1.24, "entsoe_solar_SE2": 1.08, "entsoe_solar_SE3": 1.21, "entsoe_solar_SE4": 1.13}, "records": 2976}, {"year": 2022, "month": 1, "baseload": 105.77, "capture": {"south_lundby": 128.32, "ew_boda": 127.72, "tracker_sweden": 137.6, "entsoe_solar_SE1": 126.87, "entsoe_solar_SE2": 191.57, "entsoe_solar_SE3": 134.54, "entsoe_solar_SE4": 131.77}, "ratio": {"south_lundby": 1.21, "ew_boda": 1.21, "tracker_sweden": 1.3, "entsoe_solar_SE1": 1.2, "entsoe_solar_SE2": 1.81, "entsoe_solar_SE3": 1.27, "entsoe_solar_SE4": 1.25}, "records": 2976}, {"year": 2022, "month": 2, "baseload": 79.48, "capture": {"south_lundby": 85.9, "ew_boda": 91.76, "tracker_sweden": 102.69, "entsoe_solar_SE1": 93.4, "entsoe_solar_SE2": 92.85, "entsoe_solar_SE3": 89.5, "entsoe_solar_SE4": 90.94}, "ratio": {"south_lundby": 1.08, "ew_boda": 1.15, "tracker_sweden": 1.29, "entsoe_solar_SE1": 1.18, "entsoe_solar_SE2": 1.17, "entsoe_solar_SE3": 1.13, "entsoe_solar_SE4": 1.14}, "records": 2688}, {"year": 2022, "month": 3, "baseload": 145.78, "capture": {"south_lundby": 154.2, "ew_boda": 144.65, "tracker_sweden": 130.18, "entsoe_solar_SE1": 132.72, "entsoe_solar_SE2": 135.79, "entsoe_solar_SE3": 137.33, "entsoe_solar_SE4": 140.06}, "ratio": {"south_lundby": 1.06, "ew_boda": 0.99, "tracker_sweden": 0.89, "entsoe_solar_SE1": 0.91, "entsoe_solar_SE2": 0.93, "entsoe_solar_SE3": 0.94, "entsoe_solar_SE4": 0.96}, "records": 2972}, {"year": 2022, "month": 4, "baseload": 110.11, "capture": {"south_lundby": 108.62, "ew_boda": 120.48, "tracker_sweden": 119.97, "entsoe_solar_SE1": 115.79, "entsoe_solar_SE2": 110.67, "entsoe_solar_SE3": 114.3, "entsoe_solar_SE4": 113.5}, "ratio": {"south_lundby": 0.99, "ew_boda": 1.09, "tracker_sweden": 1.09, "entsoe_solar_SE1": 1.05, "entsoe_solar_SE2": 1.01, "entsoe_solar_SE3": 1.04, "entsoe_solar_SE4": 1.03}, "records": 2880}, {"year": 2022, "month": 5, "baseload": 132.83, "capture": {"south_lundby": 135.19, "ew_boda": 138.31, "tracker_sweden": 130.5, "entsoe_solar_SE1": 134.13, "entsoe_solar_SE2": 131.98, "entsoe_solar_SE3": 132.79, "entsoe_solar_SE4": 131.9}, "ratio": {"south_lundby": 1.02, "ew_boda": 1.04, "tracker_sweden": 0.98, "entsoe_solar_SE1": 1.01, "entsoe_solar_SE2": 0.99, "entsoe_solar_SE3": 1.0, "entsoe_solar_SE4": 0.99}, "records": 2976}, {"year": 2022, "month": 6, "baseload": 169.95, "capture": {"south_lundby": 167.56, "ew_boda": 174.19, "tracker_sweden": 173.68, "entsoe_solar_SE1": 172.11, "entsoe_solar_SE2": 170.06, "entsoe_solar_SE3": 169.55, "entsoe_solar_SE4": 168.21}, "ratio": {"south_lundby": 0.99, "ew_boda": 1.02, "tracker_sweden": 1.02, "entsoe_solar_SE1": 1.01, "entsoe_solar_SE2": 1.0, "entsoe_solar_SE3": 1.0, "entsoe_solar_SE4": 0.99}, "records": 2880}, {"year": 2022, "month": 7, "baseload": 115.37, "capture": {"south_lundby": 132.18, "ew_boda": 137.8, "tracker_sweden": 139.42, "entsoe_solar_SE1": 132.5, "entsoe_solar_SE2": 136.49, "entsoe_solar_SE3": 134.53, "entsoe_solar_SE4": 131.57}, "ratio": {"south_lundby": 1.15, "ew_boda": 1.19, "tracker_sweden": 1.21, "entsoe_solar_SE1": 1.15, "entsoe_solar_SE2": 1.18, "entsoe_solar_SE3": 1.17, "entsoe_solar_SE4": 1.14}, "records": 2976}, {"year": 2022, "month": 8, "baseload": 289.28, "capture": {"south_lundby": 295.93, "ew_boda": 324.18, "tracker_sweden": 323.9, "entsoe_solar_SE1": 315.94, "entsoe_solar_SE2": 330.95, "entsoe_solar_SE3": 328.61, "entsoe_solar_SE4": 333.14}, "ratio": {"south_lundby": 1.02, "ew_boda": 1.12, "tracker_sweden": 1.12, "entsoe_solar_SE1": 1.09, "entsoe_solar_SE2": 1.14, "entsoe_solar_SE3": 1.14, "entsoe_solar_SE4": 1.15}, "records": 2976}, {"year": 2022, "month": 9, "baseload": 224.46, "capture": {"south_lundby": 258.42, "ew_boda": 256.24, "tracker_sweden": 271.66, "entsoe_solar_SE1": 255.11, "entsoe_solar_SE2": 251.71, "entsoe_solar_SE3": 255.16, "entsoe_solar_SE4": 257.25}, "ratio": {"south_lundby": 1.15, "ew_boda": 1.14, "tracker_sweden": 1.21, "entsoe_solar_SE1": 1.14, "entsoe_solar_SE2": 1.12, "entsoe_solar_SE3": 1.14, "entsoe_solar_SE4": 1.15}, "records": 2880}, {"year": 2022, "month": 10, "baseload": 74.15, "capture": {"south_lundby": 65.65, "ew_boda": 87.17, "tracker_sweden": 87.65, "entsoe_solar_SE1": 86.45, "entsoe_solar_SE2": 88.41, "entsoe_solar_SE3": 87.37, "entsoe_solar_SE4": 89.5}, "ratio": {"south_lundby": 0.89, "ew_boda": 1.18, "tracker_sweden": 1.18, "entsoe_solar_SE1": 1.17, "entsoe_solar_SE2": 1.19, "entsoe_solar_SE3": 1.18, "entsoe_solar_SE4": 1.21}, "records": 2980}, {"year": 2022, "month": 11, "baseload": 123.69, "capture": {"south_lundby": 86.66, "ew_boda": 113.25, "tracker_sweden": 139.74, "entsoe_solar_SE1": 79.61, "entsoe_solar_SE2": 87.75, "entsoe_solar_SE3": 107.54, "entsoe_solar_SE4": 119.86}, "ratio": {"south_lundby": 0.7, "ew_boda": 0.92, "tracker_sweden": 1.13, "entsoe_solar_SE1": 0.64, "entsoe_solar_SE2": 0.71, "entsoe_solar_SE3": 0.87, "entsoe_solar_SE4": 0.97}, "records": 2880}, {"year": 2022, "month": 12, "baseload": 248.06, "capture": {"south_lundby": 334.09, "ew_boda": 320.77, "tracker_sweden": 252.81, "entsoe_solar_SE1": 265.92, "entsoe_solar_SE2": 269.99, "entsoe_solar_SE3": 232.73, "entsoe_solar_SE4": 244.04}, "ratio": {"south_lundby": 1.35, "ew_boda": 1.29, "tracker_sweden": 1.02, "entsoe_solar_SE1": 1.07, "entsoe_solar_SE2": 1.09, "entsoe_solar_SE3": 0.94, "entsoe_solar_SE4": 0.98}, "records": 2976}, {"year": 2023, "month": 1, "baseload": 93.34, "capture": {"south_lundby": 101.42, "ew_boda": 114.07, "tracker_sweden": 109.85, "entsoe_solar_SE1": 110.2, "entsoe_solar_SE2": 117.89, "entsoe_solar_SE3": 109.79, "entsoe_solar_SE4": 115.19}, "ratio": {"south_lundby": 1.09, "ew_boda": 1.22, "tracker_sweden": 1.18, "entsoe_solar_SE1": 1.18, "entsoe_solar_SE2": 1.26, "entsoe_solar_SE3": 1.18, "entsoe_solar_SE4": 1.23}, "records": 2976}, {"year": 2023, "month": 2, "baseload": 91.75, "capture": {"south_lundby": 104.23, "ew_boda": 89.5, "tracker_sweden": 93.23, "entsoe_solar_SE1": 100.0, "entsoe_solar_SE2": 98.0, "entsoe_solar_SE3": 94.15, "entsoe_solar_SE4": 93.43}, "ratio": {"south_lundby": 1.14, "ew_boda": 0.98, "tracker_sweden": 1.02, "entsoe_solar_SE1": 1.09, "entsoe_solar_SE2": 1.07, "entsoe_solar_SE3": 1.03, "entsoe_solar_SE4": 1.02}, "records": 2688}, {"year": 2023, "month": 3, "baseload": 81.8, "capture": {"south_lundby": 89.4, "ew_boda": 85.06, "tracker_sweden": 82.33, "entsoe_solar_SE1": 79.46, "entsoe_solar_SE2": 79.59, "entsoe_solar_SE3": 83.49, "entsoe_solar_SE4": 84.49}, "ratio": {"south_lundby": 1.09, "ew_boda": 1.04, "tracker_sweden": 1.01, "entsoe_solar_SE1": 0.97, "entsoe_solar_SE2": 0.97, "entsoe_solar_SE3": 1.02, "entsoe_solar_SE4": 1.03}, "records": 2972}, {"year": 2023, "month": 4, "baseload": 65.16, "capture": {"south_lundby": 63.45, "ew_boda": 66.7, "tracker_sweden": 64.82, "entsoe_solar_SE1": 61.95, "entsoe_solar_SE2": 62.03, "entsoe_solar_SE3": 61.36, "entsoe_solar_SE4": 62.24}, "ratio": {"south_lundby": 0.97, "ew_boda": 1.02, "tracker_sweden": 0.99, "entsoe_solar_SE1": 0.95, "entsoe_solar_SE2": 0.95, "entsoe_solar_SE3": 0.94, "entsoe_solar_SE4": 0.96}, "records": 2880}, {"year": 2023, "month": 5, "baseload": 64.71, "capture": {"south_lundby": 56.95, "ew_boda": 56.4, "tracker_sweden": 53.78, "entsoe_solar_SE1": 51.39, "entsoe_solar_SE2": 49.19, "entsoe_solar_SE3": 49.76, "entsoe_solar_SE4": 49.2}, "ratio": {"south_lundby": 0.88, "ew_boda": 0.87, "tracker_sweden": 0.83, "entsoe_solar_SE1": 0.79, "entsoe_solar_SE2": 0.76, "entsoe_solar_SE3": 0.77, "entsoe_solar_SE4": 0.76}, "records": 2976}, {"year": 2023, "month": 6, "baseload": 88.64, "capture": {"south_lundby": 75.42, "ew_boda": 77.07, "tracker_sweden": 78.54, "entsoe_solar_SE1": 76.05, "entsoe_solar_SE2": 75.14, "entsoe_solar_SE3": 74.62, "entsoe_solar_SE4": 73.72}, "ratio": {"south_lundby": 0.85, "ew_boda": 0.87, "tracker_sweden": 0.89, "entsoe_solar_SE1": 0.86, "entsoe_solar_SE2": 0.85, "entsoe_solar_SE3": 0.84, "entsoe_solar_SE4": 0.83}, "records": 2880}, {"year": 2023, "month": 7, "baseload": 35.65, "capture": {"south_lundby": 35.95, "ew_boda": 33.59, "tracker_sweden": 36.24, "entsoe_solar_SE1": 33.76, "entsoe_solar_SE2": 33.64, "entsoe_solar_SE3": 32.43, "entsoe_solar_SE4": 32.05}, "ratio": {"south_lundby": 1.01, "ew_boda": 0.94, "tracker_sweden": 1.02, "entsoe_solar_SE1": 0.95, "entsoe_solar_SE2": 0.94, "entsoe_solar_SE3": 0.91, "entsoe_solar_SE4": 0.9}, "records": 2976}, {"year": 2023, "month": 8, "baseload": 41.78, "capture": {"south_lundby": 44.59, "ew_boda": 45.15, "tracker_sweden": 46.84, "entsoe_solar_SE1": 39.36, "entsoe_solar_SE2": 43.09, "entsoe_solar_SE3": 43.41, "entsoe_solar_SE4": 43.88}, "ratio": {"south_lundby": 1.07, "ew_boda": 1.08, "tracker_sweden": 1.12, "entsoe_solar_SE1": 0.94, "entsoe_solar_SE2": 1.03, "entsoe_solar_SE3": 1.04, "entsoe_solar_SE4": 1.05}, "records": 2976}, {"year": 2023, "month": 9, "baseload": 43.2, "capture": {"south_lundby": 50.57, "ew_boda": 46.74, "tracker_sweden": 48.76, "entsoe_solar_SE1": 44.66, "entsoe_solar_SE2": 48.03, "entsoe_solar_SE3": 44.67, "entsoe_solar_SE4": 43.59}, "ratio": {"south_lundby": 1.17, "ew_boda": 1.08, "tracker_sweden": 1.13, "entsoe_solar_SE1": 1.03, "entsoe_solar_SE2": 1.11, "entsoe_solar_SE3": 1.03, "entsoe_solar_SE4": 1.01}, "records": 2880}, {"year": 2023, "month": 10, "baseload": 30.75, "capture": {"south_lundby": 44.99, "ew_boda": 42.33, "tracker_sweden": 28.17, "entsoe_solar_SE1": 25.6, "entsoe_solar_SE2": 23.98, "entsoe_solar_SE3": 25.74, "entsoe_solar_SE4": 27.36}, "ratio": {"south_lundby": 1.46, "ew_boda": 1.38, "tracker_sweden": 0.92, "entsoe_solar_SE1": 0.83, "entsoe_solar_SE2": 0.78, "entsoe_solar_SE3": 0.84, "entsoe_solar_SE4": 0.89}, "records": 2980}, {"year": 2023, "month": 11, "baseload": 73.55, "capture": {"south_lundby": 71.09, "ew_boda": 70.21, "tracker_sweden": 78.45, "entsoe_solar_SE1": 67.83, "entsoe_solar_SE2": 68.31, "entsoe_solar_SE3": 75.17, "entsoe_solar_SE4": 77.56}, "ratio": {"south_lundby": 0.97, "ew_boda": 0.95, "tracker_sweden": 1.07, "entsoe_solar_SE1": 0.92, "entsoe_solar_SE2": 0.93, "entsoe_solar_SE3": 1.02, "entsoe_solar_SE4": 1.05}, "records": 2880}, {"year": 2023, "month": 12, "baseload": 71.28, "capture": {"south_lundby": 102.45, "ew_boda": 80.14, "tracker_sweden": 93.94, "entsoe_solar_SE1": 87.61, "entsoe_solar_SE2": 93.9, "entsoe_solar_SE3": 72.6, "entsoe_solar_SE4": 77.4}, "ratio": {"south_lundby": 1.44, "ew_boda": 1.12, "tracker_sweden": 1.32, "entsoe_solar_SE1": 1.23, "entsoe_solar_SE2": 1.32, "entsoe_solar_SE3": 1.02, "entsoe_solar_SE4": 1.09}, "records": 2976}, {"year": 2024, "month": 1, "baseload": 74.55, "capture": {"south_lundby": 87.99, "ew_boda": 74.33, "tracker_sweden": 74.03, "entsoe_solar_SE1": 80.06, "entsoe_solar_SE2": 96.68, "entsoe_solar_SE3": 74.67, "entsoe_solar_SE4": 78.33}, "ratio": {"south_lundby": 1.18, "ew_boda": 1.0, "tracker_sweden": 0.99, "entsoe_solar_SE1": 1.07, "entsoe_solar_SE2": 1.3, "entsoe_solar_SE3": 1.0, "entsoe_solar_SE4": 1.05}, "records": 2976}, {"year": 2024, "month": 2, "baseload": 49.24, "capture": {"south_lundby": 52.83, "ew_boda": 49.96, "tracker_sweden": 61.32, "entsoe_solar_SE1": 52.11, "entsoe_solar_SE2": 52.0, "entsoe_solar_SE3": 52.46, "entsoe_solar_SE4": 47.96}, "ratio": {"south_lundby": 1.07, "ew_boda": 1.01, "tracker_sweden": 1.25, "entsoe_solar_SE1": 1.06, "entsoe_solar_SE2": 1.06, "entsoe_solar_SE3": 1.07, "entsoe_solar_SE4": 0.97}, "records": 2784}, {"year": 2024, "month": 3, "baseload": 56.05, "capture": {"south_lundby": 54.01, "ew_boda": 53.0, "tracker_sweden": 52.54, "entsoe_solar_SE1": 53.98, "entsoe_solar_SE2": 51.71, "entsoe_solar_SE3": 52.08, "entsoe_solar_SE4": 51.78}, "ratio": {"south_lundby": 0.96, "ew_boda": 0.95, "tracker_sweden": 0.94, "entsoe_solar_SE1": 0.96, "entsoe_solar_SE2": 0.92, "entsoe_solar_SE3": 0.93, "entsoe_solar_SE4": 0.92}, "records": 2972}, {"year": 2024, "month": 4, "baseload": 53.79, "capture": {"south_lundby": 49.31, "ew_boda": 52.98, "tracker_sweden": 55.72, "entsoe_solar_SE1": 47.05, "entsoe_solar_SE2": 48.38, "entsoe_solar_SE3": 46.95, "entsoe_solar_SE4": 44.86}, "ratio": {"south_lundby": 0.92, "ew_boda": 0.98, "tracker_sweden": 1.04, "entsoe_solar_SE1": 0.87, "entsoe_solar_SE2": 0.9, "entsoe_solar_SE3": 0.87, "entsoe_solar_SE4": 0.83}, "records": 2880}, {"year": 2024, "month": 5, "baseload": 43.54, "capture": {"south_lundby": 27.16, "ew_boda": 32.31, "tracker_sweden": 30.75, "entsoe_solar_SE1": 28.33, "entsoe_solar_SE2": 26.6, "entsoe_solar_SE3": 26.84, "entsoe_solar_SE4": 27.24}, "ratio": {"south_lundby": 0.62, "ew_boda": 0.74, "tracker_sweden": 0.71, "entsoe_solar_SE1": 0.65, "entsoe_solar_SE2": 0.61, "entsoe_solar_SE3": 0.62, "entsoe_solar_SE4": 0.63}, "records": 2976}, {"year": 2024, "month": 6, "baseload": 55.47, "capture": {"south_lundby": 37.17, "ew_boda": 42.08, "tracker_sweden": 37.44, "entsoe_solar_SE1": 37.6, "entsoe_solar_SE2": 36.85, "entsoe_solar_SE3": 36.47, "entsoe_solar_SE4": 35.95}, "ratio": {"south_lundby": 0.67, "ew_boda": 0.76, "tracker_sweden": 0.67, "entsoe_solar_SE1": 0.68, "entsoe_solar_SE2": 0.66, "entsoe_solar_SE3": 0.66, "entsoe_solar_SE4": 0.65}, "records": 2880}, {"year": 2024, "month": 7, "baseload": 37.67, "capture": {"south_lundby": 26.61, "ew_boda": 29.07, "tracker_sweden": 29.16, "entsoe_solar_SE1": 27.89, "entsoe_solar_SE2": 26.65, "entsoe_solar_SE3": 26.4, "entsoe_solar_SE4": 25.39}, "ratio": {"south_lundby": 0.71, "ew_boda": 0.77, "tracker_sweden": 0.77, "entsoe_solar_SE1": 0.74, "entsoe_solar_SE2": 0.71, "entsoe_solar_SE3": 0.7, "entsoe_solar_SE4": 0.67}, "records": 2976}, {"year": 2024, "month": 8, "baseload": 39.94, "capture": {"south_lundby": 30.2, "ew_boda": 31.86, "tracker_sweden": 30.16, "entsoe_solar_SE1": 27.74, "entsoe_solar_SE2": 25.24, "entsoe_solar_SE3": 25.35, "entsoe_solar_SE4": 24.47}, "ratio": {"south_lundby": 0.76, "ew_boda": 0.8, "tracker_sweden": 0.76, "entsoe_solar_SE1": 0.69, "entsoe_solar_SE2": 0.63, "entsoe_solar_SE3": 0.63, "entsoe_solar_SE4": 0.61}, "records": 2976}, {"year": 2024, "month": 9, "baseload": 27.01, "capture": {"south_lundby": 26.48, "ew_boda": 25.49, "tracker_sweden": 35.03, "entsoe_solar_SE1": 24.04, "entsoe_solar_SE2": 22.83, "entsoe_solar_SE3": 23.89, "entsoe_solar_SE4": 24.46}, "ratio": {"south_lundby": 0.98, "ew_boda": 0.94, "tracker_sweden": 1.3, "entsoe_solar_SE1": 0.89, "entsoe_solar_SE2": 0.85, "entsoe_solar_SE3": 0.88, "entsoe_solar_SE4": 0.91}, "records": 2880}, {"year": 2024, "month": 10, "baseload": 26.47, "capture": {"south_lundby": 31.96, "ew_boda": 29.01, "tracker_sweden": 33.68, "entsoe_solar_SE1": 29.1, "entsoe_solar_SE2": 29.64, "entsoe_solar_SE3": 28.9, "entsoe_solar_SE4": 27.16}, "ratio": {"south_lundby": 1.21, "ew_boda": 1.1, "tracker_sweden": 1.27, "entsoe_solar_SE1": 1.1, "entsoe_solar_SE2": 1.12, "entsoe_solar_SE3": 1.09, "entsoe_solar_SE4": 1.03}, "records": 2980}, {"year": 2024, "month": 11, "baseload": 73.0, "capture": {"south_lundby": 92.45, "ew_boda": 77.76, "tracker_sweden": 100.31, "entsoe_solar_SE1": 85.03, "entsoe_solar_SE2": 74.81, "entsoe_solar_SE3": 73.62, "entsoe_solar_SE4": 76.34}, "ratio": {"south_lundby": 1.27, "ew_boda": 1.07, "tracker_sweden": 1.37, "entsoe_solar_SE1": 1.16, "entsoe_solar_SE2": 1.02, "entsoe_solar_SE3": 1.01, "entsoe_solar_SE4": 1.05}, "records": 2880}, {"year": 2024, "month": 12, "baseload": 60.16, "capture": {"south_lundby": 102.52, "ew_boda": 81.37, "tracker_sweden": 81.74, "entsoe_solar_SE1": 72.75, "entsoe_solar_SE2": 68.57, "entsoe_solar_SE3": 63.01, "entsoe_solar_SE4": 65.6}, "ratio": {"south_lundby": 1.7, "ew_boda": 1.35, "tracker_sweden": 1.36, "entsoe_solar_SE1": 1.21, "entsoe_solar_SE2": 1.14, "entsoe_solar_SE3": 1.05, "entsoe_solar_SE4": 1.09}, "records": 2976}, {"year": 2025, "month": 1, "baseload": 66.27, "capture": {"south_lundby": 95.27, "ew_boda": 81.96, "tracker_sweden": 82.58, "entsoe_solar_SE1": 84.71, "entsoe_solar_SE2": 90.35, "entsoe_solar_SE3": 87.24, "entsoe_solar_SE4": 92.39}, "ratio": {"south_lundby": 1.44, "ew_boda": 1.24, "tracker_sweden": 1.25, "entsoe_solar_SE1": 1.28, "entsoe_solar_SE2": 1.36, "entsoe_solar_SE3": 1.32, "entsoe_solar_SE4": 1.39}, "records": 2976}, {"year": 2025, "month": 2, "baseload": 92.04, "capture": {"south_lundby": 97.91, "ew_boda": 97.08, "tracker_sweden": 93.33, "entsoe_solar_SE1": 95.56, "entsoe_solar_SE2": 94.48, "entsoe_solar_SE3": 97.65, "entsoe_solar_SE4": 98.96}, "ratio": {"south_lundby": 1.06, "ew_boda": 1.05, "tracker_sweden": 1.01, "entsoe_solar_SE1": 1.04, "entsoe_solar_SE2": 1.03, "entsoe_solar_SE3": 1.06, "entsoe_solar_SE4": 1.08}, "records": 2688}, {"year": 2025, "month": 3, "baseload": 55.13, "capture": {"south_lundby": 40.93, "ew_boda": 50.04, "tracker_sweden": 52.31, "entsoe_solar_SE1": 46.88, "entsoe_solar_SE2": 44.03, "entsoe_solar_SE3": 41.64, "entsoe_solar_SE4": 39.51}, "ratio": {"south_lundby": 0.74, "ew_boda": 0.91, "tracker_sweden": 0.95, "entsoe_solar_SE1": 0.85, "entsoe_solar_SE2": 0.8, "entsoe_solar_SE3": 0.76, "entsoe_solar_SE4": 0.72}, "records": 2972}, {"year": 2025, "month": 4, "baseload": 53.17, "capture": {"south_lundby": 41.72, "ew_boda": 42.73, "tracker_sweden": 41.99, "entsoe_solar_SE1": 31.61, "entsoe_solar_SE2": 33.12, "entsoe_solar_SE3": 32.32, "entsoe_solar_SE4": 30.67}, "ratio": {"south_lundby": 0.78, "ew_boda": 0.8, "tracker_sweden": 0.79, "entsoe_solar_SE1": 0.59, "entsoe_solar_SE2": 0.62, "entsoe_solar_SE3": 0.61, "entsoe_solar_SE4": 0.58}, "records": 2880}, {"year": 2025, "month": 5, "baseload": 55.09, "capture": {"south_lundby": 31.55, "ew_boda": 33.72, "tracker_sweden": 30.21, "entsoe_solar_SE1": 28.72, "entsoe_solar_SE2": 26.0, "entsoe_solar_SE3": 26.84, "entsoe_solar_SE4": 27.69}, "ratio": {"south_lundby": 0.57, "ew_boda": 0.61, "tracker_sweden": 0.55, "entsoe_solar_SE1": 0.52, "entsoe_solar_SE2": 0.47, "entsoe_solar_SE3": 0.49, "entsoe_solar_SE4": 0.5}, "records": 2976}, {"year": 2025, "month": 6, "baseload": 37.08, "capture": {"south_lundby": 18.08, "ew_boda": 22.38, "tracker_sweden": 23.02, "entsoe_solar_SE1": 18.3, "entsoe_solar_SE2": 16.46, "entsoe_solar_SE3": 15.98, "entsoe_solar_SE4": 15.08}, "ratio": {"south_lundby": 0.49, "ew_boda": 0.6, "tracker_sweden": 0.62, "entsoe_solar_SE1": 0.49, "entsoe_solar_SE2": 0.44, "entsoe_solar_SE3": 0.43, "entsoe_solar_SE4": 0.41}, "records": 2880}, {"year": 2025, "month": 7, "baseload": 41.42, "capture": {"south_lundby": 33.06, "ew_boda": 36.67, "tracker_sweden": 36.38, "entsoe_solar_SE1": 35.01, "entsoe_solar_SE2": 35.12, "entsoe_solar_SE3": 35.17, "entsoe_solar_SE4": 35.11}, "ratio": {"south_lundby": 0.8, "ew_boda": 0.89, "tracker_sweden": 0.88, "entsoe_solar_SE1": 0.85, "entsoe_solar_SE2": 0.85, "entsoe_solar_SE3": 0.85, "entsoe_solar_SE4": 0.85}, "records": 2976}, {"year": 2025, "month": 8, "baseload": 65.65, "capture": {"south_lundby": 43.66, "ew_boda": 44.13, "tracker_sweden": 48.17, "entsoe_solar_SE1": 40.08, "entsoe_solar_SE2": 39.26, "entsoe_solar_SE3": 38.94, "entsoe_solar_SE4": 39.3}, "ratio": {"south_lundby": 0.67, "ew_boda": 0.67, "tracker_sweden": 0.73, "entsoe_solar_SE1": 0.61, "entsoe_solar_SE2": 0.6, "entsoe_solar_SE3": 0.59, "entsoe_solar_SE4": 0.6}, "records": 2976}, {"year": 2025, "month": 9, "baseload": 64.16, "capture": {"south_lundby": 47.66, "ew_boda": 54.13, "tracker_sweden": 55.63, "entsoe_solar_SE1": 46.35, "entsoe_solar_SE2": 47.56, "entsoe_solar_SE3": 45.13, "entsoe_solar_SE4": 44.05}, "ratio": {"south_lundby": 0.74, "ew_boda": 0.84, "tracker_sweden": 0.87, "entsoe_solar_SE1": 0.72, "entsoe_solar_SE2": 0.74, "entsoe_solar_SE3": 0.7, "entsoe_solar_SE4": 0.69}, "records": 2880}, {"year": 2025, "month": 10, "baseload": 64.77, "capture": {"south_lundby": 71.0, "ew_boda": 69.67, "tracker_sweden": 75.95, "entsoe_solar_SE1": 63.76, "entsoe_solar_SE2": 61.3, "entsoe_solar_SE3": 63.79, "entsoe_solar_SE4": 63.25}, "ratio": {"south_lundby": 1.1, "ew_boda": 1.08, "tracker_sweden": 1.17, "entsoe_solar_SE1": 0.98, "entsoe_solar_SE2": 0.95, "entsoe_solar_SE3": 0.98, "entsoe_solar_SE4": 0.98}, "records": 2983}, {"year": 2025, "month": 11, "baseload": 73.4, "capture": {"south_lundby": 70.03, "ew_boda": 72.5, "tracker_sweden": 78.41, "entsoe_solar_SE1": 68.76, "entsoe_solar_SE2": 65.67, "entsoe_solar_SE3": 74.42, "entsoe_solar_SE4": 76.08}, "ratio": {"south_lundby": 0.95, "ew_boda": 0.99, "tracker_sweden": 1.07, "entsoe_solar_SE1": 0.94, "entsoe_solar_SE2": 0.89, "entsoe_solar_SE3": 1.01, "entsoe_solar_SE4": 1.04}, "records": 2880}, {"year": 2025, "month": 12, "baseload": 59.51, "capture": {"south_lundby": 65.25, "ew_boda": 67.52, "tracker_sweden": 70.27, "entsoe_solar_SE1": 73.21, "entsoe_solar_SE2": 69.07, "entsoe_solar_SE3": 65.7, "entsoe_solar_SE4": 63.48}, "ratio": {"south_lundby": 1.1, "ew_boda": 1.13, "tracker_sweden": 1.18, "entsoe_solar_SE1": 1.23, "entsoe_solar_SE2": 1.16, "entsoe_solar_SE3": 1.1, "entsoe_solar_SE4": 1.07}, "records": 2976}, {"year": 2026, "month": 1, "baseload": 105.71, "capture": {"south_lundby": 100.87, "ew_boda": 119.04, "tracker_sweden": 123.97, "entsoe_solar_SE1": 125.75, "entsoe_solar_SE2": 91.72, "entsoe_solar_SE3": 121.69, "entsoe_solar_SE4": 120.48}, "ratio": {"south_lundby": 0.95, "ew_boda": 1.13, "tracker_sweden": 1.17, "entsoe_solar_SE1": 1.19, "entsoe_solar_SE2": 0.87, "entsoe_solar_SE3": 1.15, "entsoe_solar_SE4": 1.14}, "records": 2976}, {"year": 2026, "month": 2, "baseload": 106.59, "capture": {"south_lundby": 109.59, "ew_boda": 115.86, "tracker_sweden": 102.67, "entsoe_solar_SE1": 108.52, "entsoe_solar_SE2": 108.44, "entsoe_solar_SE3": 114.75, "entsoe_solar_SE4": 112.9}, "ratio": {"south_lundby": 1.03, "ew_boda": 1.09, "tracker_sweden": 0.96, "entsoe_solar_SE1": 1.02, "entsoe_solar_SE2": 1.02, "entsoe_solar_SE3": 1.08, "entsoe_solar_SE4": 1.06}, "records": 2688}, {"year": 2026, "month": 3, "baseload": 86.84, "capture": {"south_lundby": 61.88, "ew_boda": 60.13, "tracker_sweden": 64.5, "entsoe_solar_SE1": 59.1, "entsoe_solar_SE2": 58.1, "entsoe_solar_SE3": 61.44, "entsoe_solar_SE4": 60.49}, "ratio": {"south_lundby": 0.71, "ew_boda": 0.69, "tracker_sweden": 0.74, "entsoe_solar_SE1": 0.68, "entsoe_solar_SE2": 0.67, "entsoe_solar_SE3": 0.71, "entsoe_solar_SE4": 0.7}, "records": 1920}]}};
+
+// ============================================================
+// Hjälpfunktioner
+// ============================================================
+const ZONE_COLORS = {
+    'SE1': '#3b82f6',
+    'SE2': '#10b981',
+    'SE3': '#f59e0b',
+    'SE4': '#ef4444'
+};
+
+const PROFILE_COLORS = {
+    'south_lundby': '#f59e0b',
+    'ew_boda': '#8b5cf6',
+    'tracker_sweden': '#10b981',
+    'entsoe_solar_SE1': '#93c5fd',
+    'entsoe_solar_SE2': '#6ee7b7',
+    'entsoe_solar_SE3': '#fcd34d',
+    'entsoe_solar_SE4': '#fca5a5'
+};
+
+const YEAR_COLORS = [
+    '#3b82f6',  // 2021 blue
+    '#10b981',  // 2022 green
+    '#f59e0b',  // 2023 amber
+    '#ef4444',  // 2024 red
+    '#8b5cf6',  // 2025 purple
+    '#0d9488',  // 2026 teal
+    '#ec4899',  // 2027 pink
+    '#6366f1',  // 2028 indigo
+];
+
+const MONTH_NAMES = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'
+];
+
+const MONTH_FULL = [
+    'Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni',
+    'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'
+];
+
+function fmt(v, decimals) {
+    if (v === null || v === undefined) return '&ndash;';
+    decimals = decimals !== undefined ? decimals : 1;
+    return v.toFixed(decimals);
+}
+
+function ratioClass(r) {
+    if (r === null || r === undefined) return '';
+    if (r >= 0.9) return 'ratio-good';
+    if (r >= 0.7) return 'ratio-ok';
+    return 'ratio-bad';
+}
+
+function ratioHtml(r) {
+    if (r === null || r === undefined) return '<span>&ndash;</span>';
+    const cls = ratioClass(r);
+    return '<span class="' + cls + '">' + fmt(r, 2) + '</span>';
+}
+
+function getProfileLabel(key) {
+    return DATA.profiles[key] || key;
+}
+
+function getAllYears() {
+    const years = new Set();
+    for (const zone of DATA.zones) {
+        if (DATA.yearly[zone]) {
+            DATA.yearly[zone].forEach(r => years.add(r.year));
+        }
+    }
+    return Array.from(years).sort();
+}
+
+function getProfileKeys() {
+    return Object.keys(DATA.profiles);
+}
+
+// Determine the primary (first-listed PVsyst) profiles for the table columns
+function getPrimaryProfiles() {
+    const pvsyst = [];
+    const entsoe = [];
+    for (const key of getProfileKeys()) {
+        if (key.startsWith('entsoe_')) {
+            entsoe.push(key);
+        } else {
+            pvsyst.push(key);
+        }
+    }
+    return { pvsyst, entsoe, all: [...pvsyst, ...entsoe] };
+}
+
+// ============================================================
+// Tab switching
+// ============================================================
+function switchTab(tab) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+    // Find button by tab name
+    const btns = document.querySelectorAll('.tab-btn');
+    const names = ['yearly', 'monthly'];
+    const idx = names.indexOf(tab);
+    if (idx >= 0 && btns[idx]) btns[idx].classList.add('active');
+
+    // Trigger Plotly resize for hidden → visible charts
+    setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+    }, 50);
+
+    // Lazy-render sections on first activation
+    if (tab === 'monthly' && !monthlyRendered) {
+        initMonthly();
+        monthlyRendered = true;
+    }
+}
+
+let monthlyRendered = false;
+
+// ============================================================
+// SECTION 1: Årsöversikt
+// ============================================================
+function initYearly() {
+    const sel = document.getElementById('yearly-profile');
+    const profiles = getPrimaryProfiles();
+    profiles.pvsyst.forEach(key => {
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = getProfileLabel(key);
+        sel.appendChild(opt);
+    });
+    profiles.entsoe.forEach(key => {
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = getProfileLabel(key);
+        sel.appendChild(opt);
+    });
+    // Default to south_lundby if available
+    if (profiles.pvsyst.includes('south_lundby')) {
+        sel.value = 'south_lundby';
+    }
+    renderYearly();
+}
+
+function renderYearly() {
+    const profileKey = document.getElementById('yearly-profile').value;
+    const profiles = getPrimaryProfiles();
+
+    // === Table ===
+    const thead = document.getElementById('yearly-thead');
+    const tbody = document.getElementById('yearly-tbody');
+
+    // Build header: Zon/År | Baseload | Capture (vald profil) | Ratio | (andra profiler ratios)
+    let headerHtml = '<tr>';
+    headerHtml += '<th style="text-align:left">&Aring;r</th>';
+    headerHtml += '<th>Baseload</th>';
+    headerHtml += '<th>Capture (' + getProfileLabel(profileKey) + ')</th>';
+    headerHtml += '<th>Ratio</th>';
+    // Add other PVsyst profiles as additional ratio columns
+    profiles.pvsyst.forEach(k => {
+        if (k !== profileKey) {
+            headerHtml += '<th>Ratio ' + getProfileLabel(k).split(' ')[0] + '</th>';
+        }
+    });
+    headerHtml += '<th style="font-size:0.72rem;">Datapunkter</th>';
+    headerHtml += '</tr>';
+    thead.innerHTML = headerHtml;
+
+    // Build body: grouped by zone
+    let bodyHtml = '';
+    DATA.zones.forEach(zone => {
+        const rows = DATA.yearly[zone] || [];
+        if (rows.length === 0) return;
+
+        // Zone header row
+        bodyHtml += '<tr class="zone-header"><td colspan="99" style="color:' + ZONE_COLORS[zone] + '">' + zone + '</td></tr>';
+
+        rows.forEach(row => {
+            const isPartial = (row.year === 2021 && row.records < 8760 * 4) ||
+                              (row.year === new Date().getFullYear());
+            const yearLabel = isPartial && row.year === new Date().getFullYear()
+                ? row.year + ' (YTD)' : String(row.year);
+
+            bodyHtml += '<tr>';
+            bodyHtml += '<td>' + yearLabel + '</td>';
+            bodyHtml += '<td>' + fmt(row.baseload) + '</td>';
+            bodyHtml += '<td>' + fmt(row.capture[profileKey]) + '</td>';
+            bodyHtml += '<td>' + ratioHtml(row.ratio[profileKey]) + '</td>';
+            profiles.pvsyst.forEach(k => {
+                if (k !== profileKey) {
+                    bodyHtml += '<td>' + ratioHtml(row.ratio[k]) + '</td>';
+                }
+            });
+            bodyHtml += '<td style="color:var(--color-text-muted);font-size:0.82rem">' + (row.records || '') + '</td>';
+            bodyHtml += '</tr>';
+        });
+    });
+    tbody.innerHTML = bodyHtml;
+
+    // === Chart ===
+    renderYearlyChart(profileKey);
+}
+
+function renderYearlyChart(profileKey) {
+    const years = getAllYears();
+    const traces = [];
+
+    DATA.zones.forEach((zone, zi) => {
+        const rows = DATA.yearly[zone] || [];
+        const baseloadVals = years.map(y => {
+            const r = rows.find(row => row.year === y);
+            return r ? r.baseload : null;
+        });
+        const captureVals = years.map(y => {
+            const r = rows.find(row => row.year === y);
+            return r && r.capture[profileKey] !== undefined ? r.capture[profileKey] : null;
+        });
+        const ratioVals = years.map(y => {
+            const r = rows.find(row => row.year === y);
+            return r && r.ratio[profileKey] !== undefined ? r.ratio[profileKey] : null;
+        });
+
+        // Baseload bar
+        traces.push({
+            x: years.map(String),
+            y: baseloadVals,
+            name: zone + ' Baseload',
+            type: 'bar',
+            marker: { color: ZONE_COLORS[zone], opacity: 0.6 },
+            legendgroup: zone,
+            hovertemplate: zone + ' %{x}<br>Baseload: %{y:.1f} EUR/MWh<extra></extra>',
+            offsetgroup: zone,
+        });
+
+        // Capture bar
+        traces.push({
+            x: years.map(String),
+            y: captureVals,
+            name: zone + ' Capture',
+            type: 'bar',
+            marker: { color: ZONE_COLORS[zone], opacity: 1.0 },
+            legendgroup: zone,
+            showlegend: false,
+            customdata: ratioVals,
+            hovertemplate: zone + ' %{x}<br>Capture: %{y:.1f} EUR/MWh<br>Ratio: %{customdata:.2f}<extra></extra>',
+            offsetgroup: zone + '_c',
+        });
+    });
+
+    const layout = {
+        barmode: 'group',
+        xaxis: {
+            title: '',
+            type: 'category',
+        },
+        yaxis: {
+            title: 'EUR/MWh',
+            rangemode: 'tozero',
+        },
+        legend: {
+            orientation: 'h',
+            yanchor: 'bottom',
+            y: 1.02,
+            xanchor: 'center',
+            x: 0.5,
+        },
+        margin: { t: 40, r: 30, b: 40, l: 60 },
+        plot_bgcolor: '#fff',
+        paper_bgcolor: '#fff',
+        font: { family: 'Segoe UI, system-ui, sans-serif', size: 13 },
+        hoverlabel: { bgcolor: '#1e293b', font: { color: '#fff', size: 13 } },
+    };
+
+    Plotly.newPlot('yearly-chart', traces, layout, {
+        responsive: true,
+        displayModeBar: true,
+        modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+    });
+}
+
+// ============================================================
+// SECTION 2: Månadsvy
+// ============================================================
+function initMonthly() {
+    // Zone dropdown
+    const zoneSel = document.getElementById('monthly-zone');
+    DATA.zones.forEach(z => {
+        const opt = document.createElement('option');
+        opt.value = z;
+        opt.textContent = z;
+        if (z === 'SE3') opt.selected = true;
+        zoneSel.appendChild(opt);
+    });
+
+    // Profile dropdown
+    const profSel = document.getElementById('monthly-profile');
+    getProfileKeys().forEach(key => {
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = getProfileLabel(key);
+        profSel.appendChild(opt);
+    });
+    if (getProfileKeys().includes('south_lundby')) {
+        profSel.value = 'south_lundby';
+    }
+
+    // Year checkboxes
+    const yearsDiv = document.getElementById('monthly-years');
+    const years = getAllYears();
+    years.forEach((y, i) => {
+        const lbl = document.createElement('label');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = y;
+        // Check the last 3 years by default
+        if (i >= years.length - 3) cb.checked = true;
+        cb.addEventListener('change', renderMonthly);
+        lbl.appendChild(cb);
+        lbl.appendChild(document.createTextNode(' ' + y));
+        yearsDiv.appendChild(lbl);
+    });
+
+    renderMonthly();
+}
+
+function getSelectedMonthlyYears() {
+    const cbs = document.querySelectorAll('#monthly-years input[type="checkbox"]:checked');
+    return Array.from(cbs).map(cb => parseInt(cb.value)).sort();
+}
+
+function renderMonthly() {
+    const zone = document.getElementById('monthly-zone').value;
+    const profileKey = document.getElementById('monthly-profile').value;
+    const selectedYears = getSelectedMonthlyYears();
+    const monthlyData = DATA.monthly[zone] || [];
+
+    // === Table ===
+    const thead = document.getElementById('monthly-thead');
+    const tbody = document.getElementById('monthly-tbody');
+
+    let headerHtml = '<tr><th style="text-align:left">M&aring;nad</th>';
+    selectedYears.forEach(y => {
+        headerHtml += '<th colspan="3" style="text-align:center;border-left:2px solid var(--color-border)">' + y + '</th>';
+    });
+    headerHtml += '</tr>';
+    headerHtml += '<tr><th></th>';
+    selectedYears.forEach(() => {
+        headerHtml += '<th style="border-left:2px solid var(--color-border)">Baseload</th><th>Capture</th><th>Ratio</th>';
+    });
+    headerHtml += '</tr>';
+    thead.innerHTML = headerHtml;
+
+    let bodyHtml = '';
+    for (let m = 1; m <= 12; m++) {
+        bodyHtml += '<tr>';
+        bodyHtml += '<td>' + MONTH_FULL[m - 1] + '</td>';
+        selectedYears.forEach(y => {
+            const row = monthlyData.find(r => r.year === y && r.month === m);
+            if (row) {
+                bodyHtml += '<td style="border-left:2px solid var(--color-border)">' + fmt(row.baseload) + '</td>';
+                bodyHtml += '<td>' + fmt(row.capture[profileKey]) + '</td>';
+                bodyHtml += '<td>' + ratioHtml(row.ratio[profileKey]) + '</td>';
+            } else {
+                bodyHtml += '<td style="border-left:2px solid var(--color-border)">&ndash;</td><td>&ndash;</td><td>&ndash;</td>';
+            }
+        });
+        bodyHtml += '</tr>';
+    }
+    tbody.innerHTML = bodyHtml;
+}
+
+// ============================================================
+// Initialization
+// ============================================================
+document.addEventListener('DOMContentLoaded', function() {
+    initYearly();
+});
+</script>
+</body>
+</html>
