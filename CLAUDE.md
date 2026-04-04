@@ -47,31 +47,29 @@ Resultat/
 │   │   ├── SE3/
 │   │   └── SE4/
 │   │
-│   ├── entsoe-produktion/           # ENTSO-E faktisk produktion
-│   │   └── entsoe/generation/
+│   ├── entsoe/                      # ENTSO-E faktisk produktion
+│   │   └── generation/
 │   │       ├── SE1/                 # solar_*.csv, wind_onshore_*.csv
 │   │       ├── SE2/
 │   │       ├── SE3/                 # + nuclear_*.csv
 │   │       └── SE4/
 │   │
-│   ├── reglering-mimer/             # Svenska kraftnät reglerpriser
-│   │   └── mimer/
-│   │       ├── fcr/                 # FCR-N, FCR-D priser
-│   │       ├── afrr/                # aFRR upp/ned per zon
-│   │       ├── mfrr_cm/             # mFRR kapacitetsmarknad
-│   │       └── mfrr/                # mFRR energiaktivering
+│   ├── mimer/                       # Svenska kraftnät reglerpriser
+│   │   ├── fcr/                     # FCR-N, FCR-D priser
+│   │   ├── afrr/                    # aFRR upp/ned per zon
+│   │   ├── mfrr_cm/                 # mFRR kapacitetsmarknad
+│   │   └── mfrr/                    # mFRR energiaktivering
 │   │
-│   ├── obalans-esett/               # eSett Nordic obalanspriser
-│   │   └── esett/imbalance/
+│   ├── esett/                       # eSett Nordic obalanspriser
+│   │   └── imbalance/
 │   │       ├── SE1/
 │   │       ├── SE2/
 │   │       ├── SE3/
 │   │       └── SE4/
 │   │
-│   └── installerad-kapacitet/       # Energimyndigheten statistik
-│       └── installed/
-│           ├── wind_by_elarea.csv
-│           └── solar_installations.csv
+│   └── installerad/                 # Energimyndigheten statistik
+│       ├── wind_by_elarea.csv
+│       └── solar_installations.csv
 │
 ├── profiler/                        # Beräknade produktionsprofiler
 │   ├── beraknade/                   # PVsyst-processade (ew_boda.csv, etc.)

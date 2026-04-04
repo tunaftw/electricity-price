@@ -79,7 +79,7 @@ def _ensure_profiles_loaded(profiles: dict[str, str]) -> None:
     # Alternativ katalog för ENTSO-E-generering
     alt_entsoe_dir = (
         DATA_DIR.parent / "Resultat" / "marknadsdata"
-        / "entsoe-produktion" / "entsoe" / "generation"
+        / "entsoe" / "generation"
     )
 
     for profile_key in profiles:
@@ -187,8 +187,8 @@ def _discover_profiles_directly() -> set[str]:
     # ENTSO-E-profiler: kolla ENTSOE_DIR och alternativa platser
     entsoe_dirs = [
         ENTSOE_DIR,
-        DATA_DIR.parent / "Resultat" / "marknadsdata" / "entsoe-produktion"
-        / "entsoe" / "generation",
+        DATA_DIR.parent / "Resultat" / "marknadsdata" / "entsoe"
+        / "generation",
     ]
     for d in entsoe_dirs:
         if d.is_dir():

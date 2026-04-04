@@ -2,6 +2,7 @@
 
 from datetime import date
 from pathlib import Path
+from typing import Optional
 
 # API configuration
 BASE_URL = "https://www.elprisetjustnu.se/api/v1/prices"
@@ -24,7 +25,7 @@ QUARTERLY_DIR = DATA_DIR / "quarterly"
 
 
 def _resolve_data_path(symlink_path: Path, resultat_path: Path,
-                       test_child: str | None = None) -> Path:
+                       test_child: Optional[str] = None) -> Path:
     """Resolve a data path, handling broken symlinks on Windows.
 
     On Mac/Linux, Git symlinks in data/ work natively as directories.
@@ -59,28 +60,28 @@ RAW_DIR = _resolve_data_path(
 # ENTSO-E generation data
 ENTSOE_DATA_DIR = _resolve_data_path(
     DATA_DIR / "raw" / "entsoe",
-    RESULTAT_DIR / "marknadsdata" / "entsoe-produktion" / "entsoe",
+    RESULTAT_DIR / "marknadsdata" / "entsoe",
     test_child="generation",
 )
 
 # Mimer regulation prices
 MIMER_DATA_DIR = _resolve_data_path(
     DATA_DIR / "raw" / "mimer",
-    RESULTAT_DIR / "marknadsdata" / "reglering-mimer" / "mimer",
+    RESULTAT_DIR / "marknadsdata" / "mimer",
     test_child="fcr",
 )
 
 # eSett imbalance prices
 ESETT_DATA_DIR = _resolve_data_path(
     DATA_DIR / "raw" / "esett",
-    RESULTAT_DIR / "marknadsdata" / "obalans-esett" / "esett",
+    RESULTAT_DIR / "marknadsdata" / "esett",
     test_child="imbalance",
 )
 
 # Installed capacity
 INSTALLED_DATA_DIR = _resolve_data_path(
     DATA_DIR / "raw" / "installed",
-    RESULTAT_DIR / "marknadsdata" / "installerad-kapacitet" / "installed",
+    RESULTAT_DIR / "marknadsdata" / "installerad",
 )
 
 # CSV fieldnames

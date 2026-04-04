@@ -13,33 +13,29 @@ Resultat/
 │   │   ├── SE3/
 │   │   └── SE4/
 │   │
-│   ├── entsoe-produktion/           # ENTSO-E faktisk produktion
-│   │   └── entsoe/
-│   │       └── generation/
-│   │           ├── SE1/             # solar_2022.csv, wind_onshore_2015.csv
-│   │           ├── SE2/
-│   │           ├── SE3/             # + nuclear_2021.csv
-│   │           └── SE4/             # + nuclear_2021.csv
+│   ├── entsoe/                      # ENTSO-E faktisk produktion
+│   │   └── generation/
+│   │       ├── SE1/                 # solar_2022.csv, wind_onshore_2015.csv
+│   │       ├── SE2/
+│   │       ├── SE3/                 # + nuclear_2021.csv
+│   │       └── SE4/                 # + nuclear_2021.csv
 │   │
-│   ├── reglering-mimer/             # Svenska kraftnät reglerpriser
-│   │   └── mimer/
-│   │       ├── fcr/                 # FCR-N, FCR-D priser
-│   │       ├── afrr/                # aFRR upp/ned per zon
-│   │       ├── mfrr_cm/             # mFRR kapacitetsmarknad
-│   │       └── mfrr/                # mFRR energiaktivering (historik)
+│   ├── mimer/                       # Svenska kraftnät reglerpriser
+│   │   ├── fcr/                     # FCR-N, FCR-D priser
+│   │   ├── afrr/                    # aFRR upp/ned per zon
+│   │   ├── mfrr_cm/                 # mFRR kapacitetsmarknad
+│   │   └── mfrr/                    # mFRR energiaktivering (historik)
 │   │
-│   ├── obalans-esett/               # eSett Nordic obalanspriser
-│   │   └── esett/
-│   │       └── imbalance/
-│   │           ├── SE1/
-│   │           ├── SE2/
-│   │           ├── SE3/
-│   │           └── SE4/
+│   ├── esett/                       # eSett Nordic obalanspriser
+│   │   └── imbalance/
+│   │       ├── SE1/
+│   │       ├── SE2/
+│   │       ├── SE3/
+│   │       └── SE4/
 │   │
-│   └── installerad-kapacitet/       # Energimyndigheten statistik
-│       └── installed/
-│           ├── wind_by_elarea.csv   # Vindkraft per elområde
-│           └── solar_installations.csv
+│   └── installerad/                 # Energimyndigheten statistik
+│       ├── wind_by_elarea.csv       # Vindkraft per elområde
+│       └── solar_installations.csv
 │
 ├── profiler/                        # Beräknade produktionsprofiler
 │   ├── beraknade/                   # PVsyst-processade profiler
@@ -94,10 +90,10 @@ Resultat/
 | Mapp | Källa | API | Frekvens |
 |------|-------|-----|----------|
 | spotpriser | elprisetjustnu.se | REST | Tim/15-min |
-| entsoe-produktion | ENTSO-E Transparency | REST+XML | Tim |
-| reglering-mimer | Svenska kraftnät Mimer | REST | Tim |
-| obalans-esett | eSett Open Data | REST+JSON | 15-min |
-| installerad-kapacitet | Energimyndigheten | PxWeb | Årlig |
+| entsoe | ENTSO-E Transparency | REST+XML | Tim |
+| mimer | Svenska kraftnät Mimer | REST | Tim |
+| esett | eSett Open Data | REST+JSON | 15-min |
+| installerad | Energimyndigheten | PxWeb | Årlig |
 
 ## Bakåtkompatibilitet
 
@@ -106,10 +102,10 @@ Symlinks i `data/`-katalogen säkerställer att befintliga scripts fungerar:
 | Symlink | Pekar till |
 |---------|------------|
 | `data/raw/SE1-SE4` | `Resultat/marknadsdata/spotpriser/SE*` |
-| `data/raw/entsoe` | `Resultat/marknadsdata/entsoe-produktion/entsoe` |
-| `data/raw/mimer` | `Resultat/marknadsdata/reglering-mimer/mimer` |
-| `data/raw/esett` | `Resultat/marknadsdata/obalans-esett/esett` |
-| `data/raw/installed` | `Resultat/marknadsdata/installerad-kapacitet/installed` |
+| `data/raw/entsoe` | `Resultat/marknadsdata/entsoe` |
+| `data/raw/mimer` | `Resultat/marknadsdata/mimer` |
+| `data/raw/esett` | `Resultat/marknadsdata/esett` |
+| `data/raw/installed` | `Resultat/marknadsdata/installerad` |
 | `data/profiles` | `Resultat/profiler/normaliserade` |
 | `data/solar_profiles` | `Resultat/profiler/beraknade` |
 | `data/reports` | `Resultat/rapporter` |

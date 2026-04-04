@@ -26,4 +26,4 @@ Kolumner i nedladdad data:
 - `up_reg_price_eur_mwh` - Uppregleringsintervall (EUR/MWh)
 - `down_reg_price_eur_mwh` - Nedregleringsintervall (EUR/MWh)
 
-Data sparas till: `Resultat/marknadsdata/obalans-esett/esett/imbalance/`
+Data sparas till: `Resultat/marknadsdata/esett/imbalance/`
