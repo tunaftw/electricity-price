@@ -1224,6 +1224,40 @@ function renderEpadSpread(fwd, labels) {{
         }});
     }});
 
+    // Mark periods where no EPAD data exists for any zone. Nasdaq only
+    // publishes EPAD futures for the nearest ~3 quarters and ~4 years
+    // (liquidity drops off beyond that), so longer-dated SYS contracts
+    // have no EPAD counterpart.
+    const shapes = [];
+    const annotations = [];
+    labels.forEach((l, i) => {{
+        const hasAny = DATA.zones.some(z => (fwd.epad[z] || {{}})[l] !== undefined);
+        if (!hasAny) {{
+            shapes.push({{
+                type: 'rect',
+                xref: 'x',
+                yref: 'paper',
+                x0: i - 0.5,
+                x1: i + 0.5,
+                y0: 0,
+                y1: 1,
+                fillcolor: 'rgba(255, 255, 255, 0.04)',
+                line: {{ width: 0 }},
+                layer: 'below',
+            }});
+            annotations.push({{
+                x: i,
+                xref: 'x',
+                y: 0,
+                yref: 'y',
+                text: 'n/a',
+                font: {{ color: '#64748b', size: 10 }},
+                showarrow: false,
+                textangle: -90,
+            }});
+        }}
+    }});
+
     const layout = {{
         ...PLOTLY_DARK,
         barmode: 'group',
@@ -1235,6 +1269,8 @@ function renderEpadSpread(fwd, labels) {{
             zerolinecolor: '#ffffff',
             zerolinewidth: 1,
         }},
+        shapes: shapes,
+        annotations: annotations,
         showlegend: true,
         margin: {{ ...PLOTLY_DARK.margin, t: 20 }},
     }};
