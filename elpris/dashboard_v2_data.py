@@ -300,6 +300,76 @@ def _aggregate_daily(daily_data: dict[str, dict]) -> list[dict]:
     return result
 
 
+def _collect_hourly_baseload(
+    spot_prices: dict[str, list[dict]],
+) -> list[dict]:
+    """Collect hourly baseload prices (no aggregation needed)."""
+    result = []
+    for date_key in sorted(spot_prices):
+        for h_rec in spot_prices[date_key]:
+            result.append({
+                "date": date_key,
+                "hour": h_rec["utc_hour"],
+                "baseload": round(h_rec["eur_mwh"], 2),
+                "capture": None,
+                "weight": None,
+                "ratio": None,
+            })
+    return result
+
+
+def _collect_hourly_entsoe(
+    spot_prices: dict[str, list[dict]],
+    generation: dict[str, dict[int, float]],
+) -> list[dict]:
+    """Collect hourly capture data from ENTSO-E generation."""
+    result = []
+    for date_key in sorted(spot_prices):
+        if date_key not in generation:
+            continue
+        gen = generation[date_key]
+        for h_rec in spot_prices[date_key]:
+            h = h_rec["utc_hour"]
+            price = h_rec["eur_mwh"]
+            gen_mw = gen.get(h, 0.0)
+            result.append({
+                "date": date_key,
+                "hour": h,
+                "baseload": round(price, 2),
+                "capture": round(price * gen_mw, 4) if gen_mw > 0 else 0.0,
+                "weight": round(gen_mw, 2),
+                "ratio": None,
+            })
+    return result
+
+
+def _collect_hourly_profile(
+    spot_prices: dict[str, list[dict]],
+    profile: dict[tuple[int, int, int], float],
+) -> list[dict]:
+    """Collect hourly capture data from PVsyst profile."""
+    result = []
+    for date_key in sorted(spot_prices):
+        d = date.fromisoformat(date_key)
+        for h_rec in spot_prices[date_key]:
+            price = h_rec["eur_mwh"]
+            utc_dt = datetime(
+                d.year, d.month, d.day, h_rec["utc_hour"], tzinfo=UTC_TZ
+            )
+            local_dt = utc_dt.astimezone(SWEDEN_TZ)
+            key = (local_dt.month, local_dt.day, local_dt.hour)
+            weight = profile.get(key, 0.0)
+            result.append({
+                "date": date_key,
+                "hour": h_rec["utc_hour"],
+                "baseload": round(price, 2),
+                "capture": round(price * weight, 4) if weight > 0 else 0.0,
+                "weight": round(weight, 4),
+                "ratio": None,
+            })
+    return result
+
+
 def _aggregate_to_monthly(daily_data: dict[str, dict]) -> list[dict]:
     monthly_acc: dict[tuple[int, int], dict] = defaultdict(
         lambda: {"sw": 0.0, "sg": 0.0, "sp": 0.0, "c": 0}
@@ -627,6 +697,8 @@ def calculate_dashboard_v2_data(
             zone_data["baseload"]["monthly"] = _aggregate_to_monthly(baseload_daily)
         if "daily" in granularities:
             zone_data["baseload"]["daily"] = _aggregate_daily(baseload_daily)
+        if "hourly" in granularities:
+            zone_data["baseload"]["hourly"] = _collect_hourly_baseload(spot)
 
         # Solar profiles (PVsyst)
         for key, profile in pvsyst_loaded.items():
@@ -646,6 +718,8 @@ def calculate_dashboard_v2_data(
                     zone_data[key]["monthly"] = _aggregate_to_monthly(daily)
                 if "daily" in granularities:
                     zone_data[key]["daily"] = _aggregate_daily(daily)
+                if "hourly" in granularities:
+                    zone_data[key]["hourly"] = _collect_hourly_profile(spot, profile)
 
         # ENTSO-E actual generation (wind, hydro, nuclear)
         for key, (gen_type, _) in ENTSOE_CAPTURE_TYPES.items():
@@ -661,6 +735,8 @@ def calculate_dashboard_v2_data(
                     zone_data[key]["monthly"] = _aggregate_to_monthly(daily)
                 if "daily" in granularities:
                     zone_data[key]["daily"] = _aggregate_daily(daily)
+                if "hourly" in granularities:
+                    zone_data[key]["hourly"] = _collect_hourly_entsoe(spot, gen)
 
         data[zone] = zone_data
 
