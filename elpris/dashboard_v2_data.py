@@ -605,12 +605,12 @@ def load_forward_curve_data(spot_data: dict[str, dict]) -> dict | None:
                     }
 
     contract_labels = [
-        {"label": c["label"], "type": c["type"]}
+        {"label": c["label"], "type": c["type"], "start": c["start"], "end": c["end"]}
         for c in active_contracts
     ]
 
     expired_labels = [
-        {"label": c["label"], "type": c["type"]}
+        {"label": c["label"], "type": c["type"], "start": c["start"], "end": c["end"]}
         for c in expired_contracts
         if any(c["label"] in spot_realized.get(z, {}) for z in ZONES)
     ]

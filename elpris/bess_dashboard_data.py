@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo
 # ---------------------------------------------------------------------------
 
 ROUND_TRIP_EFFICIENCY = 0.88  # 88 % round-trip efficiency
-DURATION_PRESETS = [1, 2, 4]  # hours (C-rate = 1 for all presets)
+DURATION_PRESETS = [1, 2, 3, 4]  # hours (C-rate = 1 for all presets)
 POWER_MW = 1.0  # reference power for revenue normalisation
 
 # ---------------------------------------------------------------------------
@@ -29,16 +29,22 @@ POWER_MW = 1.0  # reference power for revenue normalisation
 ARBITRAGE_PROFILES: dict[str, str] = {
     "arb_1h": "Arbitrage 1h",
     "arb_2h": "Arbitrage 2h",
+    "arb_3h": "Arbitrage 3h",
     "arb_4h": "Arbitrage 4h",
 }
 
 SPREAD_PROFILES: dict[str, str] = {
-    "spread": "Spread (min/max)",
+    "spread": "Spread (dagligt max−min)",
+}
+
+SOL_ONLY_PROFILES: dict[str, str] = {
+    "sol_only": "Sol utan batteri",
 }
 
 SOL_BESS_PROFILES: dict[str, str] = {
     "sol_bess_1h": "Sol+BESS 1h",
     "sol_bess_2h": "Sol+BESS 2h",
+    "sol_bess_3h": "Sol+BESS 3h",
     "sol_bess_4h": "Sol+BESS 4h",
 }
 
@@ -47,8 +53,9 @@ SOL_BESS_PROFILES: dict[str, str] = {
 # ---------------------------------------------------------------------------
 
 ARBITRAGE_COLORS: dict[str, str] = {
-    "arb_1h": "#f59e0b",
-    "arb_2h": "#d97706",
+    "arb_1h": "#fbbf24",
+    "arb_2h": "#f59e0b",
+    "arb_3h": "#d97706",
     "arb_4h": "#b45309",
 }
 
@@ -56,9 +63,14 @@ SPREAD_COLORS: dict[str, str] = {
     "spread": "#94a3b8",
 }
 
+SOL_ONLY_COLORS: dict[str, str] = {
+    "sol_only": "#cbd5e1",
+}
+
 SOL_BESS_COLORS: dict[str, str] = {
-    "sol_bess_1h": "#2dd4bf",
-    "sol_bess_2h": "#14b8a6",
+    "sol_bess_1h": "#5eead4",
+    "sol_bess_2h": "#2dd4bf",
+    "sol_bess_3h": "#14b8a6",
     "sol_bess_4h": "#0d9488",
 }
 
@@ -70,12 +82,16 @@ BESS_PROFILE_META: dict[str, dict[str, str]] = {
     # Arbitrage – revenue per MW installed power
     "arb_1h":      {"type": "revenue", "unit": "EUR/MW"},
     "arb_2h":      {"type": "revenue", "unit": "EUR/MW"},
+    "arb_3h":      {"type": "revenue", "unit": "EUR/MW"},
     "arb_4h":      {"type": "revenue", "unit": "EUR/MW"},
     # Spread – simple min/max spread
     "spread":      {"type": "spread",  "unit": "EUR/MWh"},
+    # Sol only – baseline (no battery)
+    "sol_only":    {"type": "capture", "unit": "EUR/MWh"},
     # Sol+BESS – capture price improvement
     "sol_bess_1h": {"type": "capture", "unit": "EUR/MWh"},
     "sol_bess_2h": {"type": "capture", "unit": "EUR/MWh"},
+    "sol_bess_3h": {"type": "capture", "unit": "EUR/MWh"},
     "sol_bess_4h": {"type": "capture", "unit": "EUR/MWh"},
 }
 
@@ -651,9 +667,44 @@ def calculate_bess_data(
             }
         zone_data["spread"] = _aggregate_bess(spread_daily, "spread")
 
-        # --- Solar+BESS ---
+        # --- Solar (baseline + BESS variants) ---
         sol_profile = pvsyst_profiles.get("sol_syd", {})
         if sol_profile:
+            # Pre-compute solar_mw arrays per day (same for all durations + sol_only)
+            solar_by_day: dict[str, list[float]] = {}
+            for date_key, prices in daily_prices.items():
+                d = date.fromisoformat(date_key)
+                n_hours = len(prices)
+                solar_mw: list[float] = []
+                for utc_hour in range(n_hours):
+                    utc_dt = datetime(
+                        d.year, d.month, d.day, utc_hour, tzinfo=UTC_TZ
+                    )
+                    local_dt = utc_dt.astimezone(SWEDEN_TZ)
+                    key = (local_dt.month, local_dt.day, local_dt.hour)
+                    solar_mw.append(sol_profile.get(key, 0.0))
+                solar_by_day[date_key] = solar_mw
+
+            # Sol only (no battery) — baseline capture price
+            sol_only_daily: dict[str, dict] = {}
+            for date_key, prices in daily_prices.items():
+                d = date.fromisoformat(date_key)
+                solar_mw = solar_by_day[date_key]
+                rev_direct = sum(
+                    solar_mw[t] * prices[t] for t in range(len(prices))
+                )
+                sol_only_daily[date_key] = {
+                    "date": d,
+                    "year": d.year,
+                    "month": d.month,
+                    "sum_weighted_battery": rev_direct,
+                    "sum_gen": sum(solar_mw),
+                    "sum_price": sum(prices),
+                    "count": len(prices),
+                }
+            zone_data["sol_only"] = _aggregate_sol_bess(sol_only_daily)
+
+            # Sol+BESS for each duration
             for duration in DURATION_PRESETS:
                 profile_key = f"sol_bess_{duration}h"
                 capacity_mwh = POWER_MW * duration
@@ -661,36 +712,20 @@ def calculate_bess_data(
 
                 for date_key, prices in daily_prices.items():
                     d = date.fromisoformat(date_key)
-                    n_hours = len(prices)
-
-                    # Build solar_mw array aligned to UTC hours
-                    solar_mw: list[float] = []
-                    for utc_hour in range(n_hours):
-                        utc_dt = datetime(
-                            d.year, d.month, d.day, utc_hour, tzinfo=UTC_TZ
-                        )
-                        local_dt = utc_dt.astimezone(SWEDEN_TZ)
-                        key = (local_dt.month, local_dt.day, local_dt.hour)
-                        solar_mw.append(sol_profile.get(key, 0.0))
+                    solar_mw = solar_by_day[date_key]
 
                     rev_direct, rev_battery = optimize_btm_hourly(
                         prices, solar_mw, capacity_mwh
                     )
-
-                    # sum_gen = total solar production (MWh)
-                    sum_gen = sum(solar_mw)
-                    # sum_price = sum of hourly spot prices
-                    sum_price = sum(prices)
-                    count = n_hours
 
                     sol_bess_daily[date_key] = {
                         "date": d,
                         "year": d.year,
                         "month": d.month,
                         "sum_weighted_battery": rev_battery,
-                        "sum_gen": sum_gen,
-                        "sum_price": sum_price,
-                        "count": count,
+                        "sum_gen": sum(solar_mw),
+                        "sum_price": sum(prices),
+                        "count": len(prices),
                     }
 
                 zone_data[profile_key] = _aggregate_sol_bess(sol_bess_daily)
@@ -698,8 +733,18 @@ def calculate_bess_data(
         data[zone] = zone_data
 
     return {
-        "profiles": {**ARBITRAGE_PROFILES, **SPREAD_PROFILES, **SOL_BESS_PROFILES},
-        "colors": {**ARBITRAGE_COLORS, **SPREAD_COLORS, **SOL_BESS_COLORS},
+        "profiles": {
+            **ARBITRAGE_PROFILES,
+            **SPREAD_PROFILES,
+            **SOL_ONLY_PROFILES,
+            **SOL_BESS_PROFILES,
+        },
+        "colors": {
+            **ARBITRAGE_COLORS,
+            **SPREAD_COLORS,
+            **SOL_ONLY_COLORS,
+            **SOL_BESS_COLORS,
+        },
         "profile_meta": dict(BESS_PROFILE_META),
         "data": data,
     }
