@@ -560,7 +560,9 @@ def load_forward_curve_data(spot_data: dict[str, dict]) -> dict | None:
 # Main entry point
 # ---------------------------------------------------------------------------
 
-def calculate_dashboard_v2_data() -> dict:
+def calculate_dashboard_v2_data(
+    granularities: list[str] | None = None,
+) -> dict:
     """Calculate all data for Dashboard v2.
 
     Returns JSON-serializable dict with:
@@ -568,6 +570,10 @@ def calculate_dashboard_v2_data() -> dict:
     - colors: {key: hex_color}
     - data: {zone: {profile_key: {yearly, monthly, daily}}}
     """
+    if granularities is None:
+        granularities = ["yearly", "monthly", "daily"]
+    valid = {"yearly", "monthly", "daily", "hourly"}
+    granularities = [g for g in granularities if g in valid]
     # Discover profiles
     profiles: dict[str, str] = {"baseload": "Baseload"}
     for key, (_, label) in STANDARD_SOLAR_PROFILES.items():
@@ -614,11 +620,13 @@ def calculate_dashboard_v2_data() -> dict:
                 "sum_weighted": s, "sum_gen": c,
                 "sum_price": s, "count": c,
             }
-        zone_data["baseload"] = {
-            "yearly": _aggregate_to_yearly(baseload_daily),
-            "monthly": _aggregate_to_monthly(baseload_daily),
-            "daily": _aggregate_daily(baseload_daily),
-        }
+        zone_data["baseload"] = {}
+        if "yearly" in granularities:
+            zone_data["baseload"]["yearly"] = _aggregate_to_yearly(baseload_daily)
+        if "monthly" in granularities:
+            zone_data["baseload"]["monthly"] = _aggregate_to_monthly(baseload_daily)
+        if "daily" in granularities:
+            zone_data["baseload"]["daily"] = _aggregate_daily(baseload_daily)
 
         # Solar profiles (PVsyst)
         for key, profile in pvsyst_loaded.items():
@@ -631,11 +639,13 @@ def calculate_dashboard_v2_data() -> dict:
 
             daily = _calculate_profile_capture(spot, profile)
             if daily:
-                zone_data[key] = {
-                    "yearly": _aggregate_to_yearly(daily),
-                    "monthly": _aggregate_to_monthly(daily),
-                    "daily": _aggregate_daily(daily),
-                }
+                zone_data[key] = {}
+                if "yearly" in granularities:
+                    zone_data[key]["yearly"] = _aggregate_to_yearly(daily)
+                if "monthly" in granularities:
+                    zone_data[key]["monthly"] = _aggregate_to_monthly(daily)
+                if "daily" in granularities:
+                    zone_data[key]["daily"] = _aggregate_daily(daily)
 
         # ENTSO-E actual generation (wind, hydro, nuclear)
         for key, (gen_type, _) in ENTSOE_CAPTURE_TYPES.items():
@@ -644,11 +654,13 @@ def calculate_dashboard_v2_data() -> dict:
                 continue
             daily = _calculate_entsoe_capture(spot, gen)
             if daily:
-                zone_data[key] = {
-                    "yearly": _aggregate_to_yearly(daily),
-                    "monthly": _aggregate_to_monthly(daily),
-                    "daily": _aggregate_daily(daily),
-                }
+                zone_data[key] = {}
+                if "yearly" in granularities:
+                    zone_data[key]["yearly"] = _aggregate_to_yearly(daily)
+                if "monthly" in granularities:
+                    zone_data[key]["monthly"] = _aggregate_to_monthly(daily)
+                if "daily" in granularities:
+                    zone_data[key]["daily"] = _aggregate_daily(daily)
 
         data[zone] = zone_data
 
