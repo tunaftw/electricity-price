@@ -47,6 +47,34 @@ def _build_html(data: dict) -> str:
     --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
     --radius: 8px;
     --shadow: 0 2px 8px rgba(0,0,0,0.3);
+
+    /* Product color system — swapped per dashboard */
+    --product: #E8A04B;
+    --product-dim: rgba(232, 160, 75, 0.15);
+    --product-glow: rgba(232, 160, 75, 0.35);
+    --product-hint: rgba(232, 160, 75, 0.30);
+    --product-contrast: #0b1220;
+}}
+body.product-capture {{
+    --product: #E8A04B;
+    --product-dim: rgba(232, 160, 75, 0.15);
+    --product-glow: rgba(232, 160, 75, 0.35);
+    --product-hint: rgba(232, 160, 75, 0.30);
+    --product-contrast: #0b1220;
+}}
+body.product-bess {{
+    --product: #2DD4BF;
+    --product-dim: rgba(45, 212, 191, 0.15);
+    --product-glow: rgba(45, 212, 191, 0.35);
+    --product-hint: rgba(45, 212, 191, 0.30);
+    --product-contrast: #0b1220;
+}}
+body.product-futures {{
+    --product: #A78BFA;
+    --product-dim: rgba(167, 139, 250, 0.15);
+    --product-glow: rgba(167, 139, 250, 0.35);
+    --product-hint: rgba(167, 139, 250, 0.30);
+    --product-contrast: #0b1220;
 }}
 
 html {{ scroll-behavior: smooth; }}
@@ -101,9 +129,9 @@ body {{
     color: var(--text);
 }}
 .zone-btn.active {{
-    background: var(--accent);
-    color: #fff;
-    border-color: var(--accent);
+    background: var(--product);
+    color: var(--product-contrast);
+    border-color: var(--product);
 }}
 .topbar-meta {{
     font-size: 0.75rem;
@@ -162,8 +190,8 @@ body {{
     flex-shrink: 0;
 }}
 .sidebar-item input[type="checkbox"]:checked {{
-    border-color: var(--accent);
-    background: var(--accent);
+    border-color: var(--product);
+    background: var(--product);
 }}
 .sidebar-item input[type="checkbox"]:checked::after {{
     content: '';
@@ -172,7 +200,7 @@ body {{
     left: 4px;
     width: 4px;
     height: 7px;
-    border: solid #fff;
+    border: solid var(--product-contrast);
     border-width: 0 2px 2px 0;
     transform: rotate(45deg);
 }}
@@ -199,14 +227,14 @@ body {{
     font-size: 0.85rem;
 }}
 .breadcrumb-item {{
-    color: var(--accent);
+    color: var(--product);
     cursor: pointer;
     padding: 2px 6px;
     border-radius: 4px;
     transition: background 0.15s;
 }}
 .breadcrumb-item:hover {{
-    background: var(--accent-dim);
+    background: var(--product-dim);
 }}
 .breadcrumb-current {{
     color: var(--text-bright);
@@ -257,6 +285,9 @@ body {{
     flex: 1;
     min-width: 140px;
 }}
+.stats-row .stat-card:first-child {{
+    box-shadow: inset 3px 0 0 var(--product);
+}}
 .stat-label {{
     font-size: 0.7rem;
     text-transform: uppercase;
@@ -288,9 +319,31 @@ body {{
 .footer a:hover {{ text-decoration: underline; }}
 
 /* ===== Dashboard tabs ===== */
-.dash-tab {{ transition: opacity 0.2s; }}
-.dash-tab:hover {{ opacity: 0.8 !important; }}
-.dash-tab.active {{ opacity: 1 !important; }}
+.dash-tab {{
+    transition: opacity 0.2s, border-color 0.2s, box-shadow 0.2s;
+    padding-bottom: 8px;
+    border-bottom: 2px solid transparent;
+    opacity: 0.4;
+}}
+.dash-tab:hover {{ opacity: 0.8; }}
+.dash-tab.active {{
+    opacity: 1;
+    border-bottom-color: var(--product);
+    box-shadow: 0 2px 12px -2px var(--product-glow);
+}}
+.dash-tab:not(.active):hover {{
+    border-bottom-color: var(--product-hint);
+}}
+
+/* ===== Focus rings ===== */
+button:focus-visible,
+.dash-tab:focus-visible,
+.zone-btn:focus-visible,
+.sidebar-item:focus-visible,
+.breadcrumb-item:focus-visible {{
+    outline: 2px solid var(--product);
+    outline-offset: 2px;
+}}
 
 /* ===== Responsive ===== */
 @media (max-width: 768px) {{
@@ -300,13 +353,14 @@ body {{
 }}
 </style>
 </head>
-<body>
+<body class="product-capture">
 
 <!-- Topbar -->
 <div class="topbar">
     <div style="display:flex;align-items:center;gap:1.2rem">
         <div class="topbar-title dash-tab active" id="tab-capture" onclick="switchDashboard('capture')" style="cursor:pointer"><span>ELPRIS</span> CAPTURE</div>
-        <div class="topbar-title dash-tab" id="tab-futures" onclick="switchDashboard('futures')" style="cursor:pointer;opacity:0.4"><span>ELPRIS</span> FUTURES</div>
+        <div class="topbar-title dash-tab" id="tab-bess" onclick="switchDashboard('bess')" style="cursor:pointer"><span>ELPRIS</span> BESS</div>
+        <div class="topbar-title dash-tab" id="tab-futures" onclick="switchDashboard('futures')" style="cursor:pointer"><span>ELPRIS</span> FUTURES</div>
     </div>
     <div class="zone-buttons" id="zone-buttons"></div>
     <div class="topbar-meta">Genererad: {data["generated"][:10]}</div>
@@ -317,6 +371,8 @@ body {{
 
     <!-- Sidebar (capture only) -->
     <aside class="sidebar" id="sidebar"></aside>
+    <!-- Sidebar (BESS only) -->
+    <aside class="sidebar" id="bess-sidebar" style="display:none"></aside>
 
     <!-- Main -->
     <main class="main">
@@ -331,6 +387,31 @@ body {{
             <div class="card">
                 <div class="card-title">Capture Ratio (capture / baseload)</div>
                 <div id="ratio-chart" class="chart-container chart-secondary"></div>
+            </div>
+        </div>
+        <!-- BESS sections -->
+        <div id="bess-view" style="display:none">
+            <div style="display:flex;gap:1rem;margin-bottom:0.8rem;align-items:center">
+                <span style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);font-weight:600">Enhet:</span>
+                <div style="display:flex;gap:4px">
+                    <button id="unit-per-mw" onclick="setBessUnit('per_mw')" style="padding:6px 14px;border:1px solid var(--border);background:var(--product);color:var(--product-contrast);font-size:0.75rem;font-weight:600;cursor:pointer;border-radius:6px;font-family:var(--font)">EUR/MW</button>
+                    <button id="unit-per-mwh" onclick="setBessUnit('per_mwh')" style="padding:6px 14px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:0.75rem;font-weight:600;cursor:pointer;border-radius:6px;font-family:var(--font)">EUR/MWh</button>
+                </div>
+            </div>
+            <div class="breadcrumb" id="bess-breadcrumb"></div>
+            <div class="stats-row" id="bess-stats-row"></div>
+            <div class="card">
+                <div class="card-title" id="bess-chart-title">Arbitrage Revenue</div>
+                <div id="bess-main-chart" class="chart-container"></div>
+            </div>
+            <div class="card">
+                <div class="card-title" id="bess-secondary-title">Spread &mdash; dagligt prisintervall (max &minus; min)</div>
+                <div style="font-size:0.75rem;color:var(--text-muted);margin-top:-0.4rem;margin-bottom:0.8rem;line-height:1.4" id="bess-secondary-subtitle">
+                    Dagligt: max(timpris) &minus; min(timpris) f&ouml;r varje dag.
+                    M&aring;nadsvis/&aring;rsvis: medelv&auml;rde av dagliga spreads i perioden.
+                    Teoretiskt &ouml;vre tak f&ouml;r intradagsarbitrage (EUR/MWh omsatt) innan effektivitetsf&ouml;rluster.
+                </div>
+                <div id="bess-secondary-chart" class="chart-container chart-secondary"></div>
             </div>
         </div>
         <!-- Futures sections -->
@@ -377,8 +458,15 @@ let state = {{
     year: null,
     month: null,
     enabled: new Set(Object.keys(DATA.profiles).filter(k =>
-        !k.startsWith('arb_') && k !== 'spread' && !k.startsWith('sol_bess_')
+        !k.startsWith('arb_') && k !== 'spread' && !k.startsWith('sol_bess_') && k !== 'sol_only'
     )),
+    bess_view: 'yearly',
+    bess_year: null,
+    bess_month: null,
+    bess_enabled: new Set(Object.keys(DATA.profiles).filter(k =>
+        k.startsWith('arb_') || k === 'spread' || k.startsWith('sol_bess_') || k === 'sol_only'
+    )),
+    bess_unit: 'per_mw',
 }};
 
 // ================================================================
@@ -433,6 +521,7 @@ function isSpreadProfile(k) {{
 function init() {{
     buildZoneButtons();
     buildSidebar();
+    buildBessSidebar();
     render();
 }}
 
@@ -459,10 +548,9 @@ function buildSidebar() {{
     // Power type sections
     const sections = [
         ['PRISER', ['baseload']],
-        ['SOL', Object.keys(DATA.profiles).filter(k => k.startsWith('sol_') && !k.startsWith('sol_bess'))],
+        ['SOL', Object.keys(DATA.profiles).filter(k => k.startsWith('sol_') && !k.startsWith('sol_bess') && k !== 'sol_only')],
         ['PRODUKTION', ['wind', 'hydro', 'nuclear']],
         ['PARKER', Object.keys(DATA.profiles).filter(k => k.startsWith('park_'))],
-        ['BESS', Object.keys(DATA.profiles).filter(k => k.startsWith('arb_') || k === 'spread' || k.startsWith('sol_bess_'))],
     ];
 
     sections.forEach(([title, keys]) => {{
@@ -532,17 +620,17 @@ function updateBreadcrumb() {{
 // ================================================================
 function switchDashboard(which) {{
     state.dashboard = which;
+    document.body.className = 'product-' + which;
 
-    // Update tab styling
-    document.getElementById('tab-capture').classList.toggle('active', which === 'capture');
-    document.getElementById('tab-futures').classList.toggle('active', which === 'futures');
-    document.getElementById('tab-capture').style.opacity = which === 'capture' ? '1' : '0.4';
-    document.getElementById('tab-futures').style.opacity = which === 'futures' ? '1' : '0.4';
+    ['capture', 'bess', 'futures'].forEach(t => {{
+        document.getElementById('tab-' + t).classList.toggle('active', t === which);
+    }});
 
-    // Toggle views
     document.getElementById('capture-view').style.display = which === 'capture' ? '' : 'none';
+    document.getElementById('bess-view').style.display = which === 'bess' ? '' : 'none';
     document.getElementById('futures-view').style.display = which === 'futures' ? '' : 'none';
     document.getElementById('sidebar').style.display = which === 'capture' ? '' : 'none';
+    document.getElementById('bess-sidebar').style.display = which === 'bess' ? '' : 'none';
 
     render();
 }}
@@ -553,6 +641,8 @@ function render() {{
         if (state.view === 'yearly') renderYearly();
         else if (state.view === 'monthly') renderMonthly();
         else if (state.view === 'daily') renderDaily();
+    }} else if (state.dashboard === 'bess') {{
+        renderBess();
     }} else {{
         renderForwardCurve();
     }}
@@ -574,33 +664,21 @@ function renderYearly() {{
     // Main chart: grouped bars
     const traces = [];
     const profileKeys = getEnabledProfiles(zoneData);
-    const hasRevenue = profileKeys.some(isRevenueProfile);
 
     profileKeys.forEach(k => {{
-        if (isSpreadProfile(k)) return;
-
         const yearlyData = zoneData[k]?.yearly || [];
         const vals = years.map(y => {{
             const r = yearlyData.find(d => d.year === y);
             return r ? (k === 'baseload' ? r.baseload : r.capture) : null;
         }});
-
-        const trace = {{
+        traces.push({{
             x: years.map(String),
             y: vals,
             name: DATA.profiles[k],
             type: 'bar',
             marker: {{ color: DATA.colors[k] || '#888', opacity: k === 'baseload' ? 0.5 : 0.85 }},
-        }};
-
-        if (isRevenueProfile(k)) {{
-            trace.yaxis = 'y2';
-            trace.hovertemplate = DATA.profiles[k] + '<br>%{{x}}: %{{y:,.0f}} EUR/MW<extra></extra>';
-        }} else {{
-            trace.hovertemplate = DATA.profiles[k] + '<br>%{{x}}: %{{y:.1f}} EUR/MWh<extra></extra>';
-        }}
-
-        traces.push(trace);
+            hovertemplate: DATA.profiles[k] + '<br>%{{x}}: %{{y:.1f}} EUR/MWh<extra></extra>',
+        }});
     }});
 
     const layout = {{
@@ -609,18 +687,6 @@ function renderYearly() {{
         xaxis: {{ ...PLOTLY_DARK.xaxis, type: 'category' }},
         yaxis: {{ ...PLOTLY_DARK.yaxis, title: 'EUR/MWh', rangemode: 'tozero' }},
     }};
-
-    if (hasRevenue) {{
-        layout.yaxis2 = {{
-            ...PLOTLY_DARK.yaxis,
-            title: {{ text: 'EUR/MW', font: {{ color: '#8892a4', size: 11 }} }},
-            overlaying: 'y',
-            side: 'right',
-            rangemode: 'tozero',
-            showgrid: false,
-        }};
-        layout.margin = {{ ...PLOTLY_DARK.margin, r: 60 }};
-    }}
 
     Plotly.newPlot('main-chart', traces, layout, {{ responsive: true, displayModeBar: false }});
 
@@ -650,28 +716,6 @@ function updateStats(baseloadData, zoneData, years) {{
         const d = zoneData[k].yearly?.find(r => r.year === latestYear);
         if (d) {{
             html += statCard(DATA.profiles[k] + ' ' + latestYear, fmt(d.capture), 'EUR/MWh', d.ratio);
-        }}
-    }});
-
-    // BESS stat cards
-    Object.keys(DATA.profiles).forEach(k => {{
-        if (!state.enabled.has(k) || !zoneData[k]) return;
-
-        if (isRevenueProfile(k)) {{
-            const d = zoneData[k]?.yearly?.find(r => r.year === latestYear);
-            if (d) {{
-                const cycleStr = d.cycles ? ' (' + Math.round(d.cycles) + ' cykler)' : '';
-                html += statCard(
-                    DATA.profiles[k] + ' ' + latestYear,
-                    d.capture ? d.capture.toLocaleString('sv-SE', {{maximumFractionDigits: 0}}) : '\u2013',
-                    'EUR/MW' + cycleStr
-                );
-            }}
-        }} else if (isSpreadProfile(k)) {{
-            const d = zoneData[k]?.yearly?.find(r => r.year === latestYear);
-            if (d) {{
-                html += statCard('Spread ' + latestYear, fmt(d.capture), 'EUR/MWh');
-            }}
         }}
     }});
 
@@ -705,29 +749,9 @@ function renderMonthly() {{
     const statsRow = document.getElementById('stats-row');
     let html = '';
     html += statCard('Baseload ' + state.year, baseloadYearly ? fmt(baseloadYearly.baseload) : '\u2013', 'EUR/MWh');
-    profileKeys.filter(k => k !== 'baseload' && !isRevenueProfile(k) && !isSpreadProfile(k)).forEach(k => {{
+    profileKeys.filter(k => k !== 'baseload').forEach(k => {{
         const d = zoneData[k]?.yearly?.find(r => r.year === state.year);
         if (d) html += statCard(DATA.profiles[k], fmt(d.capture), 'EUR/MWh', d.ratio);
-    }});
-
-    // BESS stat cards for monthly view
-    profileKeys.forEach(k => {{
-        if (isRevenueProfile(k)) {{
-            const d = zoneData[k]?.yearly?.find(r => r.year === state.year);
-            if (d) {{
-                const cycleStr = d.cycles ? ' (' + Math.round(d.cycles) + ' cykler)' : '';
-                html += statCard(
-                    DATA.profiles[k],
-                    d.capture ? d.capture.toLocaleString('sv-SE', {{maximumFractionDigits: 0}}) : '\u2013',
-                    'EUR/MW' + cycleStr
-                );
-            }}
-        }} else if (isSpreadProfile(k)) {{
-            const d = zoneData[k]?.yearly?.find(r => r.year === state.year);
-            if (d) {{
-                html += statCard('Spread', fmt(d.capture), 'EUR/MWh');
-            }}
-        }}
     }});
 
     statsRow.innerHTML = html;
@@ -735,33 +759,21 @@ function renderMonthly() {{
     // Chart
     const months = Array.from({{length: 12}}, (_, i) => i + 1);
     const traces = [];
-    const hasRevenue = profileKeys.some(isRevenueProfile);
 
     profileKeys.forEach(k => {{
-        if (isSpreadProfile(k)) return;
-
         const monthlyData = zoneData[k]?.monthly || [];
         const vals = months.map(m => {{
             const r = monthlyData.find(d => d.year === state.year && d.month === m);
             return r ? (k === 'baseload' ? r.baseload : r.capture) : null;
         }});
-
-        const trace = {{
+        traces.push({{
             x: months.map(m => MONTH_NAMES[m - 1]),
             y: vals,
             name: DATA.profiles[k],
             type: 'bar',
             marker: {{ color: DATA.colors[k] || '#888', opacity: k === 'baseload' ? 0.5 : 0.85 }},
-        }};
-
-        if (isRevenueProfile(k)) {{
-            trace.yaxis = 'y2';
-            trace.hovertemplate = DATA.profiles[k] + '<br>%{{x}} ' + state.year + ': %{{y:,.0f}} EUR/MW<extra></extra>';
-        }} else {{
-            trace.hovertemplate = DATA.profiles[k] + '<br>%{{x}} ' + state.year + ': %{{y:.1f}} EUR/MWh<extra></extra>';
-        }}
-
-        traces.push(trace);
+            hovertemplate: DATA.profiles[k] + '<br>%{{x}} ' + state.year + ': %{{y:.1f}} EUR/MWh<extra></extra>',
+        }});
     }});
 
     const layout = {{
@@ -770,18 +782,6 @@ function renderMonthly() {{
         xaxis: {{ ...PLOTLY_DARK.xaxis, type: 'category' }},
         yaxis: {{ ...PLOTLY_DARK.yaxis, title: 'EUR/MWh', rangemode: 'tozero' }},
     }};
-
-    if (hasRevenue) {{
-        layout.yaxis2 = {{
-            ...PLOTLY_DARK.yaxis,
-            title: {{ text: 'EUR/MW', font: {{ color: '#8892a4', size: 11 }} }},
-            overlaying: 'y',
-            side: 'right',
-            rangemode: 'tozero',
-            showgrid: false,
-        }};
-        layout.margin = {{ ...PLOTLY_DARK.margin, r: 60 }};
-    }}
 
     Plotly.newPlot('main-chart', traces, layout, {{ responsive: true, displayModeBar: false }});
 
@@ -811,40 +811,17 @@ function renderDaily() {{
     const blMonthly = zoneData.baseload?.monthly?.find(r => r.year === state.year && r.month === state.month);
     let html = '';
     html += statCard('Baseload', blMonthly ? fmt(blMonthly.baseload) : '\u2013', 'EUR/MWh');
-    profileKeys.filter(k => k !== 'baseload' && !isRevenueProfile(k) && !isSpreadProfile(k)).forEach(k => {{
+    profileKeys.filter(k => k !== 'baseload').forEach(k => {{
         const d = zoneData[k]?.monthly?.find(r => r.year === state.year && r.month === state.month);
         if (d) html += statCard(DATA.profiles[k], fmt(d.capture), 'EUR/MWh', d.ratio);
-    }});
-
-    // BESS stat cards for daily view
-    profileKeys.forEach(k => {{
-        if (isRevenueProfile(k)) {{
-            const d = zoneData[k]?.monthly?.find(r => r.year === state.year && r.month === state.month);
-            if (d) {{
-                const cycleStr = d.cycles ? ' (' + Math.round(d.cycles) + ' cykler)' : '';
-                html += statCard(
-                    DATA.profiles[k],
-                    d.capture ? d.capture.toLocaleString('sv-SE', {{maximumFractionDigits: 0}}) : '\u2013',
-                    'EUR/MW' + cycleStr
-                );
-            }}
-        }} else if (isSpreadProfile(k)) {{
-            const d = zoneData[k]?.monthly?.find(r => r.year === state.year && r.month === state.month);
-            if (d) {{
-                html += statCard('Spread', fmt(d.capture), 'EUR/MWh');
-            }}
-        }}
     }});
 
     statsRow.innerHTML = html;
 
     // Get daily data for this month
     const traces = [];
-    const hasRevenue = profileKeys.some(isRevenueProfile);
 
     profileKeys.forEach(k => {{
-        if (isSpreadProfile(k)) return;
-
         const dailyData = (zoneData[k]?.daily || []).filter(
             d => d.year === state.year && d.month === state.month
         );
@@ -853,30 +830,17 @@ function renderDaily() {{
         const dates = dailyData.map(d => d.date);
         const vals = dailyData.map(d => k === 'baseload' ? d.baseload : d.capture);
 
-        const trace = {{
+        traces.push({{
             x: dates,
             y: vals,
             name: DATA.profiles[k],
             type: 'scatter',
             mode: 'lines+markers',
             marker: {{ size: 4 }},
-        }};
-
-        if (isRevenueProfile(k)) {{
-            trace.yaxis = 'y2';
-            trace.line = {{ color: DATA.colors[k] || '#888', width: 2 }};
-            trace.opacity = 1;
-            trace.hovertemplate = DATA.profiles[k] + '<br>%{{x|%d %b}}: %{{y:.1f}} EUR/MW' +
-                (dailyData[0]?.cycles !== undefined ? '<br>Cykler: %{{customdata:.1f}}' : '') +
-                '<extra></extra>';
-            trace.customdata = dailyData.map(d => d.cycles);
-        }} else {{
-            trace.line = {{ color: DATA.colors[k] || '#888', width: k === 'baseload' ? 1.5 : 2 }};
-            trace.opacity = k === 'baseload' ? 0.6 : 1;
-            trace.hovertemplate = DATA.profiles[k] + '<br>%{{x}}: %{{y:.1f}} EUR/MWh<extra></extra>';
-        }}
-
-        traces.push(trace);
+            line: {{ color: DATA.colors[k] || '#888', width: k === 'baseload' ? 1.5 : 2 }},
+            opacity: k === 'baseload' ? 0.6 : 1,
+            hovertemplate: DATA.profiles[k] + '<br>%{{x}}: %{{y:.1f}} EUR/MWh<extra></extra>',
+        }});
     }});
 
     const layout = {{
@@ -885,18 +849,6 @@ function renderDaily() {{
         yaxis: {{ ...PLOTLY_DARK.yaxis, title: 'EUR/MWh', rangemode: 'tozero' }},
         showlegend: true,
     }};
-
-    if (hasRevenue) {{
-        layout.yaxis2 = {{
-            ...PLOTLY_DARK.yaxis,
-            title: {{ text: 'EUR/MW', font: {{ color: '#8892a4', size: 11 }} }},
-            overlaying: 'y',
-            side: 'right',
-            rangemode: 'tozero',
-            showgrid: false,
-        }};
-        layout.margin = {{ ...PLOTLY_DARK.margin, r: 60 }};
-    }}
 
     Plotly.newPlot('main-chart', traces, layout, {{ responsive: true, displayModeBar: true,
         modeBarButtonsToRemove: ['lasso2d', 'select2d'] }});
@@ -910,7 +862,7 @@ function renderDaily() {{
 // ================================================================
 function renderRatioChart(profileKeys, zoneData, period, xValues) {{
     const traces = [];
-    const nonBaseload = profileKeys.filter(k => k !== 'baseload' && !isRevenueProfile(k) && !isSpreadProfile(k));
+    const nonBaseload = profileKeys.filter(k => k !== 'baseload');
 
     if (period === 'yearly') {{
         nonBaseload.forEach(k => {{
@@ -950,28 +902,6 @@ function renderRatioChart(profileKeys, zoneData, period, xValues) {{
         }});
     }}
 
-    // Spread as bars on secondary axis
-    if (state.enabled.has('spread') && zoneData.spread) {{
-        const spreadData = period === 'yearly' ? zoneData.spread?.yearly : zoneData.spread?.monthly;
-        if (spreadData) {{
-            const vals = xValues.map(x => {{
-                const r = period === 'yearly'
-                    ? spreadData.find(d => d.year === x)
-                    : spreadData.find(d => d.year === state.year && d.month === x);
-                return r ? r.capture : null;
-            }});
-            traces.push({{
-                x: period === 'yearly' ? xValues.map(String) : xValues.map(m => MONTH_NAMES[m - 1]),
-                y: vals,
-                name: 'Spread',
-                type: 'bar',
-                marker: {{ color: DATA.colors.spread || '#94a3b8', opacity: 0.4 }},
-                yaxis: 'y2',
-                hovertemplate: 'Spread<br>%{{x}}: %{{y:.1f}} EUR/MWh<extra></extra>',
-            }});
-        }}
-    }}
-
     const layout = {{
         ...PLOTLY_DARK,
         xaxis: {{ ...PLOTLY_DARK.xaxis, type: 'category' }},
@@ -989,24 +919,12 @@ function renderRatioChart(profileKeys, zoneData, period, xValues) {{
         margin: {{ ...PLOTLY_DARK.margin, t: 20 }},
     }};
 
-    if (state.enabled.has('spread') && zoneData.spread) {{
-        layout.yaxis2 = {{
-            ...PLOTLY_DARK.yaxis,
-            title: {{ text: 'Spread EUR/MWh', font: {{ color: '#8892a4', size: 11 }} }},
-            overlaying: 'y',
-            side: 'right',
-            rangemode: 'tozero',
-            showgrid: false,
-        }};
-        layout.margin = {{ ...PLOTLY_DARK.margin, r: 60, t: 20 }};
-    }}
-
     Plotly.newPlot('ratio-chart', traces, layout, {{ responsive: true, displayModeBar: false }});
 }}
 
 function renderDailyRatioChart(profileKeys, zoneData) {{
     const traces = [];
-    const nonBaseload = profileKeys.filter(k => k !== 'baseload' && !isRevenueProfile(k) && !isSpreadProfile(k));
+    const nonBaseload = profileKeys.filter(k => k !== 'baseload');
 
     nonBaseload.forEach(k => {{
         const data = (zoneData[k]?.daily || []).filter(
@@ -1026,37 +944,6 @@ function renderDailyRatioChart(profileKeys, zoneData) {{
         }});
     }});
 
-    // Spread as shaded area on secondary axis
-    if (state.enabled.has('spread') && zoneData.spread) {{
-        const spreadDays = (zoneData.spread?.daily || []).filter(
-            d => d.year === state.year && d.month === state.month
-        );
-        if (spreadDays.length > 0) {{
-            traces.push({{
-                x: spreadDays.map(d => d.date),
-                y: spreadDays.map(d => d.max_price),
-                name: 'Max pris',
-                type: 'scatter',
-                mode: 'lines',
-                line: {{ color: '#94a3b8', width: 1 }},
-                yaxis: 'y2',
-                hovertemplate: 'Max: %{{y:.1f}} EUR/MWh<extra></extra>',
-            }});
-            traces.push({{
-                x: spreadDays.map(d => d.date),
-                y: spreadDays.map(d => d.min_price),
-                name: 'Min pris',
-                type: 'scatter',
-                mode: 'lines',
-                line: {{ color: '#94a3b8', width: 1 }},
-                fill: 'tonexty',
-                fillcolor: 'rgba(148, 163, 184, 0.15)',
-                yaxis: 'y2',
-                hovertemplate: 'Min: %{{y:.1f}} EUR/MWh<extra></extra>',
-            }});
-        }}
-    }}
-
     const layout = {{
         ...PLOTLY_DARK,
         xaxis: {{ ...PLOTLY_DARK.xaxis, type: 'date', tickformat: '%d %b' }},
@@ -1070,7 +957,227 @@ function renderDailyRatioChart(profileKeys, zoneData) {{
         margin: {{ ...PLOTLY_DARK.margin, t: 20 }},
     }};
 
-    if (state.enabled.has('spread') && zoneData.spread) {{
+    Plotly.newPlot('ratio-chart', traces, layout, {{ responsive: true, displayModeBar: false }});
+}}
+
+// ================================================================
+// BESS SIDEBAR
+// ================================================================
+function buildBessSidebar() {{
+    const sidebar = document.getElementById('bess-sidebar');
+    let html = '';
+
+    const arbKeys = Object.keys(DATA.profiles).filter(k => k.startsWith('arb_')).sort((a, b) => {{
+        return parseInt(a.replace('arb_', '').replace('h', '')) - parseInt(b.replace('arb_', '').replace('h', ''));
+    }});
+    const solKeys = Object.keys(DATA.profiles).filter(k => k === 'sol_only' || k.startsWith('sol_bess_')).sort((a, b) => {{
+        if (a === 'sol_only') return -1;
+        if (b === 'sol_only') return 1;
+        return parseInt(a.replace('sol_bess_', '').replace('h', '')) - parseInt(b.replace('sol_bess_', '').replace('h', ''));
+    }});
+
+    const sections = [
+        ['ARBITRAGE', arbKeys],
+        ['SOL', solKeys],
+        ['KONTEXT', ['spread'].filter(k => k in DATA.profiles)],
+    ];
+
+    sections.forEach(([title, keys]) => {{
+        const available = keys.filter(k => k in DATA.profiles);
+        if (available.length === 0) return;
+
+        html += '<div class="sidebar-section">';
+        html += '<div class="sidebar-title">' + title + '</div>';
+        available.forEach(k => {{
+            const color = DATA.colors[k] || '#888';
+            const checked = state.bess_enabled.has(k) ? 'checked' : '';
+            html += '<label class="sidebar-item">';
+            html += '<input type="checkbox" data-bess-profile="' + k + '" ' + checked + '>';
+            html += '<span class="color-dot" style="background:' + color + '"></span>';
+            html += DATA.profiles[k];
+            html += '</label>';
+        }});
+        html += '</div>';
+    }});
+
+    sidebar.innerHTML = html;
+
+    sidebar.querySelectorAll('input[type="checkbox"]').forEach(cb => {{
+        cb.addEventListener('change', () => {{
+            const k = cb.dataset.bessProfile;
+            if (cb.checked) state.bess_enabled.add(k);
+            else state.bess_enabled.delete(k);
+            renderBess();
+        }});
+    }});
+}}
+
+// ================================================================
+// BESS NAVIGATION
+// ================================================================
+function navigateToBess(view, year, month) {{
+    state.bess_view = view;
+    state.bess_year = year || null;
+    state.bess_month = month || null;
+    renderBess();
+}}
+
+function updateBessBreadcrumb() {{
+    const bc = document.getElementById('bess-breadcrumb');
+    let html = '';
+    if (state.bess_view === 'yearly') {{
+        html = '<span class="breadcrumb-current">' + state.zone + ' \u2014 BESS \u00c5rs\u00f6versikt</span>';
+    }} else if (state.bess_view === 'monthly') {{
+        html = '<span class="breadcrumb-item" onclick="navigateToBess(\\x27yearly\\x27)">\u00c5rs\u00f6versikt</span>';
+        html += '<span class="breadcrumb-sep">\u203a</span>';
+        html += '<span class="breadcrumb-current">' + state.bess_year + '</span>';
+    }} else if (state.bess_view === 'daily') {{
+        html = '<span class="breadcrumb-item" onclick="navigateToBess(\\x27yearly\\x27)">\u00c5rs\u00f6versikt</span>';
+        html += '<span class="breadcrumb-sep">\u203a</span>';
+        html += '<span class="breadcrumb-item" onclick="navigateToBess(\\x27monthly\\x27,' + state.bess_year + ')">' + state.bess_year + '</span>';
+        html += '<span class="breadcrumb-sep">\u203a</span>';
+        html += '<span class="breadcrumb-current">' + MONTH_FULL[state.bess_month - 1] + '</span>';
+    }}
+    bc.innerHTML = html;
+}}
+
+// ================================================================
+// BESS RENDERING
+// ================================================================
+function renderBess() {{
+    updateBessBreadcrumb();
+    if (state.bess_view === 'yearly') renderBessYearly();
+    else if (state.bess_view === 'monthly') renderBessMonthly();
+    else if (state.bess_view === 'daily') renderBessDaily();
+}}
+
+function getBessProfiles(zoneData) {{
+    return Object.keys(DATA.profiles).filter(k =>
+        state.bess_enabled.has(k) && zoneData[k] &&
+        (k.startsWith('arb_') || k === 'spread' || k.startsWith('sol_bess_') || k === 'sol_only')
+    );
+}}
+
+function isSolCapture(k) {{
+    return k.startsWith('sol_bess_') || k === 'sol_only';
+}}
+
+function getArbDuration(k) {{
+    const m = k.match(/arb_(\d+)h/);
+    return m ? parseInt(m[1]) : 1;
+}}
+
+function transformArbValue(k, v) {{
+    if (v === null || v === undefined) return v;
+    if (!k.startsWith('arb_')) return v;
+    if (state.bess_unit === 'per_mwh') {{
+        return v / getArbDuration(k);
+    }}
+    return v;
+}}
+
+function bessArbUnit() {{
+    return state.bess_unit === 'per_mw' ? 'EUR/MW' : 'EUR/MWh';
+}}
+
+function setBessUnit(unit) {{
+    state.bess_unit = unit;
+    const mwBtn = document.getElementById('unit-per-mw');
+    const mwhBtn = document.getElementById('unit-per-mwh');
+    if (unit === 'per_mw') {{
+        mwBtn.style.background = 'var(--product)';
+        mwBtn.style.color = 'var(--product-contrast)';
+        mwhBtn.style.background = 'transparent';
+        mwhBtn.style.color = 'var(--text-muted)';
+    }} else {{
+        mwBtn.style.background = 'transparent';
+        mwBtn.style.color = 'var(--text-muted)';
+        mwhBtn.style.background = 'var(--product)';
+        mwhBtn.style.color = 'var(--product-contrast)';
+    }}
+    renderBess();
+}}
+
+function renderBessYearly() {{
+    const zoneData = DATA.data[state.zone] || {{}};
+    const profileKeys = getBessProfiles(zoneData);
+
+    document.getElementById('bess-chart-title').textContent = state.zone + ' \u2014 BESS Revenue per \u00e5r';
+
+    // Find years from any available BESS profile
+    let years = [];
+    profileKeys.forEach(k => {{
+        const yd = zoneData[k]?.yearly || [];
+        yd.forEach(d => {{ if (!years.includes(d.year)) years.push(d.year); }});
+    }});
+    years.sort();
+
+    // Stats — latest year
+    const latestYear = years[years.length - 1];
+    const statsRow = document.getElementById('bess-stats-row');
+    let html = '';
+
+    const arbUnit = bessArbUnit();
+    profileKeys.forEach(k => {{
+        const d = zoneData[k]?.yearly?.find(r => r.year === latestYear);
+        if (!d) return;
+
+        if (isRevenueProfile(k)) {{
+            const cycleStr = d.cycles ? ' (' + Math.round(d.cycles) + ' cykler)' : '';
+            const tv = transformArbValue(k, d.capture);
+            html += statCard(
+                DATA.profiles[k] + ' ' + latestYear,
+                tv ? tv.toLocaleString('sv-SE', {{maximumFractionDigits: 0}}) : '\u2013',
+                arbUnit + cycleStr
+            );
+        }} else if (isSpreadProfile(k)) {{
+            html += statCard('Spread ' + latestYear + ' (\u00d8 dagligt)', fmt(d.capture), 'EUR/MWh (max\u2212min)');
+        }} else {{
+            html += statCard(DATA.profiles[k] + ' ' + latestYear, fmt(d.capture), 'EUR/MWh', d.ratio);
+        }}
+    }});
+    statsRow.innerHTML = html;
+
+    // Main chart: dual y-axis (arb on left, sol_bess on right, skip spread)
+    const traces = [];
+    const hasArb = profileKeys.some(k => k.startsWith('arb_'));
+    const hasSolBess = profileKeys.some(k => isSolCapture(k));
+
+    profileKeys.forEach(k => {{
+        if (isSpreadProfile(k)) return;
+
+        const yearlyData = zoneData[k]?.yearly || [];
+        const vals = years.map(y => {{
+            const r = yearlyData.find(d => d.year === y);
+            return r ? transformArbValue(k, r.capture) : null;
+        }});
+
+        const trace = {{
+            x: years.map(String),
+            y: vals,
+            name: DATA.profiles[k],
+            type: 'bar',
+            marker: {{ color: DATA.colors[k] || '#888', opacity: 0.85 }},
+        }};
+
+        if (isSolCapture(k)) {{
+            trace.yaxis = 'y2';
+            trace.hovertemplate = DATA.profiles[k] + '<br>%{{x}}: %{{y:.1f}} EUR/MWh<extra></extra>';
+        }} else {{
+            trace.hovertemplate = DATA.profiles[k] + '<br>%{{x}}: %{{y:,.0f}} ' + arbUnit + '<extra></extra>';
+        }}
+
+        traces.push(trace);
+    }});
+
+    const layout = {{
+        ...PLOTLY_DARK,
+        barmode: 'group',
+        xaxis: {{ ...PLOTLY_DARK.xaxis, type: 'category' }},
+        yaxis: {{ ...PLOTLY_DARK.yaxis, title: arbUnit + '/\u00e5r', rangemode: 'tozero' }},
+    }};
+
+    if (hasSolBess) {{
         layout.yaxis2 = {{
             ...PLOTLY_DARK.yaxis,
             title: {{ text: 'EUR/MWh', font: {{ color: '#8892a4', size: 11 }} }},
@@ -1079,10 +1186,318 @@ function renderDailyRatioChart(profileKeys, zoneData) {{
             rangemode: 'tozero',
             showgrid: false,
         }};
-        layout.margin = {{ ...PLOTLY_DARK.margin, r: 60, t: 20 }};
+        layout.margin = {{ ...PLOTLY_DARK.margin, r: 60 }};
     }}
 
-    Plotly.newPlot('ratio-chart', traces, layout, {{ responsive: true, displayModeBar: false }});
+    Plotly.newPlot('bess-main-chart', traces, layout, {{ responsive: true, displayModeBar: false }});
+
+    // Click → drill down
+    document.getElementById('bess-main-chart').on('plotly_click', (ev) => {{
+        if (ev.points.length > 0) {{
+            const year = parseInt(ev.points[0].x);
+            navigateToBess('monthly', year);
+        }}
+    }});
+
+    // Secondary chart: spread
+    renderBessSpreadChart(profileKeys, zoneData, 'yearly', years);
+}}
+
+function renderBessMonthly() {{
+    const zoneData = DATA.data[state.zone] || {{}};
+    const profileKeys = getBessProfiles(zoneData);
+
+    document.getElementById('bess-chart-title').textContent =
+        state.zone + ' \u2014 BESS Revenue per m\u00e5nad ' + state.bess_year;
+
+    const months = Array.from({{length: 12}}, (_, i) => i + 1);
+
+    // Stats for this year
+    const statsRow = document.getElementById('bess-stats-row');
+    let html = '';
+    const arbUnit = bessArbUnit();
+    profileKeys.forEach(k => {{
+        const d = zoneData[k]?.yearly?.find(r => r.year === state.bess_year);
+        if (!d) return;
+
+        if (isRevenueProfile(k)) {{
+            const cycleStr = d.cycles ? ' (' + Math.round(d.cycles) + ' cykler)' : '';
+            const tv = transformArbValue(k, d.capture);
+            html += statCard(
+                DATA.profiles[k],
+                tv ? tv.toLocaleString('sv-SE', {{maximumFractionDigits: 0}}) : '\u2013',
+                arbUnit + cycleStr
+            );
+        }} else if (isSpreadProfile(k)) {{
+            html += statCard('Spread (\u00d8 dagligt)', fmt(d.capture), 'EUR/MWh (max\u2212min)');
+        }} else {{
+            html += statCard(DATA.profiles[k], fmt(d.capture), 'EUR/MWh', d.ratio);
+        }}
+    }});
+    statsRow.innerHTML = html;
+
+    // Chart
+    const traces = [];
+    const hasSolBess = profileKeys.some(k => isSolCapture(k));
+
+    profileKeys.forEach(k => {{
+        if (isSpreadProfile(k)) return;
+
+        const monthlyData = zoneData[k]?.monthly || [];
+        const vals = months.map(m => {{
+            const r = monthlyData.find(d => d.year === state.bess_year && d.month === m);
+            return r ? transformArbValue(k, r.capture) : null;
+        }});
+
+        const trace = {{
+            x: months.map(m => MONTH_NAMES[m - 1]),
+            y: vals,
+            name: DATA.profiles[k],
+            type: 'bar',
+            marker: {{ color: DATA.colors[k] || '#888', opacity: 0.85 }},
+        }};
+
+        if (isSolCapture(k)) {{
+            trace.yaxis = 'y2';
+            trace.hovertemplate = DATA.profiles[k] + '<br>%{{x}} ' + state.bess_year + ': %{{y:.1f}} EUR/MWh<extra></extra>';
+        }} else {{
+            trace.hovertemplate = DATA.profiles[k] + '<br>%{{x}} ' + state.bess_year + ': %{{y:,.0f}} ' + arbUnit + '<extra></extra>';
+        }}
+
+        traces.push(trace);
+    }});
+
+    const layout = {{
+        ...PLOTLY_DARK,
+        barmode: 'group',
+        xaxis: {{ ...PLOTLY_DARK.xaxis, type: 'category' }},
+        yaxis: {{ ...PLOTLY_DARK.yaxis, title: arbUnit, rangemode: 'tozero' }},
+    }};
+
+    if (hasSolBess) {{
+        layout.yaxis2 = {{
+            ...PLOTLY_DARK.yaxis,
+            title: {{ text: 'EUR/MWh', font: {{ color: '#8892a4', size: 11 }} }},
+            overlaying: 'y',
+            side: 'right',
+            rangemode: 'tozero',
+            showgrid: false,
+        }};
+        layout.margin = {{ ...PLOTLY_DARK.margin, r: 60 }};
+    }}
+
+    Plotly.newPlot('bess-main-chart', traces, layout, {{ responsive: true, displayModeBar: false }});
+
+    document.getElementById('bess-main-chart').on('plotly_click', (ev) => {{
+        if (ev.points.length > 0) {{
+            const monthIdx = months[ev.points[0].pointIndex];
+            navigateToBess('daily', state.bess_year, monthIdx);
+        }}
+    }});
+
+    // Secondary chart: spread
+    renderBessSpreadChart(profileKeys, zoneData, 'monthly', months);
+}}
+
+function renderBessDaily() {{
+    const zoneData = DATA.data[state.zone] || {{}};
+    const profileKeys = getBessProfiles(zoneData);
+
+    document.getElementById('bess-chart-title').textContent =
+        state.zone + ' \u2014 BESS Daglig ' + MONTH_FULL[state.bess_month - 1] + ' ' + state.bess_year;
+
+    // Stats
+    const statsRow = document.getElementById('bess-stats-row');
+    let html = '';
+    const arbUnit = bessArbUnit();
+    profileKeys.forEach(k => {{
+        const d = zoneData[k]?.monthly?.find(r => r.year === state.bess_year && r.month === state.bess_month);
+        if (!d) return;
+
+        if (isRevenueProfile(k)) {{
+            const cycleStr = d.cycles ? ' (' + Math.round(d.cycles) + ' cykler)' : '';
+            const tv = transformArbValue(k, d.capture);
+            html += statCard(
+                DATA.profiles[k],
+                tv ? tv.toLocaleString('sv-SE', {{maximumFractionDigits: 0}}) : '\u2013',
+                arbUnit + cycleStr
+            );
+        }} else if (isSpreadProfile(k)) {{
+            html += statCard('Spread (\u00d8 dagligt)', fmt(d.capture), 'EUR/MWh (max\u2212min)');
+        }} else {{
+            html += statCard(DATA.profiles[k], fmt(d.capture), 'EUR/MWh', d.ratio);
+        }}
+    }});
+    statsRow.innerHTML = html;
+
+    // Daily lines
+    const traces = [];
+    const hasSolBess = profileKeys.some(k => isSolCapture(k));
+
+    profileKeys.forEach(k => {{
+        if (isSpreadProfile(k)) return;
+
+        const dailyData = (zoneData[k]?.daily || []).filter(
+            d => d.year === state.bess_year && d.month === state.bess_month
+        );
+        if (dailyData.length === 0) return;
+
+        const dates = dailyData.map(d => d.date);
+        const vals = dailyData.map(d => transformArbValue(k, d.capture));
+
+        const trace = {{
+            x: dates,
+            y: vals,
+            name: DATA.profiles[k],
+            type: 'scatter',
+            mode: 'lines+markers',
+            marker: {{ size: 4 }},
+            line: {{ color: DATA.colors[k] || '#888', width: 2 }},
+        }};
+
+        if (isSolCapture(k)) {{
+            trace.yaxis = 'y2';
+            trace.hovertemplate = DATA.profiles[k] + '<br>%{{x|%d %b}}: %{{y:.1f}} EUR/MWh<extra></extra>';
+        }} else {{
+            trace.hovertemplate = DATA.profiles[k] + '<br>%{{x|%d %b}}: %{{y:.1f}} ' + arbUnit +
+                (dailyData[0]?.cycles !== undefined ? '<br>Cykler: %{{customdata:.1f}}' : '') +
+                '<extra></extra>';
+            trace.customdata = dailyData.map(d => d.cycles);
+        }}
+
+        traces.push(trace);
+    }});
+
+    const layout = {{
+        ...PLOTLY_DARK,
+        xaxis: {{ ...PLOTLY_DARK.xaxis, type: 'date', tickformat: '%d %b' }},
+        yaxis: {{ ...PLOTLY_DARK.yaxis, title: arbUnit, rangemode: 'tozero' }},
+        showlegend: true,
+    }};
+
+    if (hasSolBess) {{
+        layout.yaxis2 = {{
+            ...PLOTLY_DARK.yaxis,
+            title: {{ text: 'EUR/MWh', font: {{ color: '#8892a4', size: 11 }} }},
+            overlaying: 'y',
+            side: 'right',
+            rangemode: 'tozero',
+            showgrid: false,
+        }};
+        layout.margin = {{ ...PLOTLY_DARK.margin, r: 60 }};
+    }}
+
+    Plotly.newPlot('bess-main-chart', traces, layout, {{ responsive: true, displayModeBar: true,
+        modeBarButtonsToRemove: ['lasso2d', 'select2d'] }});
+
+    // Secondary chart: spread as shaded area
+    renderBessDailySpreadChart(profileKeys, zoneData);
+}}
+
+function renderBessSpreadChart(profileKeys, zoneData, period, xValues) {{
+    const secondaryDiv = document.getElementById('bess-secondary-chart');
+
+    if (!state.bess_enabled.has('spread') || !zoneData.spread) {{
+        secondaryDiv.parentElement.style.display = 'none';
+        return;
+    }}
+    secondaryDiv.parentElement.style.display = '';
+
+    const spreadData = period === 'yearly' ? zoneData.spread?.yearly : zoneData.spread?.monthly;
+    if (!spreadData) {{
+        secondaryDiv.parentElement.style.display = 'none';
+        return;
+    }}
+
+    const vals = xValues.map(x => {{
+        const r = period === 'yearly'
+            ? spreadData.find(d => d.year === x)
+            : spreadData.find(d => d.year === state.bess_year && d.month === x);
+        return r ? r.capture : null;
+    }});
+
+    const traces = [{{
+        x: period === 'yearly' ? xValues.map(String) : xValues.map(m => MONTH_NAMES[m - 1]),
+        y: vals,
+        name: 'Spread',
+        type: 'bar',
+        marker: {{ color: DATA.colors.spread || '#94a3b8', opacity: 0.6 }},
+        hovertemplate: '<b>%{{x}}</b><br>\u00d8 dagligt max\u2212min: %{{y:.1f}} EUR/MWh<br><i>medelv\u00e4rde av (max-timpris \u2212 min-timpris) per dag</i><extra></extra>',
+    }}];
+
+    const layout = {{
+        ...PLOTLY_DARK,
+        xaxis: {{ ...PLOTLY_DARK.xaxis, type: 'category' }},
+        yaxis: {{ ...PLOTLY_DARK.yaxis, title: 'EUR/MWh', rangemode: 'tozero' }},
+        showlegend: false,
+        margin: {{ ...PLOTLY_DARK.margin, t: 20 }},
+    }};
+
+    Plotly.newPlot('bess-secondary-chart', traces, layout, {{ responsive: true, displayModeBar: false }});
+}}
+
+function renderBessDailySpreadChart(profileKeys, zoneData) {{
+    const secondaryDiv = document.getElementById('bess-secondary-chart');
+
+    if (!state.bess_enabled.has('spread') || !zoneData.spread) {{
+        secondaryDiv.parentElement.style.display = 'none';
+        return;
+    }}
+    secondaryDiv.parentElement.style.display = '';
+
+    const spreadDays = (zoneData.spread?.daily || []).filter(
+        d => d.year === state.bess_year && d.month === state.bess_month
+    );
+
+    if (spreadDays.length === 0) {{
+        secondaryDiv.parentElement.style.display = 'none';
+        return;
+    }}
+
+    const traces = [
+        {{
+            x: spreadDays.map(d => d.date),
+            y: spreadDays.map(d => d.max_price),
+            name: 'H\u00f6gsta timpris',
+            type: 'scatter',
+            mode: 'lines',
+            line: {{ color: '#94a3b8', width: 1 }},
+            hovertemplate: 'Max-timpris: %{{y:.1f}} EUR/MWh<extra></extra>',
+        }},
+        {{
+            x: spreadDays.map(d => d.date),
+            y: spreadDays.map(d => d.min_price),
+            name: 'L\u00e4gsta timpris',
+            type: 'scatter',
+            mode: 'lines',
+            line: {{ color: '#94a3b8', width: 1 }},
+            fill: 'tonexty',
+            fillcolor: 'rgba(148, 163, 184, 0.15)',
+            hovertemplate: 'Min-timpris: %{{y:.1f}} EUR/MWh<extra></extra>',
+        }},
+    ];
+
+    // Add spread (max - min) as a line
+    traces.push({{
+        x: spreadDays.map(d => d.date),
+        y: spreadDays.map(d => d.capture),
+        name: 'Spread (max\u2212min)',
+        type: 'scatter',
+        mode: 'lines+markers',
+        line: {{ color: DATA.colors.spread || '#94a3b8', width: 2 }},
+        marker: {{ size: 3 }},
+        hovertemplate: 'Dagsspread (max\u2212min): %{{y:.1f}} EUR/MWh<extra></extra>',
+    }});
+
+    const layout = {{
+        ...PLOTLY_DARK,
+        xaxis: {{ ...PLOTLY_DARK.xaxis, type: 'date', tickformat: '%d %b' }},
+        yaxis: {{ ...PLOTLY_DARK.yaxis, title: 'EUR/MWh', rangemode: 'tozero' }},
+        showlegend: false,
+        margin: {{ ...PLOTLY_DARK.margin, t: 20 }},
+    }};
+
+    Plotly.newPlot('bess-secondary-chart', traces, layout, {{ responsive: true, displayModeBar: false }});
 }}
 
 // ================================================================
@@ -1104,90 +1519,182 @@ function renderForwardCurve() {{
         return;
     }}
 
-    const labels = fwd.contracts.map(c => c.label);
     const zone = state.zone;
+    const labels = fwd.contracts.map(c => c.label);  // passed to renderEpadSpread
 
-    // --- Forward Curve: Stacked SYS + EPAD ---
     document.getElementById('forward-title').textContent =
         zone + ' — Forward Curve (settlement: ' + fwd.settlement_date + ')';
 
-    const sysVals = labels.map(l => fwd.sys[l] || null);
-    const epadVals = labels.map(l => {{
-        const e = (fwd.epad[zone] || {{}})[l];
+    // Swedish month abbreviations (no trailing period)
+    const SV_MONTHS = ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+
+    // Date helpers: treat dates as UTC to avoid timezone shifts
+    const parseDate = (s) => new Date(s + 'T00:00:00Z').getTime();
+    const midpoint = (start, end) => {{
+        const s = parseDate(start);
+        const e = parseDate(end) + 86399000;  // end-of-day for the end date
+        return new Date((s + e) / 2).toISOString();
+    }};
+    const periodWidthMs = (start, end) => {{
+        const s = parseDate(start);
+        const e = parseDate(end) + 86399000;
+        return (e - s) * 0.9;  // 10% gap between adjacent bars
+    }};
+    const monthName = (dateStr) => SV_MONTHS[new Date(dateStr + 'T00:00:00Z').getUTCMonth()];
+
+    // Separate quarters and years
+    const quarters = fwd.contracts.filter(c => c.type === 'quarter');
+    const years = fwd.contracts.filter(c => c.type === 'year');
+
+    // --- Quarter bar data ---
+    const qX = quarters.map(c => midpoint(c.start, c.end));
+    const qWidths = quarters.map(c => periodWidthMs(c.start, c.end));
+    const qSysVals = quarters.map(c => fwd.sys[c.label] ?? null);
+    const qEpadVals = quarters.map(c => {{
+        const e = (fwd.epad[zone] || {{}})[c.label];
         return e !== undefined ? e : null;
     }});
-    const zoneVals = labels.map(l => (fwd.zone_fwd[zone] || {{}})[l] || null);
+    const qZoneVals = quarters.map(c => (fwd.zone_fwd[zone] || {{}})[c.label] ?? null);
 
-    // For stacked bar: SYS base + EPAD on top
-    // If EPAD < 0, we show SYS to the zone price level, then EPAD as negative overlay
-    const sysBarVals = labels.map((l, i) => {{
-        const s = sysVals[i];
-        const e = epadVals[i];
+    // Stacked-bar encoding: when EPAD < 0, SYS bar shrinks to zone_price,
+    // and EPAD overlay (|EPAD|) sits on top back up to SYS level
+    const qSysBarVals = qSysVals.map((s, i) => {{
         if (s === null) return null;
-        if (e !== null && e < 0) return s + e;  // zone price (SYS + negative EPAD)
+        const e = qEpadVals[i];
+        if (e !== null && e < 0) return s + e;
         return s;
     }});
+    const qEpadBarVals = qEpadVals.map(e => e !== null ? Math.abs(e) : null);
+    const qEpadColors = qEpadVals.map(e => e !== null && e >= 0 ? '#10b981' : '#ef4444');
 
-    const epadBarVals = labels.map((l, i) => {{
-        const e = epadVals[i];
-        if (e === null) return null;
-        return Math.abs(e);
+    const qHoverTemplates = quarters.map((c, i) => {{
+        const z = qZoneVals[i];
+        const s = qSysVals[i];
+        const e = qEpadVals[i];
+        const yr = c.start.slice(0, 4);
+        return '<b>' + zone + ' ' + c.label + '</b><br>' +
+            'Period: ' + monthName(c.start) + '–' + monthName(c.end) + ' ' + yr + '<br>' +
+            'Zonpris: ' + (z !== null ? z.toFixed(2) : '-') + ' EUR/MWh<br>' +
+            'SYS: ' + (s !== null ? s.toFixed(2) : '-') + '<br>' +
+            'EPAD: ' + (e !== null ? (e >= 0 ? '+' : '') + e.toFixed(2) : '-') +
+            '<extra></extra>';
     }});
 
-    const epadColors = epadVals.map(e => e !== null && e >= 0 ? '#10b981' : '#ef4444');
+    // --- Year plateau data (3 points per year + null separator for gap) ---
+    const yX = [];
+    const yY = [];
+    const yText = [];
+    const yHovers = [];
+    years.forEach(c => {{
+        const price = (fwd.zone_fwd[zone] || {{}})[c.label];
+        const sys = fwd.sys[c.label];
+        const epad = (fwd.epad[zone] || {{}})[c.label];
+        if (price === undefined || price === null) return;
+        const yr = c.start.slice(0, 4);
+        const hover = '<b>' + zone + ' ' + c.label + '</b><br>' +
+            'Period: jan–dec ' + yr + '<br>' +
+            'Zonpris: ' + price.toFixed(2) + ' EUR/MWh<br>' +
+            'SYS: ' + (sys !== undefined ? sys.toFixed(2) : '-') + '<br>' +
+            'EPAD: ' + (epad !== undefined ? (epad >= 0 ? '+' : '') + epad.toFixed(2) : '-') +
+            '<extra></extra>';
+        yX.push(c.start + 'T00:00:00Z', midpoint(c.start, c.end), c.end + 'T23:59:59Z', null);
+        yY.push(price, price, price, null);
+        yText.push('', c.label + ': ' + price.toFixed(1), '', '');
+        yHovers.push(hover, hover, hover, '');
+    }});
 
-    const barLabels = labels.map((l, i) => {{
-        const z = zoneVals[i];
-        const s = sysVals[i];
-        const e = epadVals[i];
-        return l + '<br>' + (z !== null ? z.toFixed(1) : '-') + ' EUR/MWh';
+    // --- Annotations: zone-price labels above each quarter bar ---
+    const annotations = quarters.map((c, i) => ({{
+        x: midpoint(c.start, c.end),
+        y: qZoneVals[i],
+        text: qZoneVals[i] !== null ? qZoneVals[i].toFixed(1) : '',
+        showarrow: false,
+        xanchor: 'center',
+        yanchor: 'bottom',
+        font: {{ color: '#e0e0e0', size: 10 }},
+        yshift: 4,
+    }}));
+
+    // --- Shapes: subtle vertical gridlines at year boundaries ---
+    const yearSet = new Set();
+    fwd.contracts.forEach(c => {{
+        yearSet.add(parseInt(c.start.slice(0, 4)));
+        yearSet.add(parseInt(c.end.slice(0, 4)) + 1);
+    }});
+    const shapes = Array.from(yearSet).sort((a, b) => a - b).map(yr => ({{
+        type: 'line',
+        xref: 'x',
+        yref: 'paper',
+        x0: yr + '-01-01',
+        x1: yr + '-01-01',
+        y0: 0,
+        y1: 1,
+        line: {{ color: '#2a3550', width: 1 }},
+        layer: 'below',
+    }}));
+
+    // --- Custom tick values: Q-label per quarter, YR-label for years w/o quarters ---
+    const lastQuarterEnd = quarters.length > 0 ? quarters[quarters.length - 1].end : '0000-01-01';
+    const tickvals = [];
+    const ticktext = [];
+    quarters.forEach(c => {{
+        tickvals.push(midpoint(c.start, c.end));
+        ticktext.push(c.label);
+    }});
+    years.forEach(c => {{
+        if (c.start > lastQuarterEnd) {{
+            tickvals.push(midpoint(c.start, c.end));
+            ticktext.push(c.label);
+        }}
     }});
 
     const traces = [
         {{
-            x: labels,
-            y: sysBarVals,
+            x: qX,
+            y: qSysBarVals,
+            width: qWidths,
             name: 'SYS',
             type: 'bar',
             marker: {{ color: '#4a9eff', opacity: 0.7 }},
-            hovertemplate: labels.map((l, i) =>
-                '<b>' + zone + ' ' + l + '</b><br>' +
-                'Zonpris: ' + (zoneVals[i] !== null ? zoneVals[i].toFixed(2) : '-') + ' EUR/MWh<br>' +
-                'SYS: ' + (sysVals[i] !== null ? sysVals[i].toFixed(2) : '-') + '<br>' +
-                'EPAD: ' + (epadVals[i] !== null ? (epadVals[i] >= 0 ? '+' : '') + epadVals[i].toFixed(2) : '-') +
-                '<extra></extra>'
-            ),
+            hovertemplate: qHoverTemplates,
         }},
         {{
-            x: labels,
-            y: epadBarVals,
+            x: qX,
+            y: qEpadBarVals,
+            width: qWidths,
             name: 'EPAD',
             type: 'bar',
-            marker: {{ color: epadColors, opacity: 0.85 }},
+            marker: {{ color: qEpadColors, opacity: 0.85 }},
             hoverinfo: 'skip',
         }},
+        {{
+            x: yX,
+            y: yY,
+            name: 'YR-kontrakt',
+            type: 'scatter',
+            mode: 'lines+text',
+            text: yText,
+            textposition: 'top center',
+            textfont: {{ color: '#e0e0e0', size: 10 }},
+            line: {{ color: '#ffffff', width: 2.5 }},
+            hovertemplate: yHovers,
+        }},
     ];
-
-    // Add zone price line
-    traces.push({{
-        x: labels,
-        y: zoneVals,
-        name: zone + ' zonpris',
-        type: 'scatter',
-        mode: 'lines+markers+text',
-        text: zoneVals.map(v => v !== null ? v.toFixed(1) : ''),
-        textposition: 'top center',
-        textfont: {{ color: '#e0e0e0', size: 10 }},
-        line: {{ color: '#ffffff', width: 1.5, dash: 'dot' }},
-        marker: {{ size: 5, color: '#ffffff' }},
-        hoverinfo: 'skip',
-    }});
 
     const layout = {{
         ...PLOTLY_DARK,
         barmode: 'stack',
-        xaxis: {{ ...PLOTLY_DARK.xaxis, type: 'category', tickangle: -45 }},
+        hovermode: 'closest',
+        xaxis: {{
+            ...PLOTLY_DARK.xaxis,
+            type: 'date',
+            tickvals: tickvals,
+            ticktext: ticktext,
+            tickangle: -45,
+        }},
         yaxis: {{ ...PLOTLY_DARK.yaxis, title: 'EUR/MWh', rangemode: 'tozero' }},
+        shapes: shapes,
+        annotations: annotations,
         showlegend: true,
     }};
 
@@ -1356,13 +1863,16 @@ def main() -> None:
     size_mb = html_path.stat().st_size / (1024 * 1024)
     print(f"  HTML: {html_path} ({size_mb:.1f} MB)")
 
-    # Excel
-    print("Genererar Excel...")
+    # Excel (with hourly data)
+    print("Genererar Excel (inkl. timdata)...")
     from elpris.excel_export_v2 import generate_dashboard_excel
+    excel_data = calculate_dashboard_v2_data(
+        granularities=["yearly", "monthly", "daily", "hourly"]
+    )
     xlsx_path = output_dir / f"dashboard_v2_{today}.xlsx"
-    generate_dashboard_excel(data, xlsx_path)
-    size_kb = xlsx_path.stat().st_size / 1024
-    print(f"  Excel: {xlsx_path} ({size_kb:.0f} KB)")
+    generate_dashboard_excel(excel_data, xlsx_path)
+    size_mb = xlsx_path.stat().st_size / (1024 * 1024)
+    print(f"  Excel: {xlsx_path} ({size_mb:.1f} MB)")
 
     print("\nKlart!")
 
