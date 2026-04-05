@@ -270,6 +270,105 @@ body {{
     min-height: 250px;
 }}
 
+/* ===== Investment Card ===== */
+.invest-card {{
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.2rem;
+    margin-bottom: 1rem;
+    box-shadow: var(--shadow);
+}}
+.invest-title {{
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-bright);
+    margin-bottom: 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}}
+.invest-inputs {{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem 1.5rem;
+    padding: 0.6rem 0;
+    margin-bottom: 0.8rem;
+    border-bottom: 1px solid var(--border);
+}}
+.invest-input-group {{
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}}
+.invest-input-label {{
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    font-weight: 600;
+}}
+.invest-input-wrap {{
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+}}
+.invest-input {{
+    width: 60px;
+    padding: 4px 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-sidebar);
+    color: var(--text-bright);
+    font-size: 0.9rem;
+    font-family: var(--font-mono);
+    border-radius: 4px;
+    text-align: right;
+}}
+.invest-input:focus {{
+    outline: none;
+    border-color: var(--product, var(--accent));
+}}
+.invest-input-unit {{
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}}
+.invest-table {{
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+}}
+.invest-table th {{
+    text-align: left;
+    padding: 4px 10px;
+    color: var(--text-muted);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+}}
+.invest-table th.duration-col {{
+    text-align: right;
+}}
+.invest-table td {{
+    padding: 5px 10px;
+    border-top: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 0.88rem;
+}}
+.invest-table td.metric-label {{
+    color: var(--text-muted);
+    font-family: var(--font);
+    font-size: 0.75rem;
+    font-weight: 500;
+}}
+.invest-table td.value-cell {{
+    text-align: right;
+    color: var(--text-bright);
+}}
+.invest-table .npv-pos {{ color: #10b981; font-weight: 600; }}
+.invest-table .npv-neg {{ color: #ef4444; font-weight: 600; }}
+.invest-table .npv-marginal {{ color: #f59e0b; font-weight: 600; }}
+
 /* ===== Summary Stats ===== */
 .stats-row {{
     display: flex;
@@ -388,9 +487,91 @@ button:focus-visible,
                 <div class="card-title">Capture Ratio (capture / baseload)</div>
                 <div id="ratio-chart" class="chart-container chart-secondary"></div>
             </div>
+            <div class="card" id="yoy-card">
+                <div class="card-title">F&ouml;r&auml;ndring &aring;r-&ouml;ver-&aring;r (capture)</div>
+                <div style="font-size:0.72rem;color:var(--text-muted);margin-top:-0.4rem;margin-bottom:0.8rem;line-height:1.4">
+                    Procentuell f&ouml;r&auml;ndring i capture-pris j&auml;mf&ouml;rt med f&ouml;reg&aring;ende &aring;r per profil.
+                    Negativt = capture faller (potentiell kannibaliseringseffekt).
+                </div>
+                <div id="yoy-chart" class="chart-container chart-secondary"></div>
+            </div>
         </div>
         <!-- BESS sections -->
         <div id="bess-view" style="display:none">
+            <!-- Investment economics card -->
+            <div class="invest-card" id="invest-card">
+                <div class="invest-title">Investering &mdash; Ekonomisk bedömning (arbitrage only)</div>
+                <div class="invest-inputs">
+                    <div class="invest-input-group">
+                        <span class="invest-input-label">CAPEX 1h</span>
+                        <div class="invest-input-wrap">
+                            <input type="number" class="invest-input" id="invest-capex-1h" value="400" min="0" step="10">
+                            <span class="invest-input-unit">kEUR/MWh</span>
+                        </div>
+                    </div>
+                    <div class="invest-input-group">
+                        <span class="invest-input-label">CAPEX 4h</span>
+                        <div class="invest-input-wrap">
+                            <input type="number" class="invest-input" id="invest-capex-4h" value="300" min="0" step="10">
+                            <span class="invest-input-unit">kEUR/MWh</span>
+                        </div>
+                    </div>
+                    <div class="invest-input-group">
+                        <span class="invest-input-label">OPEX</span>
+                        <div class="invest-input-wrap">
+                            <input type="number" class="invest-input" id="invest-opex" value="2.5" min="0" max="10" step="0.5">
+                            <span class="invest-input-unit">% / år</span>
+                        </div>
+                    </div>
+                    <div class="invest-input-group">
+                        <span class="invest-input-label">Livslängd</span>
+                        <div class="invest-input-wrap">
+                            <input type="number" class="invest-input" id="invest-lifetime" value="15" min="5" max="30" step="1">
+                            <span class="invest-input-unit">år</span>
+                        </div>
+                    </div>
+                    <div class="invest-input-group">
+                        <span class="invest-input-label">WACC</span>
+                        <div class="invest-input-wrap">
+                            <input type="number" class="invest-input" id="invest-wacc" value="8" min="0" max="25" step="0.5">
+                            <span class="invest-input-unit">% / år</span>
+                        </div>
+                    </div>
+                    <div class="invest-input-group">
+                        <span class="invest-input-label">Degradation</span>
+                        <div class="invest-input-wrap">
+                            <input type="number" class="invest-input" id="invest-degradation" value="2" min="0" max="10" step="0.5">
+                            <span class="invest-input-unit">% / år</span>
+                        </div>
+                    </div>
+                    <div class="invest-input-group">
+                        <span class="invest-input-label">Intäkts-genomsnitt</span>
+                        <div class="invest-input-wrap">
+                            <select class="invest-input" id="invest-rev-window" style="width:auto;padding:4px 6px">
+                                <option value="all">Alla år</option>
+                                <option value="3" selected>Senaste 3 år</option>
+                                <option value="5">Senaste 5 år</option>
+                                <option value="latest">Senaste året</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <table class="invest-table" id="invest-table">
+                    <thead>
+                        <tr>
+                            <th>Metrik</th>
+                            <th class="duration-col">1h</th>
+                            <th class="duration-col">2h</th>
+                            <th class="duration-col">3h</th>
+                            <th class="duration-col">4h</th>
+                        </tr>
+                    </thead>
+                    <tbody id="invest-tbody"></tbody>
+                </table>
+                <div style="font-size:0.68rem;color:var(--text-muted);margin-top:0.6rem;line-height:1.5">
+                    CAPEX interpoleras linjärt mellan 1h och 4h (2h och 3h). Intäkt = medelårsintäkt från arbitrage (<em>ej</em> inklusive stödtjänster) för vald zon. NPV <span style="color:#10b981">grön</span> = lönsam, <span style="color:#f59e0b">orange</span> = marginell (&plusmn;10% av CAPEX), <span style="color:#ef4444">röd</span> = olönsam.
+                </div>
+            </div>
             <div style="display:flex;gap:1rem;margin-bottom:0.8rem;align-items:center">
                 <span style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);font-weight:600">Enhet:</span>
                 <div style="display:flex;gap:4px">
@@ -525,6 +706,7 @@ function init() {{
     buildZoneButtons();
     buildSidebar();
     buildBessSidebar();
+    bindInvestmentInputs();
     render();
 }}
 
@@ -703,6 +885,10 @@ function renderYearly() {{
 
     // Ratio chart
     renderRatioChart(profileKeys, zoneData, 'yearly', years);
+
+    // YoY change chart (only in yearly view)
+    renderYoYChart(profileKeys, zoneData, years);
+    document.getElementById('yoy-card').style.display = 'block';
 }}
 
 function updateStats(baseloadData, zoneData, years) {{
@@ -797,6 +983,9 @@ function renderMonthly() {{
 
     // Ratio chart
     renderRatioChart(profileKeys, zoneData, 'monthly', months);
+
+    // Hide YoY card in monthly view
+    document.getElementById('yoy-card').style.display = 'none';
 }}
 
 // ================================================================
@@ -858,6 +1047,9 @@ function renderDaily() {{
 
     // Ratio chart for daily
     renderDailyRatioChart(profileKeys, zoneData);
+
+    // Hide YoY card in daily view
+    document.getElementById('yoy-card').style.display = 'none';
 }}
 
 // ================================================================
@@ -923,6 +1115,62 @@ function renderRatioChart(profileKeys, zoneData, period, xValues) {{
     }};
 
     Plotly.newPlot('ratio-chart', traces, layout, {{ responsive: true, displayModeBar: false }});
+}}
+
+function renderYoYChart(profileKeys, zoneData, years) {{
+    // Compute YoY % change for each profile across years. Capture for non-
+    // baseload, baseload value for 'baseload'. First year has null (no prior).
+    const traces = [];
+    if (years.length < 2) {{
+        Plotly.newPlot('yoy-chart', [], {{ ...PLOTLY_DARK }},
+            {{ responsive: true, displayModeBar: false }});
+        return;
+    }}
+
+    profileKeys.forEach(k => {{
+        const yearlyData = zoneData[k]?.yearly || [];
+        const metric = k === 'baseload' ? 'baseload' : 'capture';
+        // Ordered list of (year, value)
+        const vals = years.map(y => {{
+            const r = yearlyData.find(d => d.year === y);
+            return r ? r[metric] : null;
+        }});
+        // YoY % change, null for first year
+        const yoy = vals.map((v, i) => {{
+            if (i === 0 || v === null || vals[i - 1] === null || vals[i - 1] === 0) {{
+                return null;
+            }}
+            return (v - vals[i - 1]) / vals[i - 1] * 100;
+        }});
+        // Only keep years 1..N (skip first year)
+        const xLabels = years.slice(1).map(String);
+        const yVals = yoy.slice(1);
+        traces.push({{
+            x: xLabels,
+            y: yVals,
+            name: DATA.profiles[k],
+            type: 'bar',
+            marker: {{
+                color: yVals.map(v =>
+                    v === null ? '#444' : v < 0 ? '#ef4444' : DATA.colors[k] || '#888'
+                ),
+                opacity: 0.85,
+            }},
+            hovertemplate: DATA.profiles[k] + '<br>%{{x}}: %{{y:+.1f}}%<extra></extra>',
+        }});
+    }});
+
+    const layout = {{
+        ...PLOTLY_DARK,
+        barmode: 'group',
+        xaxis: {{ ...PLOTLY_DARK.xaxis, type: 'category' }},
+        yaxis: {{ ...PLOTLY_DARK.yaxis, title: '% vs f\\u00f6reg\\u00e5ende \\u00e5r', zeroline: true,
+            zerolinecolor: '#ffffff', zerolinewidth: 1 }},
+        showlegend: false,
+        margin: {{ ...PLOTLY_DARK.margin, t: 20 }},
+    }};
+
+    Plotly.newPlot('yoy-chart', traces, layout, {{ responsive: true, displayModeBar: false }});
 }}
 
 function renderDailyRatioChart(profileKeys, zoneData) {{
@@ -1054,9 +1302,196 @@ function updateBessBreadcrumb() {{
 // ================================================================
 function renderBess() {{
     updateBessBreadcrumb();
+    updateInvestmentCard();
     if (state.bess_view === 'yearly') renderBessYearly();
     else if (state.bess_view === 'monthly') renderBessMonthly();
     else if (state.bess_view === 'daily') renderBessDaily();
+}}
+
+// ================================================================
+// INVESTMENT ECONOMICS (NPV/IRR/Payback)
+// ================================================================
+function getInvestInputs() {{
+    return {{
+        capex_1h: parseFloat(document.getElementById('invest-capex-1h').value) || 400,
+        capex_4h: parseFloat(document.getElementById('invest-capex-4h').value) || 300,
+        opex_pct: (parseFloat(document.getElementById('invest-opex').value) || 0) / 100,
+        lifetime: parseInt(document.getElementById('invest-lifetime').value) || 15,
+        wacc: (parseFloat(document.getElementById('invest-wacc').value) || 0) / 100,
+        degradation: (parseFloat(document.getElementById('invest-degradation').value) || 0) / 100,
+        rev_window: document.getElementById('invest-rev-window').value,
+    }};
+}}
+
+function getCapexPerMwh(duration_h, capex_1h, capex_4h) {{
+    // Linear interpolation between 1h and 4h
+    if (duration_h <= 1) return capex_1h;
+    if (duration_h >= 4) return capex_4h;
+    const frac = (duration_h - 1) / 3;
+    return capex_1h + frac * (capex_4h - capex_1h);
+}}
+
+function getAvgRevenue(arbKey, zoneData, rev_window) {{
+    // arbKey = "arb_1h" etc. Returns average annual revenue (EUR/MW/year).
+    const yearly = zoneData[arbKey]?.yearly || [];
+    if (yearly.length === 0) return 0;
+
+    // Filter out years with incomplete data (<12 months of data)
+    // A year with >330 days of daily data is considered complete
+    const complete = yearly.filter(y => {{
+        const daily = (zoneData[arbKey].daily || []).filter(d => d.year === y.year);
+        return daily.length >= 330;
+    }});
+    const source = complete.length > 0 ? complete : yearly;
+
+    let picked;
+    if (rev_window === 'all') {{
+        picked = source;
+    }} else if (rev_window === 'latest') {{
+        picked = [source[source.length - 1]];
+    }} else {{
+        const n = parseInt(rev_window);
+        picked = source.slice(-n);
+    }}
+
+    if (picked.length === 0) return 0;
+    const sum = picked.reduce((s, y) => s + (y.capture || 0), 0);
+    return sum / picked.length;
+}}
+
+function calculateNPV(capex, annual_revenue, opex_pct, lifetime, wacc, degradation) {{
+    let npv = -capex;
+    for (let y = 1; y <= lifetime; y++) {{
+        const revenue_y = annual_revenue * Math.pow(1 - degradation, y - 1);
+        const opex_y = capex * opex_pct;
+        const cf_y = revenue_y - opex_y;
+        npv += cf_y / Math.pow(1 + wacc, y);
+    }}
+    return npv;
+}}
+
+function calculateIRR(capex, annual_revenue, opex_pct, lifetime, degradation) {{
+    // Bisection method — find discount rate where NPV = 0
+    if (annual_revenue <= 0 || capex <= 0) return null;
+    let lo = -0.5, hi = 2.0;
+    const npvAt = r => calculateNPV(capex, annual_revenue, opex_pct, lifetime, r, degradation);
+    if (npvAt(lo) < 0 || npvAt(hi) > 0) {{
+        // No root in range
+        if (npvAt(hi) > 0) return hi;
+        return null;
+    }}
+    for (let i = 0; i < 100; i++) {{
+        const mid = (lo + hi) / 2;
+        const v = npvAt(mid);
+        if (Math.abs(v) < 0.01) return mid;
+        if (v > 0) lo = mid; else hi = mid;
+    }}
+    return (lo + hi) / 2;
+}}
+
+function calculatePayback(capex, annual_revenue, opex_pct, degradation, max_years) {{
+    if (annual_revenue <= 0) return null;
+    let cumulative = -capex;
+    for (let y = 1; y <= max_years; y++) {{
+        const revenue_y = annual_revenue * Math.pow(1 - degradation, y - 1);
+        const opex_y = capex * opex_pct;
+        const cf_y = revenue_y - opex_y;
+        const prev = cumulative;
+        cumulative += cf_y;
+        if (cumulative >= 0) {{
+            // Interpolate fractional year
+            return y - 1 + (-prev) / cf_y;
+        }}
+    }}
+    return null;  // no payback within lifetime
+}}
+
+function formatNumber(v, decimals) {{
+    if (v === null || v === undefined || !isFinite(v)) return '\u2013';
+    return v.toLocaleString('sv-SE', {{maximumFractionDigits: decimals !== undefined ? decimals : 0, minimumFractionDigits: decimals !== undefined ? decimals : 0}});
+}}
+
+function updateInvestmentCard() {{
+    const zoneData = DATA.data[state.zone] || {{}};
+    const inputs = getInvestInputs();
+    const durations = [1, 2, 3, 4];
+
+    const rows = {{
+        capex: [],
+        revenue: [],
+        payback: [],
+        npv: [],
+        irr: [],
+    }};
+
+    durations.forEach(d => {{
+        const arbKey = 'arb_' + d + 'h';
+        const capexPerMwh = getCapexPerMwh(d, inputs.capex_1h, inputs.capex_4h);
+        const capexTotal = capexPerMwh * d;  // kEUR per MW installed power (since 1MW * d hours = d MWh capacity)
+        const revenue_kEUR = getAvgRevenue(arbKey, zoneData, inputs.rev_window) / 1000;  // convert EUR → kEUR
+
+        const npv = calculateNPV(capexTotal, revenue_kEUR, inputs.opex_pct, inputs.lifetime, inputs.wacc, inputs.degradation);
+        const irr = calculateIRR(capexTotal, revenue_kEUR, inputs.opex_pct, inputs.lifetime, inputs.degradation);
+        const payback = calculatePayback(capexTotal, revenue_kEUR, inputs.opex_pct, inputs.degradation, inputs.lifetime);
+
+        rows.capex.push(capexTotal);
+        rows.revenue.push(revenue_kEUR);
+        rows.payback.push(payback);
+        rows.npv.push(npv);
+        rows.irr.push(irr);
+    }});
+
+    // Build table body
+    const tbody = document.getElementById('invest-tbody');
+    let html = '';
+
+    const fmtCell = (v, decimals, suffix) => {{
+        const s = formatNumber(v, decimals);
+        return s + (suffix && s !== '\u2013' ? ' ' + suffix : '');
+    }};
+
+    html += '<tr><td class="metric-label">CAPEX</td>';
+    rows.capex.forEach(v => html += '<td class="value-cell">' + fmtCell(v, 0, 'kEUR') + '</td>');
+    html += '</tr>';
+
+    html += '<tr><td class="metric-label">Intäkt (medel/år)</td>';
+    rows.revenue.forEach(v => html += '<td class="value-cell">' + fmtCell(v, 1, 'kEUR') + '</td>');
+    html += '</tr>';
+
+    html += '<tr><td class="metric-label">Payback</td>';
+    rows.payback.forEach(v => html += '<td class="value-cell">' + fmtCell(v, 1, 'år') + '</td>');
+    html += '</tr>';
+
+    html += '<tr><td class="metric-label">NPV @ WACC ' + (inputs.wacc*100).toFixed(1) + '%</td>';
+    rows.npv.forEach((v, i) => {{
+        let cls = 'value-cell';
+        const capex = rows.capex[i];
+        if (v !== null && isFinite(v)) {{
+            if (v > capex * 0.1) cls += ' npv-pos';
+            else if (v < -capex * 0.1) cls += ' npv-neg';
+            else cls += ' npv-marginal';
+        }}
+        html += '<td class="' + cls + '">' + fmtCell(v, 0, 'kEUR') + '</td>';
+    }});
+    html += '</tr>';
+
+    html += '<tr><td class="metric-label">IRR</td>';
+    rows.irr.forEach(v => {{
+        const pct = v !== null && isFinite(v) ? (v * 100) : null;
+        html += '<td class="value-cell">' + (pct !== null ? pct.toFixed(1) + '%' : '\u2013') + '</td>';
+    }});
+    html += '</tr>';
+
+    tbody.innerHTML = html;
+}}
+
+function bindInvestmentInputs() {{
+    ['invest-capex-1h', 'invest-capex-4h', 'invest-opex', 'invest-lifetime', 'invest-wacc', 'invest-degradation'].forEach(id => {{
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', updateInvestmentCard);
+    }});
+    const sel = document.getElementById('invest-rev-window');
+    if (sel) sel.addEventListener('change', updateInvestmentCard);
 }}
 
 function getBessProfiles(zoneData) {{
