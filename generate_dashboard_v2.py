@@ -1225,8 +1225,13 @@ function renderHeatmap() {{
         x: Array.from({{length: 24}}, (_, i) => String(i).padStart(2, '0') + ':00'),
         y: MONTH_FULL,
         type: 'heatmap',
-        colorscale: 'RdBu',
-        reversescale: true,
+        colorscale: [
+            [0.0, '#1e3a8a'],
+            [0.25, '#3b82f6'],
+            [0.5, '#fde68a'],
+            [0.75, '#f97316'],
+            [1.0, '#991b1b'],
+        ],
         hovertemplate: '<b>%{{y}} %{{x}}</b><br>%{{z:.1f}} EUR/MWh<extra></extra>',
         colorbar: {{
             title: {{ text: 'EUR/MWh', font: {{color:'#8892a4', size:11}} }},
