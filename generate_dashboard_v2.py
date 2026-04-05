@@ -495,6 +495,14 @@ button:focus-visible,
                 </div>
                 <div id="yoy-chart" class="chart-container chart-secondary"></div>
             </div>
+            <div class="card" id="zone-compare-card">
+                <div class="card-title" id="zone-compare-title">Zonj&auml;mf&ouml;relse</div>
+                <div style="font-size:0.72rem;color:var(--text-muted);margin-top:-0.4rem;margin-bottom:0.8rem;line-height:1.4">
+                    Samma profiler visade i alla fyra zoner f&ouml;r vald period. B&auml;sta v&auml;rdet per rad fetmarkeras.
+                    Klicka p&aring; en zon f&ouml;r att byta aktiv zon.
+                </div>
+                <table id="zone-compare-table" style="width:100%;border-collapse:collapse;font-size:0.85rem"></table>
+            </div>
         </div>
         <!-- BESS sections -->
         <div id="bess-view" style="display:none">
@@ -889,6 +897,10 @@ function renderYearly() {{
     // YoY change chart (only in yearly view)
     renderYoYChart(profileKeys, zoneData, years);
     document.getElementById('yoy-card').style.display = 'block';
+
+    // Zone comparison matrix
+    const latestYear = years[years.length - 1];
+    renderZoneCompare('yearly', profileKeys, {{year: latestYear}});
 }}
 
 function updateStats(baseloadData, zoneData, years) {{
@@ -986,6 +998,9 @@ function renderMonthly() {{
 
     // Hide YoY card in monthly view
     document.getElementById('yoy-card').style.display = 'none';
+
+    // Zone comparison matrix — show yearly aggregate for the selected year
+    renderZoneCompare('yearly', profileKeys, {{year: state.year}});
 }}
 
 // ================================================================
@@ -1050,6 +1065,9 @@ function renderDaily() {{
 
     // Hide YoY card in daily view
     document.getElementById('yoy-card').style.display = 'none';
+
+    // Zone comparison matrix — show monthly aggregate for selected year/month
+    renderZoneCompare('monthly', profileKeys, {{year: state.year, month: state.month}});
 }}
 
 // ================================================================
@@ -1115,6 +1133,93 @@ function renderRatioChart(profileKeys, zoneData, period, xValues) {{
     }};
 
     Plotly.newPlot('ratio-chart', traces, layout, {{ responsive: true, displayModeBar: false }});
+}}
+
+// ================================================================
+// Zone comparison matrix
+// ================================================================
+function renderZoneCompare(period, profileKeys, scope) {{
+    // period: 'yearly' or 'monthly'
+    // scope: year-only object for yearly, year+month object for monthly
+    const table = document.getElementById('zone-compare-table');
+    const title = document.getElementById('zone-compare-title');
+
+    const zones = DATA.zones;
+    const profileKeysFiltered = profileKeys.filter(k =>
+        !k.startsWith('park_') || (() => {{
+            // Park profiles only live in one zone; skip from cross-zone
+            return false;
+        }})()
+    );
+
+    if (profileKeysFiltered.length === 0 || zones.length === 0) {{
+        table.innerHTML = '<tr><td style="padding:8px;color:var(--text-muted)">Inga profiler aktiva.</td></tr>';
+        return;
+    }}
+
+    // Update title based on scope
+    if (period === 'yearly') {{
+        title.textContent = 'Zonj\u00e4mf\u00f6relse \u2014 ' + (scope.year || '\u2013');
+    }} else {{
+        title.textContent = 'Zonj\u00e4mf\u00f6relse \u2014 ' + MONTH_FULL[scope.month - 1] + ' ' + scope.year;
+    }}
+
+    // Header row: profile | zone1 | zone2 | zone3 | zone4
+    let html = '<thead><tr>';
+    html += '<th style="text-align:left;padding:6px 10px;color:var(--text-muted);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;font-weight:600">Profil</th>';
+    zones.forEach(z => {{
+        const isActive = z === state.zone;
+        html += '<th onclick="state.zone=\\x27' + z + '\\x27;document.querySelectorAll(\\x27.zone-btn\\x27).forEach(b=>b.classList.toggle(\\x27active\\x27,b.textContent===\\x27' + z + '\\x27));render()" style="cursor:pointer;text-align:right;padding:6px 10px;color:' + (isActive ? 'var(--accent)' : 'var(--text-muted)') + ';font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;font-weight:600' + (isActive ? ';text-decoration:underline' : '') + '">' + z + '</th>';
+    }});
+    html += '</tr></thead><tbody>';
+
+    // Data rows
+    profileKeysFiltered.forEach(k => {{
+        // Collect values for all zones
+        const values = zones.map(z => {{
+            const zd = DATA.data[z] || {{}};
+            const data = period === 'yearly' ? zd[k]?.yearly : zd[k]?.monthly;
+            if (!data) return null;
+            let rec;
+            if (period === 'yearly') {{
+                rec = data.find(d => d.year === scope.year);
+            }} else {{
+                rec = data.find(d => d.year === scope.year && d.month === scope.month);
+            }}
+            if (!rec) return null;
+            return k === 'baseload' ? rec.baseload : rec.capture;
+        }});
+
+        // Skip if all null
+        if (values.every(v => v === null || v === undefined)) return;
+
+        // Find best value (for coloring). For capture prices, higher is better.
+        // For baseload, higher is also typically "better" (more revenue) but context-dependent.
+        // Use: max non-null value.
+        const numeric = values.filter(v => v !== null && v !== undefined);
+        const best = numeric.length > 0 ? Math.max(...numeric) : null;
+
+        const color = DATA.colors[k] || '#888';
+        html += '<tr>';
+        html += '<td style="padding:6px 10px;border-top:1px solid var(--border);color:var(--text)">';
+        html += '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + color + ';margin-right:6px;vertical-align:middle"></span>';
+        html += DATA.profiles[k] + '</td>';
+
+        values.forEach((v, i) => {{
+            const z = zones[i];
+            const isBest = v !== null && best !== null && Math.abs(v - best) < 0.01 && numeric.length > 1;
+            const isActive = z === state.zone;
+            let cellStyle = 'padding:6px 10px;border-top:1px solid var(--border);text-align:right;font-family:var(--font-mono);font-size:0.88rem';
+            if (isBest) cellStyle += ';color:#10b981;font-weight:700';
+            else cellStyle += ';color:var(--text-bright)';
+            if (isActive) cellStyle += ';background:rgba(74,158,255,0.04)';
+            html += '<td style="' + cellStyle + '">' + (v !== null && v !== undefined ? v.toFixed(1) : '\u2013') + '</td>';
+        }});
+        html += '</tr>';
+    }});
+
+    html += '</tbody>';
+    table.innerHTML = html;
 }}
 
 function renderYoYChart(profileKeys, zoneData, years) {{
