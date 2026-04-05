@@ -20,6 +20,10 @@ from zoneinfo import ZoneInfo
 
 from .config import QUARTERLY_DIR, ENTSOE_DATA_DIR, NASDAQ_DATA_DIR, ZONES, RESULTAT_DIR
 from .bess_dashboard_data import calculate_bess_data, BESS_PROFILE_META
+from .ancillary_dashboard_data import (
+    calculate_ancillary_data,
+    ANCILLARY_PROFILE_META,
+)
 
 SWEDEN_TZ = ZoneInfo("Europe/Stockholm")
 UTC_TZ = ZoneInfo("UTC")
@@ -759,6 +763,19 @@ def calculate_dashboard_v2_data(
         else:
             data[zone] = bess_result["data"][zone]
 
+    # Ancillary services (stödtjänster) data
+    ancillary_result = calculate_ancillary_data(list(spot_by_zone.keys()))
+    profiles.update(ancillary_result["profiles"])
+    colors.update(ancillary_result["colors"])
+    for zone in ancillary_result["data"]:
+        if zone in data:
+            data[zone].update(ancillary_result["data"][zone])
+        else:
+            data[zone] = ancillary_result["data"][zone]
+
+    # Merge profile_meta from BESS + ancillary
+    all_profile_meta = {**BESS_PROFILE_META, **ANCILLARY_PROFILE_META}
+
     # Forward curve data
     print("  Laddar forward curve data...")
     spot_for_fwd = {}
@@ -773,7 +790,7 @@ def calculate_dashboard_v2_data(
         "zones": [z for z in ZONES if z in data],
         "profiles": profiles,
         "colors": colors,
-        "profile_meta": dict(BESS_PROFILE_META),
+        "profile_meta": all_profile_meta,
         "data": data,
     }
     if forward:

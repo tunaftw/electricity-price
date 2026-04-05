@@ -398,6 +398,9 @@ button:focus-visible,
                     <button id="unit-per-mwh" onclick="setBessUnit('per_mwh')" style="padding:6px 14px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:0.75rem;font-weight:600;cursor:pointer;border-radius:6px;font-family:var(--font)">EUR/MWh</button>
                 </div>
             </div>
+            <div style="padding:0.6rem 0.9rem;margin-bottom:0.8rem;background:rgba(167,139,250,0.08);border-left:3px solid #a78bfa;border-radius:4px;font-size:0.75rem;color:var(--text-muted);line-height:1.5">
+                <strong style="color:var(--text)">Revenue stacking caveat:</strong> Stödtjänster (FCR/aFRR/mFRR-CM) och arbitrage kan inte staplas fullt ut &mdash; samma batterikapacitet kan inte samtidigt vara bokad i flera marknader. Siffrorna visar <em>teoretisk maxintäkt per marknad</em> vid 100% tillgänglighet. Aktivera profiler individuellt eller jämför dem med reservation.
+            </div>
             <div class="breadcrumb" id="bess-breadcrumb"></div>
             <div class="stats-row" id="bess-stats-row"></div>
             <div class="card">
@@ -458,7 +461,7 @@ let state = {{
     year: null,
     month: null,
     enabled: new Set(Object.keys(DATA.profiles).filter(k =>
-        !k.startsWith('arb_') && k !== 'spread' && !k.startsWith('sol_bess_') && k !== 'sol_only'
+        !k.startsWith('arb_') && k !== 'spread' && !k.startsWith('sol_bess_') && k !== 'sol_only' && !k.startsWith('anc_')
     )),
     bess_view: 'yearly',
     bess_year: null,
@@ -976,8 +979,13 @@ function buildBessSidebar() {{
         return parseInt(a.replace('sol_bess_', '').replace('h', '')) - parseInt(b.replace('sol_bess_', '').replace('h', ''));
     }});
 
+    // Ancillary services ordered: FCR-N, FCR-D up/down, aFRR up/down, mFRR-CM up/down
+    const ancOrder = ['anc_fcr_n', 'anc_fcr_d_up', 'anc_fcr_d_down', 'anc_afrr_up', 'anc_afrr_down', 'anc_mfrr_cm_up', 'anc_mfrr_cm_down'];
+    const ancKeys = ancOrder.filter(k => k in DATA.profiles);
+
     const sections = [
         ['ARBITRAGE', arbKeys],
+        ['STÖDTJÄNSTER', ancKeys],
         ['SOL', solKeys],
         ['KONTEXT', ['spread'].filter(k => k in DATA.profiles)],
     ];
@@ -1054,7 +1062,7 @@ function renderBess() {{
 function getBessProfiles(zoneData) {{
     return Object.keys(DATA.profiles).filter(k =>
         state.bess_enabled.has(k) && zoneData[k] &&
-        (k.startsWith('arb_') || k === 'spread' || k.startsWith('sol_bess_') || k === 'sol_only')
+        (k.startsWith('arb_') || k === 'spread' || k.startsWith('sol_bess_') || k === 'sol_only' || k.startsWith('anc_'))
     );
 }}
 
