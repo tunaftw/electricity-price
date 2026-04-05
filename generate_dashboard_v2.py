@@ -503,6 +503,27 @@ button:focus-visible,
                 </div>
                 <table id="zone-compare-table" style="width:100%;border-collapse:collapse;font-size:0.85rem"></table>
             </div>
+            <div class="card" id="heatmap-card">
+                <div class="card-title">Spotpris-heatmap &mdash; timme &times; m&aring;nad (EUR/MWh)</div>
+                <div style="font-size:0.72rem;color:var(--text-muted);margin-top:-0.4rem;margin-bottom:0.8rem;line-height:1.4">
+                    Medelpris per (m&aring;nad, timme) f&ouml;r <span id="heatmap-scope-label">alla &aring;r</span>.
+                    Bl&aring; = l&aring;ga priser, r&ouml;d = h&ouml;ga. Avsl&ouml;jar s&auml;songs- och dygnsrytm (t.ex. solens kannibaliseringseffekt midsommar).
+                </div>
+                <div style="display:flex;gap:0.5rem;margin-bottom:0.6rem;align-items:center">
+                    <span style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);font-weight:600">Period:</span>
+                    <select id="heatmap-year-select" class="invest-input" style="width:auto;padding:4px 8px"></select>
+                </div>
+                <div id="heatmap-chart" class="chart-container"></div>
+            </div>
+            <div class="card" id="validation-card">
+                <div class="card-title">Profilvalidering &mdash; PVsyst vs ENTSO-E faktisk sol</div>
+                <div style="font-size:0.72rem;color:var(--text-muted);margin-top:-0.4rem;margin-bottom:0.8rem;line-height:1.4">
+                    Capture-pris ber&auml;knad med PVsyst-profiler (medel av 3)
+                    j&auml;mf&ouml;rt med ENTSO-E faktisk nationell solproduktion.
+                    Avvikelse &gt;0 = PVsyst optimistisk (trolig kannibalisering).
+                </div>
+                <div id="validation-chart" class="chart-container chart-secondary"></div>
+            </div>
         </div>
         <!-- BESS sections -->
         <div id="bess-view" style="display:none">
@@ -604,6 +625,15 @@ button:focus-visible,
                     Teoretiskt &ouml;vre tak f&ouml;r intradagsarbitrage (EUR/MWh omsatt) innan effektivitetsf&ouml;rluster.
                 </div>
                 <div id="bess-secondary-chart" class="chart-container chart-secondary"></div>
+            </div>
+            <div class="card" id="spread-percentile-card">
+                <div class="card-title">Spread-percentiler per &aring;r (EUR/MWh)</div>
+                <div style="font-size:0.72rem;color:var(--text-muted);margin-top:-0.4rem;margin-bottom:0.8rem;line-height:1.4">
+                    F&ouml;rdelningen av dagliga spreads (max&minus;min per dag).
+                    <strong style="color:var(--text)">P50 = median dag</strong>. P10 = s&auml;msta 10:e percentil. P90 = b&auml;sta 10:e percentil.
+                    Visar tail-risk och volatilitet som enskilda medelv&auml;rden d&ouml;ljer.
+                </div>
+                <table id="spread-percentile-table" style="width:100%;border-collapse:collapse;font-size:0.85rem"></table>
             </div>
         </div>
         <!-- Futures sections -->
@@ -714,6 +744,8 @@ function init() {{
     buildZoneButtons();
     buildSidebar();
     buildBessSidebar();
+    buildHeatmapYearDropdown();
+    bindHeatmapDropdown();
     bindInvestmentInputs();
     render();
 }}
@@ -898,9 +930,15 @@ function renderYearly() {{
     renderYoYChart(profileKeys, zoneData, years);
     document.getElementById('yoy-card').style.display = 'block';
 
+    // Solar profile validation (only in yearly view)
+    renderValidationChart(state.zone);
+
     // Zone comparison matrix
     const latestYear = years[years.length - 1];
     renderZoneCompare('yearly', profileKeys, {{year: latestYear}});
+
+    // Heatmap
+    renderHeatmap();
 }}
 
 function updateStats(baseloadData, zoneData, years) {{
@@ -998,9 +1036,13 @@ function renderMonthly() {{
 
     // Hide YoY card in monthly view
     document.getElementById('yoy-card').style.display = 'none';
+    document.getElementById('validation-card').style.display = 'none';
 
     // Zone comparison matrix — show yearly aggregate for the selected year
     renderZoneCompare('yearly', profileKeys, {{year: state.year}});
+
+    // Heatmap
+    renderHeatmap();
 }}
 
 // ================================================================
@@ -1065,9 +1107,13 @@ function renderDaily() {{
 
     // Hide YoY card in daily view
     document.getElementById('yoy-card').style.display = 'none';
+    document.getElementById('validation-card').style.display = 'none';
 
     // Zone comparison matrix — show monthly aggregate for selected year/month
     renderZoneCompare('monthly', profileKeys, {{year: state.year, month: state.month}});
+
+    // Heatmap
+    renderHeatmap();
 }}
 
 // ================================================================
@@ -1133,6 +1179,78 @@ function renderRatioChart(profileKeys, zoneData, period, xValues) {{
     }};
 
     Plotly.newPlot('ratio-chart', traces, layout, {{ responsive: true, displayModeBar: false }});
+}}
+
+// ================================================================
+// Hour × Month Heatmap (spot prices)
+// ================================================================
+function buildHeatmapYearDropdown() {{
+    const sel = document.getElementById('heatmap-year-select');
+    if (!sel) return;
+    const hm = (DATA.heatmap || {{}})[state.zone];
+    if (!hm) return;
+    const prevValue = sel.value;
+    sel.innerHTML = '';
+    const optAll = document.createElement('option');
+    optAll.value = 'all';
+    optAll.textContent = 'Alla år';
+    sel.appendChild(optAll);
+    (hm.years || []).forEach(y => {{
+        const opt = document.createElement('option');
+        opt.value = String(y);
+        opt.textContent = String(y);
+        sel.appendChild(opt);
+    }});
+    // Restore selection if still valid
+    if (prevValue && Array.from(sel.options).some(o => o.value === prevValue)) {{
+        sel.value = prevValue;
+    }}
+}}
+
+function renderHeatmap() {{
+    const hm = (DATA.heatmap || {{}})[state.zone];
+    if (!hm) return;
+    // Rebuild dropdown in case zone changed (years may differ)
+    buildHeatmapYearDropdown();
+    const sel = document.getElementById('heatmap-year-select');
+    const scope = sel.value || 'all';
+    const matrix = scope === 'all' ? hm.all : (hm.by_year || {{}})[scope];
+    if (!matrix) return;
+
+    document.getElementById('heatmap-scope-label').textContent =
+        scope === 'all' ? 'alla år' : scope;
+
+    const trace = {{
+        z: matrix,
+        x: Array.from({{length: 24}}, (_, i) => String(i).padStart(2, '0') + ':00'),
+        y: MONTH_FULL,
+        type: 'heatmap',
+        colorscale: 'RdBu',
+        reversescale: true,
+        hovertemplate: '<b>%{{y}} %{{x}}</b><br>%{{z:.1f}} EUR/MWh<extra></extra>',
+        colorbar: {{
+            title: {{ text: 'EUR/MWh', font: {{color:'#8892a4', size:11}} }},
+            tickfont: {{color:'#8892a4', size:10}},
+            thickness: 12,
+        }},
+    }};
+
+    const layout = {{
+        ...PLOTLY_DARK,
+        xaxis: {{ ...PLOTLY_DARK.xaxis, title: 'Timme (UTC)', tickangle: 0, type: 'category' }},
+        yaxis: {{ ...PLOTLY_DARK.yaxis, title: 'Månad', autorange: 'reversed', type: 'category' }},
+        margin: {{ t: 20, r: 80, b: 40, l: 90 }},
+    }};
+
+    Plotly.newPlot('heatmap-chart', [trace], layout, {{ responsive: true, displayModeBar: false }});
+}}
+
+function bindHeatmapDropdown() {{
+    const sel = document.getElementById('heatmap-year-select');
+    if (sel && !sel.dataset.bound) {{
+        sel.addEventListener('change', renderHeatmap);
+        sel.dataset.bound = '1';
+    }}
 }}
 
 // ================================================================
@@ -1278,6 +1396,79 @@ function renderYoYChart(profileKeys, zoneData, years) {{
     Plotly.newPlot('yoy-chart', traces, layout, {{ responsive: true, displayModeBar: false }});
 }}
 
+function renderValidationChart(zone) {{
+    // PVsyst (medel av 3) vs ENTSO-E faktisk sol per år, med avvikelse i %.
+    // Döljer kortet om ingen data finns för zonen (t.ex. SE1).
+    const card = document.getElementById('validation-card');
+    const valData = (DATA.validation || {{}})[zone];
+    if (!valData || !valData.years || valData.years.length === 0) {{
+        card.style.display = 'none';
+        return;
+    }}
+    card.style.display = 'block';
+
+    const years = valData.years.map(String);
+    const pvsyst = valData.pvsyst_avg;
+    const entsoe = valData.entsoe;
+    const devPct = valData.deviation_pct;
+    const devEur = valData.deviation_eur;
+
+    const traces = [
+        {{
+            x: years, y: pvsyst, name: 'PVsyst (medel av 3)',
+            type: 'bar', marker: {{ color: '#ffa500', opacity: 0.85 }},
+            hovertemplate: 'PVsyst %{{x}}: %{{y:.1f}} EUR/MWh<extra></extra>',
+        }},
+        {{
+            x: years, y: entsoe, name: 'ENTSO-E faktisk',
+            type: 'bar', marker: {{ color: '#86efac', opacity: 0.85 }},
+            hovertemplate: 'ENTSO-E %{{x}}: %{{y:.1f}} EUR/MWh<extra></extra>',
+        }},
+        {{
+            x: years, y: devPct, name: 'Avvikelse',
+            type: 'scatter', mode: 'lines+markers+text',
+            line: {{ color: '#ffffff', width: 2 }},
+            marker: {{
+                size: 10,
+                color: devPct.map(v => v >= 0 ? '#ef4444' : '#10b981'),
+                line: {{ color: '#ffffff', width: 1 }},
+            }},
+            text: devPct.map(v => (v >= 0 ? '+' : '') + v.toFixed(1) + '%'),
+            textposition: 'top center',
+            textfont: {{ color: '#ffffff', size: 11 }},
+            yaxis: 'y2',
+            customdata: devEur,
+            hovertemplate: 'Avvikelse %{{x}}: %{{y:+.1f}}% (%{{customdata:+.1f}} EUR/MWh)<extra></extra>',
+        }},
+    ];
+
+    const layout = {{
+        ...PLOTLY_DARK,
+        barmode: 'group',
+        xaxis: {{ ...PLOTLY_DARK.xaxis, type: 'category' }},
+        yaxis: {{ ...PLOTLY_DARK.yaxis, title: 'EUR/MWh', rangemode: 'tozero' }},
+        yaxis2: {{
+            title: 'Avvikelse (%)',
+            overlaying: 'y',
+            side: 'right',
+            color: '#ffffff',
+            zeroline: true,
+            zerolinecolor: '#ffffff',
+            zerolinewidth: 1,
+            gridcolor: 'rgba(255,255,255,0.05)',
+        }},
+        showlegend: true,
+        legend: {{
+            orientation: 'h',
+            x: 0, y: -0.15, xanchor: 'left',
+            font: {{ color: '#e0e0e0', size: 11 }},
+        }},
+        margin: {{ ...PLOTLY_DARK.margin, t: 20, r: 60 }},
+    }};
+
+    Plotly.newPlot('validation-chart', traces, layout, {{ responsive: true, displayModeBar: false }});
+}}
+
 function renderDailyRatioChart(profileKeys, zoneData) {{
     const traces = [];
     const nonBaseload = profileKeys.filter(k => k !== 'baseload');
@@ -1411,6 +1602,55 @@ function renderBess() {{
     if (state.bess_view === 'yearly') renderBessYearly();
     else if (state.bess_view === 'monthly') renderBessMonthly();
     else if (state.bess_view === 'daily') renderBessDaily();
+    renderSpreadPercentiles();
+}}
+
+// ================================================================
+// Spread percentile table
+// ================================================================
+function renderSpreadPercentiles() {{
+    const zoneData = DATA.data[state.zone] || {{}};
+    const p = zoneData.spread_percentiles;
+    const table = document.getElementById('spread-percentile-table');
+    const card = document.getElementById('spread-percentile-card');
+    if (!p || !p.years || p.years.length === 0) {{
+        if (card) card.style.display = 'none';
+        return;
+    }}
+    if (card) card.style.display = '';
+
+    const years = p.years;
+    const rows = [
+        ['P90 (bra dag)', 'p90', false],
+        ['P75', 'p75', false],
+        ['P50 (median)', 'p50', true],
+        ['P25', 'p25', false],
+        ['P10 (dålig dag)', 'p10', false],
+    ];
+
+    let html = '<thead><tr>';
+    html += '<th style="text-align:left;padding:6px 10px;color:var(--text-muted);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;font-weight:600">Percentil</th>';
+    years.forEach(y => {{
+        const label = y === 'all' ? 'Totalt' : String(y);
+        html += '<th style="text-align:right;padding:6px 10px;color:var(--text-muted);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;font-weight:600">' + label + '</th>';
+    }});
+    html += '</tr></thead><tbody>';
+
+    rows.forEach(([label, key, isMedian]) => {{
+        const vals = p.percentiles[key] || [];
+        const rowWeight = isMedian ? '700' : '400';
+        const rowColor = isMedian ? 'var(--text-bright)' : 'var(--text)';
+        const bg = isMedian ? 'background:rgba(255,255,255,0.03);' : '';
+        html += '<tr style="' + bg + '">';
+        html += '<td style="padding:6px 10px;border-top:1px solid var(--border);color:' + rowColor + ';font-weight:' + rowWeight + '">' + label + '</td>';
+        vals.forEach(v => {{
+            const display = (v === null || v === undefined) ? '\u2013' : v.toFixed(1);
+            html += '<td style="padding:6px 10px;border-top:1px solid var(--border);text-align:right;font-family:var(--font-mono);font-size:0.88rem;font-weight:' + rowWeight + ';color:' + rowColor + '">' + display + '</td>';
+        }});
+        html += '</tr>';
+    }});
+    html += '</tbody>';
+    table.innerHTML = html;
 }}
 
 // ================================================================

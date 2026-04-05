@@ -425,6 +425,131 @@ def _aggregate_to_yearly(daily_data: dict[str, dict]) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Hour × Month heatmap (spot price patterns)
+# ---------------------------------------------------------------------------
+
+def _calculate_hour_month_heatmap(
+    spot_prices: dict[str, list[dict]],
+    year: int | None = None,
+) -> list[list[float | None]]:
+    """Aggregate hourly spot prices into a 12x24 matrix.
+
+    Args:
+        spot_prices: {date_key: [{utc_hour, eur_mwh}, ...]}
+        year: Optional year filter (None = aggregate all years)
+
+    Returns:
+        12x24 list-of-lists: result[month-1][hour] = mean price EUR/MWh
+        (or None if no data for that cell)
+    """
+    # Accumulators: [month][hour] -> (sum, count)
+    sums = [[0.0] * 24 for _ in range(12)]
+    counts = [[0] * 24 for _ in range(12)]
+
+    for date_key, hours in spot_prices.items():
+        if year is not None and int(date_key[:4]) != year:
+            continue
+        month = int(date_key[5:7])
+        for h_rec in hours:
+            h = h_rec["utc_hour"]
+            sums[month - 1][h] += h_rec["eur_mwh"]
+            counts[month - 1][h] += 1
+
+    matrix: list[list[float | None]] = []
+    for m in range(12):
+        row: list[float | None] = []
+        for h in range(24):
+            if counts[m][h] > 0:
+                row.append(round(sums[m][h] / counts[m][h], 2))
+            else:
+                row.append(None)
+        matrix.append(row)
+
+    return matrix
+
+
+# ---------------------------------------------------------------------------
+# Solar profile validation (PVsyst vs ENTSO-E)
+# ---------------------------------------------------------------------------
+
+def _calculate_solar_validation(
+    zone: str,
+    spot: dict[str, list[dict]],
+    pvsyst_profiles: dict[str, dict[tuple[int, int, int], float]],
+    min_days_per_year: int = 360,
+) -> dict:
+    """Jämför PVsyst-profilernas capture vs ENTSO-E faktisk sol per år.
+
+    Returnerar {years, pvsyst_avg, entsoe, deviation_eur, deviation_pct, n_days}
+    — endast för år med ≥ min_days_per_year dagar ENTSO-E-data. Tom struktur
+    om ingen data finns.
+    """
+    empty = {
+        "years": [], "pvsyst_avg": [], "entsoe": [],
+        "deviation_eur": [], "deviation_pct": [], "n_days": [],
+    }
+
+    entsoe_gen = load_entsoe_generation(zone, "solar")
+    if not entsoe_gen:
+        return empty
+
+    # Filtrera till STANDARD_SOLAR_PROFILES (ej park-profiler)
+    standard_keys = list(STANDARD_SOLAR_PROFILES.keys())
+    profiles = {k: pvsyst_profiles[k] for k in standard_keys if k in pvsyst_profiles}
+    if not profiles:
+        return empty
+
+    # ENTSO-E capture per år + dagar per år
+    entsoe_daily = _calculate_entsoe_capture(spot, entsoe_gen)
+    entsoe_yearly = _aggregate_to_yearly(entsoe_daily)
+    days_per_year: dict[int, int] = {}
+    for date_key in entsoe_daily:
+        year = int(date_key[:4])
+        days_per_year[year] = days_per_year.get(year, 0) + 1
+
+    # PVsyst capture per år per profil
+    profile_yearly: dict[str, dict[int, float]] = {}
+    for key, profile in profiles.items():
+        daily = _calculate_profile_capture(spot, profile)
+        yearly = _aggregate_to_yearly(daily)
+        profile_yearly[key] = {
+            row["year"]: row["capture"]
+            for row in yearly if row["capture"] is not None
+        }
+
+    # Bygg resultatet, endast fullständiga år
+    result = {**empty}
+    entsoe_by_year = {
+        row["year"]: row["capture"]
+        for row in entsoe_yearly if row["capture"] is not None
+    }
+    for year in sorted(entsoe_by_year):
+        n_days = days_per_year.get(year, 0)
+        if n_days < min_days_per_year:
+            continue
+        entsoe_cap = entsoe_by_year[year]
+        pvsyst_vals = [
+            profile_yearly[k][year]
+            for k in profile_yearly
+            if year in profile_yearly[k]
+        ]
+        if not pvsyst_vals or entsoe_cap is None or entsoe_cap == 0:
+            continue
+        pvsyst_avg = sum(pvsyst_vals) / len(pvsyst_vals)
+        diff_eur = pvsyst_avg - entsoe_cap
+        diff_pct = diff_eur / entsoe_cap * 100
+
+        result["years"].append(year)
+        result["pvsyst_avg"].append(round(pvsyst_avg, 2))
+        result["entsoe"].append(round(entsoe_cap, 2))
+        result["deviation_eur"].append(round(diff_eur, 2))
+        result["deviation_pct"].append(round(diff_pct, 1))
+        result["n_days"].append(n_days)
+
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Forward curve data (Nasdaq futures)
 # ---------------------------------------------------------------------------
 
@@ -776,6 +901,35 @@ def calculate_dashboard_v2_data(
     # Merge profile_meta from BESS + ancillary
     all_profile_meta = {**BESS_PROFILE_META, **ANCILLARY_PROFILE_META}
 
+    # Solar profile validation (PVsyst vs ENTSO-E faktisk sol)
+    print("  Beräknar solprofil-validering...")
+    validation: dict[str, dict] = {}
+    for zone in ZONES:
+        if zone not in spot_by_zone:
+            continue
+        val = _calculate_solar_validation(
+            zone, spot_by_zone[zone], pvsyst_loaded
+        )
+        if val["years"]:
+            validation[zone] = val
+
+    # Hour x month heatmap per zone
+    print("  Beräknar pris-heatmaps...")
+    heatmaps: dict[str, dict] = {}
+    for zone in ZONES:
+        if zone not in spot_by_zone:
+            continue
+        zone_spot = spot_by_zone[zone]
+        years_with_data = sorted({int(k[:4]) for k in zone_spot.keys()})
+        heatmaps[zone] = {
+            "all": _calculate_hour_month_heatmap(zone_spot),
+            "by_year": {
+                str(y): _calculate_hour_month_heatmap(zone_spot, year=y)
+                for y in years_with_data
+            },
+            "years": years_with_data,
+        }
+
     # Forward curve data
     print("  Laddar forward curve data...")
     spot_for_fwd = {}
@@ -792,6 +946,8 @@ def calculate_dashboard_v2_data(
         "colors": colors,
         "profile_meta": all_profile_meta,
         "data": data,
+        "validation": validation,
+        "heatmap": heatmaps,
     }
     if forward:
         result["forward"] = forward

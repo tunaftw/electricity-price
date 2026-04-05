@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import date, datetime
-from statistics import mean
+from statistics import mean, quantiles
 from zoneinfo import ZoneInfo
 
 # ---------------------------------------------------------------------------
@@ -492,6 +492,64 @@ def _aggregate_bess(
     return {"yearly": yearly_list, "monthly": monthly_list, "daily": daily_list}
 
 
+def _calculate_spread_percentiles(
+    spread_daily: dict[str, dict],
+) -> dict:
+    """Calculate P10/P25/P50/P75/P90 percentiles of daily spreads.
+
+    Args:
+        spread_daily: {date_key: {year, month, spread, ...}}
+
+    Returns:
+        {
+            "years": [2021, 2022, ..., "all"],
+            "percentiles": {
+                "p10": [val_2021, val_2022, ..., val_all],
+                "p25": [...], "p50": [...], "p75": [...], "p90": [...],
+            }
+        }
+        Values are None where fewer than 10 observations exist.
+    """
+    by_year: dict[int, list[float]] = defaultdict(list)
+    all_spreads: list[float] = []
+    for d in spread_daily.values():
+        by_year[d["year"]].append(d["spread"])
+        all_spreads.append(d["spread"])
+
+    years = sorted(by_year.keys())
+    column_keys: list = list(years) + ["all"]
+
+    def _percentile(values: list[float], target: int) -> float | None:
+        if len(values) < 10:
+            return None
+        # statistics.quantiles with n=100 returns 99 cut-points (1st..99th percentile)
+        q = quantiles(sorted(values), n=100)
+        # target is 10, 25, 50, 75, or 90 → index (target - 1)
+        return round(q[target - 1], 1)
+
+    result = {
+        "years": column_keys,
+        "percentiles": {
+            "p10": [],
+            "p25": [],
+            "p50": [],
+            "p75": [],
+            "p90": [],
+        },
+    }
+
+    for y in years:
+        vals = by_year[y]
+        for p_key, p_target in [("p10", 10), ("p25", 25), ("p50", 50), ("p75", 75), ("p90", 90)]:
+            result["percentiles"][p_key].append(_percentile(vals, p_target))
+
+    # "all" column
+    for p_key, p_target in [("p10", 10), ("p25", 25), ("p50", 50), ("p75", 75), ("p90", 90)]:
+        result["percentiles"][p_key].append(_percentile(all_spreads, p_target))
+
+    return result
+
+
 def _aggregate_sol_bess(daily_data: dict[str, dict]) -> dict[str, list]:
     """Aggregate sol+BESS data to standard capture price format.
 
@@ -666,6 +724,7 @@ def calculate_bess_data(
                 "max_price": max_p,
             }
         zone_data["spread"] = _aggregate_bess(spread_daily, "spread")
+        zone_data["spread_percentiles"] = _calculate_spread_percentiles(spread_daily)
 
         # --- Solar (baseline + BESS variants) ---
         sol_profile = pvsyst_profiles.get("sol_syd", {})
