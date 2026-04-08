@@ -151,6 +151,42 @@ def load_pvsyst_profile_from_path(
     return profile
 
 
+def load_park_actual_data(
+    filepath: Path,
+) -> dict[str, dict[int, float]]:
+    """Load actual park production data from timestamped CSV.
+
+    Bazefield format: timestamp,power_mw
+    Returns dict keyed by ISO date -> {utc_hour: avg_power_mw}.
+    Aggregates 15-min data to hourly averages to match spot price resolution.
+    """
+    from collections import defaultdict
+
+    # Collect all 15-min values per (date, hour)
+    hourly_values: dict[str, dict[int, list[float]]] = defaultdict(
+        lambda: defaultdict(list)
+    )
+
+    with open(filepath, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            ts = datetime.fromisoformat(row["timestamp"])
+            # Convert to UTC for consistency with spot prices
+            ts_utc = ts.astimezone(UTC_TZ)
+            date_key = ts_utc.strftime("%Y-%m-%d")
+            hourly_values[date_key][ts_utc.hour].append(float(row["power_mw"]))
+
+    # Average 15-min values to hourly
+    result: dict[str, dict[int, float]] = {}
+    for date_key, hours in hourly_values.items():
+        result[date_key] = {
+            hour: sum(vals) / len(vals)
+            for hour, vals in hours.items()
+        }
+
+    return result
+
+
 def discover_park_profiles() -> dict[str, tuple[str, str]]:
     """Auto-discover park profiles from Resultat/profiler/parker/.
 
@@ -789,10 +825,17 @@ def calculate_dashboard_v2_data(
         p = load_pvsyst_profile(filename)
         if p:
             pvsyst_loaded[key] = p
+    park_actual_data: dict[str, dict[str, dict[int, float]]] = {}
     for key, (stem, _) in park_profiles.items():
         park_file = PARKS_DIR / f"{stem}.csv"
         if park_file.exists():
-            pvsyst_loaded[key] = load_pvsyst_profile_from_path(park_file)
+            # Check if file has timestamped data (Bazefield) or PVsyst format
+            with open(park_file, "r", encoding="utf-8") as f:
+                header = f.readline().strip()
+            if "timestamp" in header:
+                park_actual_data[key] = load_park_actual_data(park_file)
+            else:
+                pvsyst_loaded[key] = load_pvsyst_profile_from_path(park_file)
 
     # Colors
     colors = dict(PROFILE_COLORS)
@@ -849,6 +892,26 @@ def calculate_dashboard_v2_data(
                     zone_data[key]["daily"] = _aggregate_daily(daily)
                 if "hourly" in granularities:
                     zone_data[key]["hourly"] = _collect_hourly_profile(spot, profile)
+
+        # Park actual production data (Bazefield -- timestamped)
+        for key in park_actual_data:
+            stem = park_profiles[key][0]
+            park_zone = stem.rsplit("_", 1)[1]
+            if park_zone != zone:
+                continue
+
+            gen = park_actual_data[key]
+            daily = _calculate_entsoe_capture(spot, gen)
+            if daily:
+                zone_data[key] = {}
+                if "yearly" in granularities:
+                    zone_data[key]["yearly"] = _aggregate_to_yearly(daily)
+                if "monthly" in granularities:
+                    zone_data[key]["monthly"] = _aggregate_to_monthly(daily)
+                if "daily" in granularities:
+                    zone_data[key]["daily"] = _aggregate_daily(daily)
+                if "hourly" in granularities:
+                    zone_data[key]["hourly"] = _collect_hourly_entsoe(spot, gen)
 
         # ENTSO-E actual generation (wind, hydro, nuclear)
         for key, (gen_type, _) in ENTSOE_CAPTURE_TYPES.items():
