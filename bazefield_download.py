@@ -7,6 +7,7 @@ Requires BAZEFIELD_API_KEY environment variable or .env file.
 from __future__ import annotations
 
 import argparse
+from datetime import date
 
 from elpris.bazefield import (
     BAZEFIELD_API_KEY,
@@ -39,13 +40,13 @@ def main():
     )
     parser.add_argument(
         "--start",
-        type=lambda s: __import__("datetime").date.fromisoformat(s),
+        type=date.fromisoformat,
         default=None,
         help="Start date (YYYY-MM-DD)",
     )
     parser.add_argument(
         "--end",
-        type=lambda s: __import__("datetime").date.fromisoformat(s),
+        type=date.fromisoformat,
         default=None,
         help="End date (YYYY-MM-DD)",
     )

@@ -301,7 +301,7 @@ def download_park(
         return {"park": park_key, "total_records": 0, "status": "up_to_date"}
 
     if verbose:
-        print(f"  Period: {start_date} → {end_date}")
+        print(f"  Period: {start_date} -> {end_date}")
 
     total_records = 0
     current = start_date
@@ -311,7 +311,7 @@ def download_park(
         chunk_end = min(current + timedelta(days=30), end_date)
 
         if verbose:
-            print(f"  {current} → {chunk_end}...", end=" ", flush=True)
+            print(f"  {current} -> {chunk_end}...", end=" ", flush=True)
 
         try:
             time.sleep(REQUEST_DELAY)
