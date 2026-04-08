@@ -3,14 +3,15 @@
 
 This script runs the entire update pipeline:
 1. Update spot prices (elprisetjustnu.se)
-2. Update ENTSO-E generation data (if token available)
-3. Update Mimer regulation prices (SVK)
-4. Update eSett imbalance prices
-5. Process raw data to quarterly format
-6. Calculate capture prices
-7. Generate Excel reports
-8. Generate HTML dashboard
-9. Show status
+2. Sync Bazefield solar park data (if API key available)
+3. Update ENTSO-E generation data (if token available)
+4. Update Mimer regulation prices (SVK)
+5. Update eSett imbalance prices
+6. Process raw data to quarterly format
+7. Calculate capture prices
+8. Generate Excel reports
+9. Generate HTML dashboard
+10. Show status
 """
 
 from __future__ import annotations
@@ -28,15 +29,19 @@ PROJECT_ROOT = Path(__file__).parent
 # Check for ENTSO-E token
 ENTSOE_TOKEN = os.getenv("ENTSOE_TOKEN")
 
+# Check for Bazefield API key
+BAZEFIELD_API_KEY = os.getenv("BAZEFIELD_API_KEY")
+
 # Try to load from .env if not in environment
-if not ENTSOE_TOKEN:
+if not ENTSOE_TOKEN or not BAZEFIELD_API_KEY:
     env_file = PROJECT_ROOT / ".env"
     if env_file.exists():
         with open(env_file) as f:
             for line in f:
-                if line.startswith("ENTSOE_TOKEN="):
+                if not ENTSOE_TOKEN and line.startswith("ENTSOE_TOKEN="):
                     ENTSOE_TOKEN = line.strip().split("=", 1)[1]
-                    break
+                if not BAZEFIELD_API_KEY and line.startswith("BAZEFIELD_API_KEY="):
+                    BAZEFIELD_API_KEY = line.strip().split("=", 1)[1]
 
 
 def run_script(name: str, args: list[str] = None, quiet: bool = False) -> bool:
@@ -96,6 +101,11 @@ def main():
         help="Skip eSett imbalance prices",
     )
     parser.add_argument(
+        "--skip-bazefield",
+        action="store_true",
+        help="Skip Bazefield solar park sync",
+    )
+    parser.add_argument(
         "--skip-excel",
         action="store_true",
         help="Skip Excel report generation",
@@ -114,9 +124,10 @@ def main():
     print(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"Zones: {', '.join(args.zones)}")
     print(f"ENTSO-E token: {'Found' if ENTSOE_TOKEN else 'Not found'}")
+    print(f"Bazefield key: {'Found' if BAZEFIELD_API_KEY else 'Not found'}")
     print("=" * 60)
 
-    total_steps = 9
+    total_steps = 10
     current_step = 0
     success_count = 0
 
@@ -132,7 +143,22 @@ def main():
     else:
         print("  Failed or no updates needed")
 
-    # Step 2: Update ENTSO-E (if token available and not skipped)
+    # Step 2: Sync Bazefield solar park data
+    current_step += 1
+    if args.skip_bazefield:
+        step(current_step, total_steps, "Bazefield solar parks (SKIPPED)")
+    elif not BAZEFIELD_API_KEY:
+        step(current_step, total_steps, "Bazefield solar parks (SKIPPED - no API key)")
+        print("  Set BAZEFIELD_API_KEY in .env to enable")
+    else:
+        step(current_step, total_steps, "Syncing Bazefield solar park data")
+        if run_script("bazefield_download.py", quiet=args.quiet):
+            success_count += 1
+            print("  Done!")
+        else:
+            print("  Failed or no updates needed")
+
+    # Step 3: Update ENTSO-E (if token available and not skipped)
     current_step += 1
     if args.skip_entsoe:
         step(current_step, total_steps, "ENTSO-E data (SKIPPED - user request)")

@@ -160,8 +160,6 @@ def load_park_actual_data(
     Returns dict keyed by ISO date -> {utc_hour: avg_power_mw}.
     Aggregates 15-min data to hourly averages to match spot price resolution.
     """
-    from collections import defaultdict
-
     # Collect all 15-min values per (date, hour)
     hourly_values: dict[str, dict[int, list[float]]] = defaultdict(
         lambda: defaultdict(list)

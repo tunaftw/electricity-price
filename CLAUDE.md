@@ -17,6 +17,7 @@ electricity-price/
 │   ├── processing.py          # Konvertering tim → quarterly (15-min)
 │   ├── solar_profile.py       # Solprofiler för capture-beräkning
 │   ├── storage.py             # Filhantering för CSV-data
+│   ├── bazefield.py           # Bazefield solparksdata API
 │   ├── dashboard_data.py      # Databeräkning för HTML-dashboard
 │   └── nasdaq.py              # Nasdaq Nordic futures API
 ├── Resultat/                  # All nedladdad data och analyser (se nedan)
@@ -31,6 +32,7 @@ electricity-price/
 ├── entsoe_download.py         # Ladda ner ENTSO-E data (sol, vind, vatten, kärnkraft)
 ├── esett_download.py          # Ladda ner eSett obalanspriser
 ├── mimer_download.py          # Ladda ner reglerpriser
+├── bazefield_download.py      # Synka solparksdata (Bazefield)
 ├── nasdaq_download.py         # Ladda ner elfutures (Nasdaq)
 ├── installed_download.py      # Ladda ner installerad kapacitet
 └── generate_dashboard.py      # Generera HTML-dashboard (Plotly.js)
@@ -149,6 +151,12 @@ Resultat/
 - **Tickers:** ENO (SYS), SYLUL (SE1), SYSUN (SE2), SYSTO (SE3), SYMAL (SE4)
 - **OBS:** Handel flyttad till Euronext mars 2026, men Nasdaq publicerar fortfarande dailyFix
 
+### 7. Solparksproduktion (Bazefield)
+- **Parker:** Horby (SE4), Fjallskar (SE3), Agerum (SE4), Hova (SE3), Bjorke (SE3), Skakelbacken (SE3), Stenstorp (SE3), Tangen (SE4)
+- **Data:** ActivePowerMeter (MW) i 15-min upplosning
+- **API:** `https://sveasolar.bazefield.com/BazeField.Services/api/`
+- **Nyckel:** Kravs `BAZEFIELD_API_KEY` i `.env`
+
 ## Kommandon
 
 ### Ladda ner spotpriser
@@ -247,6 +255,21 @@ python3 generate_dashboard.py
 ```
 Skapar en fristående HTML-fil i `Resultat/rapporter/dashboard_elpris_YYYYMMDD.html` med Plotly.js-grafer. Visar baseload och capture prices per zon och solprofil.
 
+### Synka solparksdata (Bazefield)
+```bash
+# Inkrementell synk alla parker
+python3 bazefield_download.py
+
+# Full historik
+python3 bazefield_download.py --backfill
+
+# Specifik park
+python3 bazefield_download.py --parks horby fjallskar
+
+# Visa status
+python3 bazefield_download.py --status
+```
+
 ### Ladda ner ENTSO-E data (faktisk produktion)
 ```bash
 # Sätt API-token (alternativ 1: miljövariabel)
@@ -310,6 +333,7 @@ Projektet har slash commands i `.claude/commands/`:
 - `/elpris-esett` - Ladda ner eSett obalanspriser
 - `/elpris-mimer` - Ladda ner reglerpriser (SVK)
 - `/elpris-installed` - Ladda ner installerad kapacitet
+- `/elpris-bazefield` - Synka solparksdata (Bazefield)
 
 ### Analys och rapporter
 - `/elpris-status` - Visa datastatus
@@ -342,6 +366,7 @@ ENTSOE_TOKEN=din-entso-e-token-här
 | **Mimer (SVK)** | Ingen nyckel krävs | Gratis |
 | **elprisetjustnu.se** | Ingen nyckel krävs | Gratis |
 | **Energimyndigheten** | Ingen nyckel krävs | Gratis |
+| **Bazefield** | Intern API-nyckel (`BAZEFIELD_API_KEY` i `.env`) | Internt |
 | **Nasdaq** | Ingen nyckel krävs (odokumenterat API) | Gratis |
 
 ## Dataformat
