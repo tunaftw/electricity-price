@@ -20,7 +20,10 @@ electricity-price/
 │   ├── bazefield.py           # Bazefield solparksdata API
 │   ├── dashboard_data.py      # Databeräkning för HTML-dashboard
 │   ├── operations_dashboard_data.py  # Operations-data (SY, negpris, tracker, meter)
-│   └── nasdaq.py              # Nasdaq Nordic futures API
+│   ├── nasdaq.py              # Nasdaq Nordic futures API
+│   ├── park_config.py         # Parkmetadata, budget (PVsyst + overrides)
+│   ├── performance_report_data.py  # KPI-beräkningar för månadsrapport
+│   └── performance_report_html.py  # HTML-rendering av månadsrapport
 ├── Resultat/                  # All nedladdad data och analyser (se nedan)
 ├── data/                      # Symlinks till Resultat/ för bakåtkompatibilitet
 ├── docs/                      # Dokumentation
@@ -36,7 +39,8 @@ electricity-price/
 ├── bazefield_download.py      # Synka solparksdata (Bazefield)
 ├── nasdaq_download.py         # Ladda ner elfutures (Nasdaq)
 ├── installed_download.py      # Ladda ner installerad kapacitet
-└── generate_dashboard.py      # Generera HTML-dashboard (Plotly.js)
+├── generate_dashboard.py      # Generera HTML-dashboard (Plotly.js)
+└── generate_performance_report.py  # Generera månadsrapport per park (HTML)
 ```
 
 ## Datakatalog
@@ -258,6 +262,28 @@ python3 generate_dashboard.py
 ```
 Skapar en fristående HTML-fil i `Resultat/rapporter/dashboard_elpris_YYYYMMDD.html` med Plotly.js-grafer. Visar baseload och capture prices per zon och solprofil.
 
+### Generera månadsrapport per park
+```bash
+# En park, specifik månad
+python3 generate_performance_report.py --park horby --month 2026-03
+
+# Alla parker, specifik månad
+python3 generate_performance_report.py --all --month 2026-03
+
+# En park, senaste fullständiga månad (default)
+python3 generate_performance_report.py --park horby
+```
+Skapar fristående HTML-rapporter i `Resultat/rapporter/performance_{park}_{zone}_{YYYY-MM}.html`.
+Innehåller 19 sektioner: KPI-sammanfattning, YTD, daglig produktion, PR, PI, förlustanalys (waterfall),
+bästa/sämsta dagar, och platshållare för inverter/alarm-data (kräver SCADA-integration).
+
+**OBS:** Många sektioner (PR, PI, instrålning, förlustanalys) kräver utökat Bazefield-format.
+Kör `python3 bazefield_download.py --backfill` för att synka POA-instrålning, availability och active power.
+
+**Parkbudget:** Konfigureras i `elpris/park_config.py`:
+- PVsyst TMY som default (automatisk)
+- Manuella overrides i `PARK_BUDGET_OVERRIDES` per park/månad
+
 ### Synka solparksdata (Bazefield)
 ```bash
 # Inkrementell synk alla parker
@@ -460,6 +486,9 @@ CSV-filer migreras automatiskt från gammalt format vid nästa synk.
 - [x] eSett obalanspriser
 - [x] mFRR energiaktivering (Mimer)
 - [x] Operations Dashboard Fas 1
+- [x] Månadsrapport per park (HTML, 19 sektioner, MVP + platshållare)
+- [ ] Månadsrapport: SCADA-integration (inverter-nivå, alarm/fault)
+- [ ] Månadsrapport: Bazefield re-synk med utökat format (POA, availability)
 - [ ] Automatisk daglig uppdatering
 - [ ] Batterioptimering / arbitrage-analys
 - [ ] Historiska solprofiler per region
