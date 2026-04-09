@@ -90,5 +90,41 @@ NASDAQ_DATA_DIR = RESULTAT_DIR / "marknadsdata" / "nasdaq" / "futures"
 # Park production profiles (Bazefield actual data)
 PARKS_PROFILE_DIR = RESULTAT_DIR / "profiler" / "parker"
 
+# Solar park installed capacities (kWp DC)
+PARK_CAPACITY_KWP = {
+    "horby": 18116,
+    "fjallskar": 20745,
+    "bjorke": 6943,
+    "agerum": 8846,
+    "hova": 5917,
+    "skakelbacken": 6500,
+    "stenstorp": 1133,
+    "tangen": 6727,
+}
+
+# Export limit as fraction of DC capacity (grid connection constraint)
+PARK_EXPORT_LIMIT = {
+    "horby": 0.70,
+    "fjallskar": 0.70,
+    "bjorke": 0.70,
+    "agerum": 0.70,
+    "hova": 0.70,
+    "skakelbacken": 1.00,
+    "stenstorp": 1.00,
+    "tangen": 0.70,
+}
+
+# Park zone mapping (duplicated from bazefield.py for convenience)
+PARK_ZONES = {
+    "horby": "SE4",
+    "fjallskar": "SE3",
+    "bjorke": "SE3",
+    "agerum": "SE4",
+    "hova": "SE3",
+    "skakelbacken": "SE3",
+    "stenstorp": "SE3",
+    "tangen": "SE4",
+}
+
 # CSV fieldnames
 CSV_FIELDS = ["time_start", "time_end", "SEK_per_kWh", "EUR_per_kWh", "EXR"]

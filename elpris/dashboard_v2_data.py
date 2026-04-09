@@ -1000,6 +1000,10 @@ def calculate_dashboard_v2_data(
             spot_for_fwd[zone] = spot
     forward = load_forward_curve_data(spot_for_fwd)
 
+    # Operations data
+    from .operations_dashboard_data import calculate_operations_data
+    operations = calculate_operations_data()
+
     result = {
         "generated": datetime.now().isoformat(timespec="seconds"),
         "zones": [z for z in ZONES if z in data],
@@ -1009,6 +1013,7 @@ def calculate_dashboard_v2_data(
         "data": data,
         "validation": validation,
         "heatmap": heatmaps,
+        "operations": operations,
     }
     if forward:
         result["forward"] = forward

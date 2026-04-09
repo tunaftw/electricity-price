@@ -76,6 +76,13 @@ body.product-futures {{
     --product-hint: rgba(167, 139, 250, 0.30);
     --product-contrast: #0b1220;
 }}
+body.product-operations {{
+    --product: #4ADE80;
+    --product-dim: rgba(74, 222, 128, 0.15);
+    --product-glow: rgba(74, 222, 128, 0.35);
+    --product-hint: rgba(74, 222, 128, 0.30);
+    --product-contrast: #0b1220;
+}}
 
 html {{ scroll-behavior: smooth; }}
 body {{
@@ -129,6 +136,27 @@ body {{
     color: var(--text);
 }}
 .zone-btn.active {{
+    background: var(--product);
+    color: var(--product-contrast);
+    border-color: var(--product);
+}}
+.ops-feat-btn {{
+    padding: 6px 16px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.15s;
+    font-family: var(--font);
+}}
+.ops-feat-btn:hover {{
+    background: var(--bg-hover);
+    color: var(--text);
+}}
+.ops-feat-btn.active {{
     background: var(--product);
     color: var(--product-contrast);
     border-color: var(--product);
@@ -460,6 +488,7 @@ button:focus-visible,
         <div class="topbar-title dash-tab active" id="tab-capture" onclick="switchDashboard('capture')" style="cursor:pointer"><span>ELPRIS</span> CAPTURE</div>
         <div class="topbar-title dash-tab" id="tab-bess" onclick="switchDashboard('bess')" style="cursor:pointer"><span>ELPRIS</span> BESS</div>
         <div class="topbar-title dash-tab" id="tab-futures" onclick="switchDashboard('futures')" style="cursor:pointer"><span>ELPRIS</span> FUTURES</div>
+        <div class="topbar-title dash-tab" id="tab-operations" onclick="switchDashboard('operations')" style="cursor:pointer"><span>ELPRIS</span> OPERATIONS</div>
     </div>
     <div class="zone-buttons" id="zone-buttons"></div>
     <div class="topbar-meta">Genererad: {data["generated"][:10]}</div>
@@ -472,6 +501,8 @@ button:focus-visible,
     <aside class="sidebar" id="sidebar"></aside>
     <!-- Sidebar (BESS only) -->
     <aside class="sidebar" id="bess-sidebar" style="display:none"></aside>
+    <!-- Sidebar (Operations only) -->
+    <aside class="sidebar" id="operations-sidebar" style="display:none"></aside>
 
     <!-- Main -->
     <main class="main">
@@ -649,6 +680,23 @@ button:focus-visible,
             <div class="card" id="fwd-vs-spot-section">
                 <div class="card-title">Forward vs Realiserat Spot</div>
                 <div id="fwd-vs-spot-chart" class="chart-container chart-secondary"></div>
+            </div>
+        </div>
+        <!-- Operations sections -->
+        <div id="operations-view" style="display:none">
+            <div style="display:flex;gap:4px;margin-bottom:1rem">
+                <button class="ops-feat-btn active" data-feat="specific_yield" onclick="setOpsFeat('specific_yield')">Specific Yield</button>
+                <button class="ops-feat-btn" data-feat="negative_price" onclick="setOpsFeat('negative_price')">Negativa priser</button>
+                <button class="ops-feat-btn" data-feat="tracker_gain" onclick="setOpsFeat('tracker_gain')">Tracker-gain</button>
+                <button class="ops-feat-btn" data-feat="meter_loss" onclick="setOpsFeat('meter_loss')">Meterforlust</button>
+            </div>
+            <div class="card">
+                <div class="card-title" id="ops-chart-title">Specific Yield (kWh/kWp)</div>
+                <div id="ops-main-chart" class="chart-container"></div>
+            </div>
+            <div class="card">
+                <div class="card-title" id="ops-secondary-title">Detaljer</div>
+                <div id="ops-secondary-chart" class="chart-container chart-secondary"></div>
             </div>
         </div>
     </main>
@@ -847,15 +895,22 @@ function switchDashboard(which) {{
     state.dashboard = which;
     document.body.className = 'product-' + which;
 
-    ['capture', 'bess', 'futures'].forEach(t => {{
+    ['capture', 'bess', 'futures', 'operations'].forEach(t => {{
         document.getElementById('tab-' + t).classList.toggle('active', t === which);
     }});
 
     document.getElementById('capture-view').style.display = which === 'capture' ? '' : 'none';
     document.getElementById('bess-view').style.display = which === 'bess' ? '' : 'none';
     document.getElementById('futures-view').style.display = which === 'futures' ? '' : 'none';
+    document.getElementById('operations-view').style.display = which === 'operations' ? '' : 'none';
     document.getElementById('sidebar').style.display = which === 'capture' ? '' : 'none';
     document.getElementById('bess-sidebar').style.display = which === 'bess' ? '' : 'none';
+    document.getElementById('operations-sidebar').style.display = which === 'operations' ? '' : 'none';
+
+    if (which === 'operations' && !state.ops_initialized) {{
+        buildOperationsSidebar();
+        state.ops_initialized = true;
+    }}
 
     render();
 }}
@@ -868,6 +923,8 @@ function render() {{
         else if (state.view === 'daily') renderDaily();
     }} else if (state.dashboard === 'bess') {{
         renderBess();
+    }} else if (state.dashboard === 'operations') {{
+        renderOperations();
     }} else {{
         renderForwardCurve();
     }}
@@ -2301,6 +2358,252 @@ function getEnabledProfiles(zoneData) {{
     return Object.keys(DATA.profiles).filter(k =>
         state.enabled.has(k) && zoneData[k]
     );
+}}
+
+// ================================================================
+// OPERATIONS
+// ================================================================
+const OPS_PARK_COLORS = ['#a78bfa','#67e8f9','#86efac','#fde68a','#fca5a5','#c4b5fd','#99f6e4','#bbf7d0'];
+function opsParkColor(pk) {{
+    const idx = (DATA.operations?.parks || []).indexOf(pk);
+    return OPS_PARK_COLORS[idx % OPS_PARK_COLORS.length];
+}}
+
+function buildOperationsSidebar() {{
+    const sidebar = document.getElementById('operations-sidebar');
+    const OPS = DATA.operations;
+    if (!OPS) {{ sidebar.innerHTML = '<div style="padding:1rem;color:var(--text-muted)">Ingen operations-data</div>'; return; }}
+    if (!state.ops_parks) state.ops_parks = new Set(OPS.parks);
+    let html = '<div class="sidebar-section"><div class="sidebar-title">PARKER</div>';
+    OPS.parks.forEach(pk => {{
+        const zone = OPS.park_zones[pk];
+        const checked = state.ops_parks.has(pk) ? 'checked' : '';
+        html += '<label class="sidebar-item"><input type="checkbox" data-ops-park="' + pk + '" ' + checked + '>';
+        html += '<span class="color-dot" style="background:' + opsParkColor(pk) + '"></span>';
+        html += pk.charAt(0).toUpperCase() + pk.slice(1) + ' (' + zone + ')';
+        html += '</label>';
+    }});
+    html += '</div>';
+    sidebar.innerHTML = html;
+
+    sidebar.querySelectorAll('input[type="checkbox"]').forEach(cb => {{
+        cb.addEventListener('change', () => {{
+            const pk = cb.dataset.opsPark;
+            if (cb.checked) state.ops_parks.add(pk);
+            else state.ops_parks.delete(pk);
+            renderOperations();
+        }});
+    }});
+}}
+
+function setOpsFeat(feat) {{
+    state.ops_feature = feat;
+    document.querySelectorAll('.ops-feat-btn').forEach(b => {{
+        b.classList.toggle('active', b.dataset.feat === feat);
+    }});
+    renderOperations();
+}}
+
+function renderOperations() {{
+    const OPS = DATA.operations;
+    if (!OPS) return;
+    const parks = state.ops_parks ? [...state.ops_parks] : OPS.parks;
+    if (!state.ops_feature) state.ops_feature = 'specific_yield';
+
+    const labels = {{
+        'specific_yield': 'Specific Yield (kWh/kWp)',
+        'negative_price': 'Negativ pris-exponering',
+        'tracker_gain': 'Tracker-gain (Hova vs fast)',
+        'meter_loss': 'Meterforlust (%)',
+    }};
+    document.getElementById('ops-chart-title').textContent = labels[state.ops_feature] || state.ops_feature;
+
+    if (state.ops_feature === 'specific_yield') renderSpecificYield(parks, OPS);
+    else if (state.ops_feature === 'negative_price') renderNegativePrice(parks, OPS);
+    else if (state.ops_feature === 'tracker_gain') renderTrackerGain(OPS);
+    else if (state.ops_feature === 'meter_loss') renderMeterLoss(parks, OPS);
+}}
+
+function renderSpecificYield(parks, OPS) {{
+    const traces = [];
+    parks.forEach(pk => {{
+        const data = OPS.specific_yield[pk] || [];
+        traces.push({{
+            x: data.map(d => d.year + '-' + String(d.month).padStart(2, '0')),
+            y: data.map(d => d.yield_kwh_kwp),
+            name: pk.charAt(0).toUpperCase() + pk.slice(1) + ' (' + OPS.park_zones[pk] + ')',
+            type: 'bar',
+            marker: {{ color: opsParkColor(pk) }},
+        }});
+    }});
+
+    Plotly.react('ops-main-chart', traces, {{
+        ...PLOTLY_DARK,
+        barmode: 'group',
+        yaxis: {{ ...PLOTLY_DARK.yaxis, title: 'kWh/kWp' }},
+        xaxis: {{ ...PLOTLY_DARK.xaxis, title: 'Manad' }},
+        legend: PLOTLY_DARK.legend,
+        margin: {{ t: 20, b: 60, l: 60, r: 20 }},
+    }}, {{ responsive: true, displayModeBar: false }});
+
+    // Secondary: cumulative yearly
+    const yearlyTraces = [];
+    parks.forEach(pk => {{
+        const data = OPS.specific_yield[pk] || [];
+        const byYear = {{}};
+        data.forEach(d => {{ byYear[d.year] = (byYear[d.year] || 0) + d.yield_kwh_kwp; }});
+        const years = Object.keys(byYear).sort();
+        yearlyTraces.push({{
+            x: years,
+            y: years.map(y => Math.round(byYear[y])),
+            name: pk.charAt(0).toUpperCase() + pk.slice(1),
+            type: 'bar',
+            marker: {{ color: opsParkColor(pk) }},
+        }});
+    }});
+    document.getElementById('ops-secondary-title').textContent = 'Arlig Specific Yield (kWh/kWp)';
+    Plotly.react('ops-secondary-chart', yearlyTraces, {{
+        ...PLOTLY_DARK,
+        barmode: 'group',
+        yaxis: {{ ...PLOTLY_DARK.yaxis, title: 'kWh/kWp per ar' }},
+        xaxis: {{ ...PLOTLY_DARK.xaxis, title: 'Ar' }},
+        legend: PLOTLY_DARK.legend,
+        margin: {{ t: 20, b: 60, l: 60, r: 20 }},
+    }}, {{ responsive: true, displayModeBar: false }});
+}}
+
+function renderNegativePrice(parks, OPS) {{
+    const traces = [];
+    parks.forEach(pk => {{
+        const data = OPS.negative_price[pk] || [];
+        if (data.length === 0) return;
+        traces.push({{
+            x: data.map(d => d.year + '-' + String(d.month).padStart(2, '0')),
+            y: data.map(d => d.neg_revenue_eur),
+            name: pk.charAt(0).toUpperCase() + pk.slice(1),
+            type: 'bar',
+            marker: {{ color: opsParkColor(pk) }},
+        }});
+    }});
+
+    Plotly.react('ops-main-chart', traces, {{
+        ...PLOTLY_DARK,
+        barmode: 'stack',
+        yaxis: {{ ...PLOTLY_DARK.yaxis, title: 'Negativ intakt (EUR)' }},
+        xaxis: {{ ...PLOTLY_DARK.xaxis, title: 'Manad' }},
+        legend: PLOTLY_DARK.legend,
+        margin: {{ t: 20, b: 60, l: 60, r: 20 }},
+    }}, {{ responsive: true, displayModeBar: false }});
+
+    // Secondary: hours with negative prices
+    const hTraces = [];
+    parks.forEach(pk => {{
+        const data = OPS.negative_price[pk] || [];
+        if (data.length === 0) return;
+        hTraces.push({{
+            x: data.map(d => d.year + '-' + String(d.month).padStart(2, '0')),
+            y: data.map(d => d.neg_hours),
+            name: pk.charAt(0).toUpperCase() + pk.slice(1),
+            type: 'bar',
+            marker: {{ color: opsParkColor(pk) }},
+        }});
+    }});
+    document.getElementById('ops-secondary-title').textContent = 'Timmar med negativa priser och produktion';
+    Plotly.react('ops-secondary-chart', hTraces, {{
+        ...PLOTLY_DARK,
+        barmode: 'stack',
+        yaxis: {{ ...PLOTLY_DARK.yaxis, title: 'Timmar' }},
+        xaxis: {{ ...PLOTLY_DARK.xaxis, title: 'Manad' }},
+        legend: PLOTLY_DARK.legend,
+        margin: {{ t: 20, b: 60, l: 60, r: 20 }},
+    }}, {{ responsive: true, displayModeBar: false }});
+}}
+
+function renderTrackerGain(OPS) {{
+    const data = OPS.tracker_gain || [];
+    Plotly.react('ops-main-chart', [{{
+        x: data.map(d => d.year + '-' + String(d.month).padStart(2, '0')),
+        y: data.map(d => d.gain_pct),
+        type: 'bar',
+        marker: {{ color: data.map(d => d.gain_pct >= 0 ? '#4ADE80' : '#f87171') }},
+        name: 'Tracker-gain',
+    }}], {{
+        ...PLOTLY_DARK,
+        yaxis: {{ ...PLOTLY_DARK.yaxis, title: 'Gain (%)', zeroline: true, zerolinecolor: '#fff' }},
+        xaxis: {{ ...PLOTLY_DARK.xaxis, title: 'Manad' }},
+        legend: PLOTLY_DARK.legend,
+        margin: {{ t: 20, b: 60, l: 60, r: 20 }},
+        shapes: [{{ type: 'line', y0: 0, y1: 0, x0: 0, x1: 1, xref: 'paper', line: {{ color: '#fff', width: 1, dash: 'dash' }} }}],
+    }}, {{ responsive: true, displayModeBar: false }});
+
+    // Secondary: absolute SY comparison
+    document.getElementById('ops-secondary-title').textContent = 'Specific Yield: Hova (tracker) vs snitt fast montage';
+    Plotly.react('ops-secondary-chart', [
+        {{
+            x: data.map(d => d.year + '-' + String(d.month).padStart(2, '0')),
+            y: data.map(d => d.sy_hova),
+            name: 'Hova (tracker)',
+            type: 'scatter', mode: 'lines+markers',
+            line: {{ color: '#4ADE80' }},
+        }},
+        {{
+            x: data.map(d => d.year + '-' + String(d.month).padStart(2, '0')),
+            y: data.map(d => d.sy_fixed_avg),
+            name: 'Snitt fast montage',
+            type: 'scatter', mode: 'lines+markers',
+            line: {{ color: '#a78bfa' }},
+        }},
+    ], {{
+        ...PLOTLY_DARK,
+        yaxis: {{ ...PLOTLY_DARK.yaxis, title: 'kWh/kWp' }},
+        xaxis: {{ ...PLOTLY_DARK.xaxis }},
+        legend: PLOTLY_DARK.legend,
+        margin: {{ t: 20, b: 60, l: 60, r: 20 }},
+    }}, {{ responsive: true, displayModeBar: false }});
+}}
+
+function renderMeterLoss(parks, OPS) {{
+    const traces = [];
+    parks.forEach(pk => {{
+        const data = OPS.meter_loss[pk] || [];
+        if (data.length === 0) return;
+        // Aggregate to monthly average
+        const monthly = {{}};
+        data.forEach(d => {{
+            const key = d.year + '-' + String(d.month).padStart(2, '0');
+            if (!monthly[key]) monthly[key] = [];
+            monthly[key].push(d.loss_pct);
+        }});
+        const keys = Object.keys(monthly).sort();
+        traces.push({{
+            x: keys,
+            y: keys.map(k => monthly[k].reduce((a,b) => a+b, 0) / monthly[k].length),
+            name: pk.charAt(0).toUpperCase() + pk.slice(1),
+            type: 'scatter',
+            mode: 'lines+markers',
+            line: {{ color: opsParkColor(pk) }},
+        }});
+    }});
+
+    Plotly.react('ops-main-chart', traces, {{
+        ...PLOTLY_DARK,
+        yaxis: {{ ...PLOTLY_DARK.yaxis, title: 'Forlust (%)' }},
+        xaxis: {{ ...PLOTLY_DARK.xaxis, title: 'Manad' }},
+        legend: PLOTLY_DARK.legend,
+        margin: {{ t: 20, b: 60, l: 60, r: 20 }},
+        shapes: [
+            {{ type: 'rect', y0: 0, y1: 2, x0: 0, x1: 1, xref: 'paper', fillcolor: 'rgba(74,222,128,0.1)', line: {{ width: 0 }} }},
+            {{ type: 'rect', y0: 2, y1: 4, x0: 0, x1: 1, xref: 'paper', fillcolor: 'rgba(250,204,21,0.1)', line: {{ width: 0 }} }},
+            {{ type: 'rect', y0: 4, y1: 10, x0: 0, x1: 1, xref: 'paper', fillcolor: 'rgba(248,113,113,0.1)', line: {{ width: 0 }} }},
+        ],
+    }}, {{ responsive: true, displayModeBar: false }});
+
+    document.getElementById('ops-secondary-title').textContent = 'Meterforlust - daglig fordelning';
+    Plotly.react('ops-secondary-chart', [], {{
+        ...PLOTLY_DARK,
+        margin: {{ t: 20, b: 60, l: 60, r: 20 }},
+        annotations: [{{ text: 'Valj en park i sidopanelen for detaljer', showarrow: false, font: {{ color: '#8892a4', size: 14 }} }}],
+    }}, {{ responsive: true, displayModeBar: false }});
 }}
 
 // ================================================================

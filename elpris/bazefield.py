@@ -61,6 +61,22 @@ PARKS = {
     "tangen":       {"id": "13F29EF630C9D000", "zone": "SE4", "name": "Tången"},
 }
 
+# Weather station Bazefield Object IDs (physical on-site sensors)
+PARK_WEATHER_STATIONS = {
+    "horby": "1164CB70FB89D000",        # HRB-WS1
+    "fjallskar": "117FF1B6A549D000",    # FJL-WS1
+    "bjorke": "11BC1241DC89D000",       # BJK-WS1
+    "agerum": "11BD1FBAEB49D000",       # AGR-WS1
+    "hova": "125F466AA2C9D000",         # HOV-WS3 (primary)
+    "skakelbacken": "136768CBEC49D000", # SKB-WS2
+    "stenstorp": "12C074165009D000",    # STT-WS1
+    "tangen": "13F2E032BE49D000",       # TNG-WS2
+}
+
+# Data points to fetch per object type
+PARK_POINTS = ["ActivePowerMeter", "ActivePower", "IrradiancePOA", "Availability"]
+WEATHER_POINTS = ["IrradianceGHI", "WindSpeed", "Humidity"]
+
 
 def get_park_csv_path(park_key: str) -> Path:
     """Get CSV file path for a park's production profile."""
@@ -89,32 +105,32 @@ def get_latest_synced_date(park_key: str) -> date | None:
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
 def fetch_timeseries(
-    park_key: str,
+    object_id: str,
+    points: list[str],
     from_date: date,
     to_date: date,
     api_key: str | None = None,
-) -> list[dict]:
-    """Fetch ActivePowerMeter timeseries from Bazefield.
+) -> dict[str, list[dict]]:
+    """Fetch timeseries data from Bazefield for any object.
 
     Args:
-        park_key: Key from PARKS dict (e.g. "horby")
+        object_id: Bazefield object ID
+        points: List of point names (e.g. ["ActivePowerMeter", "IrradiancePOA"])
         from_date: Start date (inclusive)
-        to_date: End date (exclusive — data up to midnight before this date)
-        api_key: Override API key (default: from env)
+        to_date: End date (exclusive)
+        api_key: Override API key
 
     Returns:
-        List of {timestamp: str, power_mw: float} records
+        Dict mapping point_name -> list of {timestamp: str, value: float}
     """
     key = api_key or BAZEFIELD_API_KEY
     if not key:
         raise ValueError("BAZEFIELD_API_KEY not set. Add it to .env file.")
 
-    park = PARKS[park_key]
-
     url = f"{BAZEFIELD_BASE_URL}/json/reply/GetDomainPointTimeSeriesAggregated"
     payload = {
-        "ObjectIds": [park["id"]],
-        "Points": ["ActivePowerMeter"],
+        "ObjectIds": [object_id],
+        "Points": points,
         "Aggregates": ["AVERAGE"],
         "From": from_date.isoformat(),
         "To": to_date.isoformat(),
@@ -130,25 +146,90 @@ def fetch_timeseries(
     response.raise_for_status()
 
     data = response.json()
-    obj_data = data.get("objects", {}).get(park["id"], {})
-    points = obj_data.get("points", {}).get("ActivePowerMeter", [])
+    obj_data = data.get("objects", {}).get(object_id, {}).get("points", {})
 
-    if not points:
+    result: dict[str, list[dict]] = {}
+    for point_name in points:
+        point_series = obj_data.get(point_name, [])
+        if not point_series:
+            result[point_name] = []
+            continue
+
+        ts_list = point_series[0].get("timeSeries", [])
+        records = []
+        for point in ts_list:
+            t_local = point.get("t_local")
+            v = point.get("v")
+            if t_local is not None and v is not None:
+                records.append({"timestamp": t_local, "value": round(v, 4)})
+        result[point_name] = records
+
+    return result
+
+
+def fetch_park_data(
+    park_key: str,
+    from_date: date,
+    to_date: date,
+    api_key: str | None = None,
+) -> list[dict]:
+    """Fetch extended park data (power, irradiance, availability).
+
+    Returns list of {timestamp, power_mw, active_power_mw, irradiance_poa, availability}.
+    """
+    park = PARKS[park_key]
+    raw = fetch_timeseries(park["id"], PARK_POINTS, from_date, to_date, api_key)
+
+    # Merge all points by timestamp
+    by_ts: dict[str, dict] = {}
+    for point_name, records in raw.items():
+        field_map = {
+            "ActivePowerMeter": "power_mw",
+            "ActivePower": "active_power_mw",
+            "IrradiancePOA": "irradiance_poa",
+            "Availability": "availability",
+        }
+        field = field_map.get(point_name, point_name)
+        for rec in records:
+            ts = rec["timestamp"]
+            if ts not in by_ts:
+                by_ts[ts] = {"timestamp": ts}
+            by_ts[ts][field] = rec["value"]
+
+    return [by_ts[ts] for ts in sorted(by_ts)]
+
+
+def fetch_weather_data(
+    park_key: str,
+    from_date: date,
+    to_date: date,
+    api_key: str | None = None,
+) -> list[dict]:
+    """Fetch weather station data for a park.
+
+    Returns list of {timestamp, ghi, wind_speed, humidity}.
+    """
+    ws_id = PARK_WEATHER_STATIONS.get(park_key)
+    if not ws_id:
         return []
 
-    ts_list = points[0].get("timeSeries", [])
+    raw = fetch_timeseries(ws_id, WEATHER_POINTS, from_date, to_date, api_key)
 
-    records = []
-    for point in ts_list:
-        t_local = point.get("t_local")
-        v = point.get("v")
-        if t_local is not None and v is not None:
-            records.append({
-                "timestamp": t_local,
-                "power_mw": round(v, 4),
-            })
+    by_ts: dict[str, dict] = {}
+    for point_name, records in raw.items():
+        field_map = {
+            "IrradianceGHI": "ghi",
+            "WindSpeed": "wind_speed",
+            "Humidity": "humidity",
+        }
+        field = field_map.get(point_name, point_name)
+        for rec in records:
+            ts = rec["timestamp"]
+            if ts not in by_ts:
+                by_ts[ts] = {"timestamp": ts}
+            by_ts[ts][field] = rec["value"]
 
-    return records
+    return [by_ts[ts] for ts in sorted(by_ts)]
 
 
 def find_first_data_date(park_key: str, api_key: str | None = None) -> date | None:
@@ -164,8 +245,8 @@ def find_first_data_date(park_key: str, api_key: str | None = None) -> date | No
     earliest_probe = today - timedelta(days=3 * 365)
 
     # First: check if there's any data at all (test recent month)
-    test_data = fetch_timeseries(park_key, today - timedelta(days=30), today, key)
-    has_production = any(r["power_mw"] > 0 for r in test_data)
+    test_data = fetch_park_data(park_key, today - timedelta(days=30), today, key)
+    has_production = any(r.get("power_mw", 0) > 0 for r in test_data)
     if not has_production:
         return None
 
@@ -180,8 +261,8 @@ def find_first_data_date(park_key: str, api_key: str | None = None) -> date | No
         probe_end = mid_date + timedelta(days=7)
 
         time.sleep(REQUEST_DELAY)
-        probe = fetch_timeseries(park_key, mid_date, probe_end, key)
-        if any(r["power_mw"] > 0 for r in probe):
+        probe = fetch_park_data(park_key, mid_date, probe_end, key)
+        if any(r.get("power_mw", 0) > 0 for r in probe):
             high = mid_date
         else:
             low = mid_date + timedelta(days=7)
@@ -190,23 +271,26 @@ def find_first_data_date(park_key: str, api_key: str | None = None) -> date | No
     current = low
     while current <= high:
         time.sleep(REQUEST_DELAY)
-        probe = fetch_timeseries(park_key, current, current + timedelta(days=7), key)
-        if any(r["power_mw"] > 0 for r in probe):
+        probe = fetch_park_data(park_key, current, current + timedelta(days=7), key)
+        if any(r.get("power_mw", 0) > 0 for r in probe):
             # Found it — refine to day level
             for day_offset in range(7):
                 day = current + timedelta(days=day_offset)
                 time.sleep(REQUEST_DELAY)
-                probe = fetch_timeseries(park_key, day, day + timedelta(days=1), key)
-                if any(r["power_mw"] > 0 for r in probe):
+                probe = fetch_park_data(park_key, day, day + timedelta(days=1), key)
+                if any(r.get("power_mw", 0) > 0 for r in probe):
                     return day
         current += timedelta(days=7)
 
     return low
 
 
+PARK_CSV_FIELDS = ["timestamp", "power_mw", "active_power_mw", "irradiance_poa", "availability"]
+
 def save_park_data(park_key: str, records: list[dict]) -> int:
     """Append records to park CSV, avoiding duplicates.
 
+    Handles both old format (timestamp, power_mw) and new extended format.
     Returns number of new records written.
     """
     if not records:
@@ -215,11 +299,13 @@ def save_park_data(park_key: str, records: list[dict]) -> int:
     csv_path = get_park_csv_path(park_key)
     PARKS_PROFILE_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Read existing timestamps
+    # Read existing timestamps and detect format
     existing_timestamps: set[str] = set()
+    existing_fields: list[str] = []
     if csv_path.exists():
         with open(csv_path, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
+            existing_fields = reader.fieldnames or []
             for row in reader:
                 existing_timestamps.add(row["timestamp"])
 
@@ -228,11 +314,63 @@ def save_park_data(park_key: str, records: list[dict]) -> int:
     if not new_records:
         return 0
 
-    # If file doesn't exist, write header
-    write_header = not csv_path.exists()
+    # Determine fieldnames: use extended format for new files, match existing for appends
+    if existing_fields and set(existing_fields) != set(PARK_CSV_FIELDS):
+        # Old format file — need to rewrite with extended columns
+        all_records = []
+        with open(csv_path, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                all_records.append(row)
+        all_records.extend(new_records)
+        all_records.sort(key=lambda x: x["timestamp"])
 
+        with open(csv_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=PARK_CSV_FIELDS, extrasaction="ignore")
+            writer.writeheader()
+            for rec in all_records:
+                writer.writerow(rec)
+    else:
+        # Extended format — append
+        write_header = not csv_path.exists()
+        with open(csv_path, "a", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=PARK_CSV_FIELDS, extrasaction="ignore")
+            if write_header:
+                writer.writeheader()
+            writer.writerows(new_records)
+
+    return len(new_records)
+
+
+WEATHER_CSV_FIELDS = ["timestamp", "ghi", "wind_speed", "humidity"]
+
+def get_weather_csv_path(park_key: str) -> Path:
+    """Get CSV path for weather station data."""
+    park = PARKS[park_key]
+    return PARKS_PROFILE_DIR / f"{park_key}_{park['zone']}_weather.csv"
+
+def save_weather_data(park_key: str, records: list[dict]) -> int:
+    """Save weather data to CSV, avoiding duplicates."""
+    if not records:
+        return 0
+
+    csv_path = get_weather_csv_path(park_key)
+    PARKS_PROFILE_DIR.mkdir(parents=True, exist_ok=True)
+
+    existing_timestamps: set[str] = set()
+    if csv_path.exists():
+        with open(csv_path, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                existing_timestamps.add(row["timestamp"])
+
+    new_records = [r for r in records if r["timestamp"] not in existing_timestamps]
+    if not new_records:
+        return 0
+
+    write_header = not csv_path.exists()
     with open(csv_path, "a", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["timestamp", "power_mw"])
+        writer = csv.DictWriter(f, fieldnames=WEATHER_CSV_FIELDS, extrasaction="ignore")
         if write_header:
             writer.writeheader()
         writer.writerows(new_records)
@@ -315,7 +453,7 @@ def download_park(
 
         try:
             time.sleep(REQUEST_DELAY)
-            records = fetch_timeseries(park_key, current, chunk_end, key)
+            records = fetch_park_data(park_key, current, chunk_end, key)
 
             if records:
                 saved = save_park_data(park_key, records)
@@ -331,6 +469,25 @@ def download_park(
                 print(f"fel: {e}")
 
         current = chunk_end
+
+    # Also download weather station data
+    if verbose:
+        print(f"  Vader...", end=" ", flush=True)
+    weather_records = 0
+    current = start_date
+    while current < end_date:
+        chunk_end = min(current + timedelta(days=30), end_date)
+        try:
+            time.sleep(REQUEST_DELAY)
+            w_records = fetch_weather_data(park_key, current, chunk_end, key)
+            if w_records:
+                saved = save_weather_data(park_key, w_records)
+                weather_records += saved
+        except Exception:
+            pass  # Weather is optional
+        current = chunk_end
+    if verbose:
+        print(f"{weather_records} vader-poster")
 
     if verbose:
         print(f"  Totalt: {total_records} nya poster")

@@ -19,6 +19,7 @@ electricity-price/
 │   ├── storage.py             # Filhantering för CSV-data
 │   ├── bazefield.py           # Bazefield solparksdata API
 │   ├── dashboard_data.py      # Databeräkning för HTML-dashboard
+│   ├── operations_dashboard_data.py  # Operations-data (SY, negpris, tracker, meter)
 │   └── nasdaq.py              # Nasdaq Nordic futures API
 ├── Resultat/                  # All nedladdad data och analyser (se nedan)
 ├── data/                      # Symlinks till Resultat/ för bakåtkompatibilitet
@@ -85,7 +86,9 @@ Resultat/
 │
 ├── profiler/                        # Beräknade produktionsprofiler
 │   ├── beraknade/                   # PVsyst-processade (ew_boda.csv, etc.)
-│   └── normaliserade/               # ENTSO-E normaliserade (solar_SE*.csv)
+│   ├── normaliserade/               # ENTSO-E normaliserade (solar_SE*.csv)
+│   └── parker/                      # Bazefield solparksdata (horby_SE4.csv, etc.)
+│       └── *_weather.csv            # Väderstation per park (GHI, vind, fukt)
 │
 ├── sol-kalldata/                    # Råa PVsyst-dokument
 ├── rapporter/                       # Analysrapporter och Excel-filer
@@ -426,11 +429,37 @@ Projektdokumentation har flyttats till Obsidian-vaulten:
 | `Projects/Elpris/balansmarknad/` | Svenska balansmarknaden (FCR, aFRR, mFRR) |
 | `Projects/Elpris/bess-dimensionering/` | Batteridimensionering för PV-prognosfel |
 
+## Operations Dashboard (Fas 1)
+
+Dashboard v2 har en **Operations**-flik med grön färgtema. Data beräknas i `elpris/operations_dashboard_data.py`.
+
+### Features
+| Feature | Beskrivning |
+|---------|-------------|
+| **Specific Yield** | Månadsvis kWh/kWp per park (grupperade staplar) |
+| **Negativa priser** | Intäktsförlust vid negativa spotpriser (stacked bars) |
+| **Tracker-gain** | Hova (tracker) vs Björke+Skäkelbacken (fast montage), % |
+| **Meterförlust** | ActivePower vs ActivePowerMeter per park (kräver utökat CSV) |
+
+### Parkkonstanter
+Konfigurerade i `elpris/config.py`:
+- `PARK_CAPACITY_KWP` — installerad DC-kapacitet per park
+- `PARK_EXPORT_LIMIT` — exportgräns som andel av DC
+- `PARK_ZONES` — elområde per park
+
+### Utökat Bazefield-format
+`bazefield.py` hämtar nu 4 datapunkter per park + 3 per väderstation:
+- Park: `ActivePowerMeter`, `ActivePower`, `IrradiancePOA`, `Availability`
+- Väder: `IrradianceGHI`, `WindSpeed`, `Humidity`
+
+CSV-filer migreras automatiskt från gammalt format vid nästa synk.
+
 ## Framtida utveckling
 
 - [x] ENTSO-E integration
 - [x] eSett obalanspriser
 - [x] mFRR energiaktivering (Mimer)
+- [x] Operations Dashboard Fas 1
 - [ ] Automatisk daglig uppdatering
 - [ ] Batterioptimering / arbitrage-analys
 - [ ] Historiska solprofiler per region
