@@ -24,6 +24,8 @@ from .battery import (
     REPORTS_DIR,
     extract_daily_stats,
     extract_hourly_profile,
+    aggregate_by_month,
+    aggregate_by_year,
 )
 from .config import ZONES
 
@@ -75,8 +77,11 @@ def export_battery_excel(
     wb = Workbook()
     wb.remove(wb.active)
 
-    # Collect all data first
+    # Collect all data first, including pre-calculated statistics
     all_data = {}
+    monthly_stats = {}  # Pre-calculated monthly stats with real median
+    yearly_stats = {}   # Pre-calculated yearly stats with real median
+
     for zone in zones:
         daily = extract_daily_stats(zone)
         if daily:
@@ -84,6 +89,9 @@ def export_battery_excel(
                 "daily": daily,
                 "hourly": extract_hourly_profile(zone),
             }
+            # Pre-calculate monthly and yearly stats (Python calculates real median)
+            monthly_stats[zone] = aggregate_by_month(daily)
+            yearly_stats[zone] = aggregate_by_year(daily)
 
     # Track data ranges for formulas
     zone_data_ranges: dict[str, dict] = {}
@@ -100,14 +108,14 @@ def export_battery_excel(
     # Sheet 6: Calculations with revenue formulas
     _create_calculations_sheet(wb, zones, zone_data_ranges, all_data)
 
-    # Sheet 7: Monthly summary with SUMIFS
-    _create_monthly_summary_sheet(wb, zones, zone_data_ranges)
+    # Sheet 7: Monthly summary with pre-calculated median
+    _create_monthly_summary_sheet(wb, zones, zone_data_ranges, monthly_stats)
 
-    # Sheet 8: Yearly summary per zone
-    _create_yearly_summary_sheet(wb, zones, zone_data_ranges)
+    # Sheet 8: Yearly summary per zone with pre-calculated median
+    _create_yearly_summary_sheet(wb, zones, zone_data_ranges, yearly_stats)
 
-    # Sheet 9: Yearly overview (pivot-style)
-    _create_yearly_overview_sheet(wb, zones, zone_data_ranges)
+    # Sheet 9: Yearly overview (pivot-style) with pre-calculated median
+    _create_yearly_overview_sheet(wb, zones, zone_data_ranges, yearly_stats)
 
     # Sheet 10: Hourly profile
     _create_hourly_profile_sheet(wb, zones, all_data)
@@ -286,19 +294,17 @@ def _create_zone_prices_sheet(
         # H: Year for SUMIFS
         ws.cell(row=row, column=8, value=year)
 
-        # I-L: Time period averages (pre-calculated for 2-cycle)
-        # These are approximations - exact values would need 15-min data
-        # Using avg_eur as placeholder; ideally these would be calculated from raw data
-        ws.cell(row=row, column=9, value=d["min_eur"] * 1.1)  # Night approx
+        # I-L: Time period averages (calculated from actual hourly data)
+        ws.cell(row=row, column=9, value=d["night_avg"])    # 00:00-06:59
         ws.cell(row=row, column=9).number_format = "0.00"
 
-        ws.cell(row=row, column=10, value=d["avg_eur"] * 1.15)  # Morning approx
+        ws.cell(row=row, column=10, value=d["morning_avg"])  # 07:00-10:59
         ws.cell(row=row, column=10).number_format = "0.00"
 
-        ws.cell(row=row, column=11, value=d["min_eur"] * 1.05)  # Midday approx
+        ws.cell(row=row, column=11, value=d["midday_avg"])   # 11:00-15:59
         ws.cell(row=row, column=11).number_format = "0.00"
 
-        ws.cell(row=row, column=12, value=d["max_eur"] * 0.95)  # Evening approx
+        ws.cell(row=row, column=12, value=d["evening_avg"])  # 17:00-21:59
         ws.cell(row=row, column=12).number_format = "0.00"
 
         row += 1
@@ -331,7 +337,8 @@ def _create_calculations_sheet(
     headers = [
         "Datum", "Zon", "Min EUR", "Max EUR", "Spread",
         "Revenue 1C", "Profitable 1C",
-        "Cycle1 Rev", "Cycle2 Rev", "Revenue 2C", "Profitable 2C"
+        "Cycle1 Rev", "Cycle2 Rev", "Revenue 2C", "Profitable 2C",
+        "År"  # For SUMIFS in Zonöversikt
     ]
 
     for col, header in enumerate(headers, 1):
@@ -397,6 +404,9 @@ def _create_calculations_sheet(
             # K: Profitable 2C
             ws.cell(row=row, column=11, value=f"=IF(J{row}>0,1,0)")
 
+            # L: År - reference to price sheet year column for SUMIFS
+            ws.cell(row=row, column=12, value=f"={price_sheet}!H{price_row}")
+
             row += 1
 
     # Freeze header
@@ -411,16 +421,25 @@ def _create_monthly_summary_sheet(
     wb: Workbook,
     zones: list[str],
     zone_data_ranges: dict[str, dict],
+    monthly_stats: dict[str, list[dict]] | None = None,
 ):
-    """Create monthly summary with SUMIFS formulas - all zones per period."""
+    """Create monthly summary with SUMIFS formulas and pre-calculated median."""
     ws = wb.create_sheet("Månadssammanfattning")
 
     headers = [
         "Period", "Zon", "Antal dagar",
-        "Avg Spread", "Max Spread",
+        "Avg Spread", "Median Spread", "Max Spread",
         "Revenue 1C", "Profitable 1C %",
         "Revenue 2C", "Profitable 2C %"
     ]
+
+    # Build lookup for pre-calculated monthly stats
+    monthly_lookup = {}
+    if monthly_stats:
+        for zone, stats_list in monthly_stats.items():
+            for stat in stats_list:
+                key = (zone, stat["period"])
+                monthly_lookup[key] = stat
 
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=header)
@@ -481,30 +500,36 @@ def _create_monthly_summary_sheet(
                     value=f'=IFERROR(AVERAGEIFS(Beräkningar!E:E,Beräkningar!B:B,B{row},\'Priser {zone}\'!G:G,A{row}),0)')
             ws.cell(row=row, column=4).number_format = "0.00"
 
-            # E: Max Spread with IFERROR
-            ws.cell(row=row, column=5,
-                    value=f'=IFERROR(MAXIFS(Beräkningar!E:E,Beräkningar!B:B,B{row},\'Priser {zone}\'!G:G,A{row}),0)')
+            # E: Median Spread (pre-calculated from Python - Excel lacks MEDIANIFS)
+            lookup_key = (zone, period)
+            median_val = monthly_lookup.get(lookup_key, {}).get("median_spread", 0)
+            ws.cell(row=row, column=5, value=median_val)
             ws.cell(row=row, column=5).number_format = "0.00"
 
-            # F: Total Revenue 1C with IFERROR
+            # F: Max Spread with IFERROR
             ws.cell(row=row, column=6,
-                    value=f'=IFERROR(SUMIFS(Beräkningar!F:F,Beräkningar!B:B,B{row},\'Priser {zone}\'!G:G,A{row}),0)')
+                    value=f'=IFERROR(MAXIFS(Beräkningar!E:E,Beräkningar!B:B,B{row},\'Priser {zone}\'!G:G,A{row}),0)')
             ws.cell(row=row, column=6).number_format = "0.00"
 
-            # G: Profitable 1C % with IFERROR
+            # G: Total Revenue 1C with IFERROR
             ws.cell(row=row, column=7,
-                    value=f'=IFERROR(IF(C{row}>0,SUMIFS(Beräkningar!G:G,Beräkningar!B:B,B{row},\'Priser {zone}\'!G:G,A{row})/C{row},0),0)')
-            ws.cell(row=row, column=7).number_format = "0.0%"
+                    value=f'=IFERROR(SUMIFS(Beräkningar!F:F,Beräkningar!B:B,B{row},\'Priser {zone}\'!G:G,A{row}),0)')
+            ws.cell(row=row, column=7).number_format = "0.00"
 
-            # H: Total Revenue 2C with IFERROR
+            # H: Profitable 1C % with IFERROR
             ws.cell(row=row, column=8,
-                    value=f'=IFERROR(SUMIFS(Beräkningar!J:J,Beräkningar!B:B,B{row},\'Priser {zone}\'!G:G,A{row}),0)')
-            ws.cell(row=row, column=8).number_format = "0.00"
+                    value=f'=IFERROR(IF(C{row}>0,SUMIFS(Beräkningar!G:G,Beräkningar!B:B,B{row},\'Priser {zone}\'!G:G,A{row})/C{row},0),0)')
+            ws.cell(row=row, column=8).number_format = "0.0%"
 
-            # I: Profitable 2C % with IFERROR
+            # I: Total Revenue 2C with IFERROR
             ws.cell(row=row, column=9,
+                    value=f'=IFERROR(SUMIFS(Beräkningar!J:J,Beräkningar!B:B,B{row},\'Priser {zone}\'!G:G,A{row}),0)')
+            ws.cell(row=row, column=9).number_format = "0.00"
+
+            # J: Profitable 2C % with IFERROR
+            ws.cell(row=row, column=10,
                     value=f'=IFERROR(IF(C{row}>0,SUMIFS(Beräkningar!K:K,Beräkningar!B:B,B{row},\'Priser {zone}\'!G:G,A{row})/C{row},0),0)')
-            ws.cell(row=row, column=9).number_format = "0.0%"
+            ws.cell(row=row, column=10).number_format = "0.0%"
 
             row += 1
 
@@ -519,8 +544,8 @@ def _create_monthly_summary_sheet(
 
 
 def _write_monthly_year_summary_with_formulas(ws, row: int, year: str, start_row: int, end_row: int):
-    """Write year summary row with actual formulas."""
-    for col in range(1, 10):
+    """Write year summary row with actual formulas (weighted averages where applicable)."""
+    for col in range(1, 11):  # Extended to 11 columns
         ws.cell(row=row, column=col).fill = SUMMARY_FILL
         ws.cell(row=row, column=col).font = BOLD
 
@@ -530,37 +555,42 @@ def _write_monthly_year_summary_with_formulas(ws, row: int, year: str, start_row
     # C: Total days
     ws.cell(row=row, column=3, value=f"=SUM(C{start_row}:C{end_row})")
 
-    # D: Avg spread (average of averages)
-    ws.cell(row=row, column=4, value=f"=AVERAGE(D{start_row}:D{end_row})")
+    # D: Weighted Avg Spread (using SUMPRODUCT for proper weighting by days)
+    ws.cell(row=row, column=4, value=f"=IFERROR(SUMPRODUCT(D{start_row}:D{end_row},C{start_row}:C{end_row})/SUM(C{start_row}:C{end_row}),0)")
     ws.cell(row=row, column=4).number_format = "0.00"
 
-    # E: Max spread
-    ws.cell(row=row, column=5, value=f"=MAX(E{start_row}:E{end_row})")
+    # E: Weighted Median Spread (using SUMPRODUCT for proper weighting by days)
+    ws.cell(row=row, column=5, value=f"=IFERROR(SUMPRODUCT(E{start_row}:E{end_row},C{start_row}:C{end_row})/SUM(C{start_row}:C{end_row}),0)")
     ws.cell(row=row, column=5).number_format = "0.00"
 
-    # F: Total Revenue 1C
-    ws.cell(row=row, column=6, value=f"=SUM(F{start_row}:F{end_row})")
+    # F: Max spread
+    ws.cell(row=row, column=6, value=f"=MAX(F{start_row}:F{end_row})")
     ws.cell(row=row, column=6).number_format = "0.00"
 
-    # G: Avg Profitable 1C %
-    ws.cell(row=row, column=7, value=f"=AVERAGE(G{start_row}:G{end_row})")
-    ws.cell(row=row, column=7).number_format = "0.0%"
+    # G: Total Revenue 1C
+    ws.cell(row=row, column=7, value=f"=SUM(G{start_row}:G{end_row})")
+    ws.cell(row=row, column=7).number_format = "0.00"
 
-    # H: Total Revenue 2C
-    ws.cell(row=row, column=8, value=f"=SUM(H{start_row}:H{end_row})")
-    ws.cell(row=row, column=8).number_format = "0.00"
+    # H: Weighted Avg Profitable 1C %
+    ws.cell(row=row, column=8, value=f"=IFERROR(SUMPRODUCT(H{start_row}:H{end_row},C{start_row}:C{end_row})/SUM(C{start_row}:C{end_row}),0)")
+    ws.cell(row=row, column=8).number_format = "0.0%"
 
-    # I: Avg Profitable 2C %
-    ws.cell(row=row, column=9, value=f"=AVERAGE(I{start_row}:I{end_row})")
-    ws.cell(row=row, column=9).number_format = "0.0%"
+    # I: Total Revenue 2C
+    ws.cell(row=row, column=9, value=f"=SUM(I{start_row}:I{end_row})")
+    ws.cell(row=row, column=9).number_format = "0.00"
+
+    # J: Weighted Avg Profitable 2C %
+    ws.cell(row=row, column=10, value=f"=IFERROR(SUMPRODUCT(J{start_row}:J{end_row},C{start_row}:C{end_row})/SUM(C{start_row}:C{end_row}),0)")
+    ws.cell(row=row, column=10).number_format = "0.0%"
 
 
 def _create_yearly_summary_sheet(
     wb: Workbook,
     zones: list[str],
     zone_data_ranges: dict[str, dict],
+    yearly_stats: dict[str, list[dict]] | None = None,
 ):
-    """Create yearly summary with formulas."""
+    """Create yearly summary with formulas and pre-calculated median."""
     ws = wb.create_sheet("Årssammanfattning")
 
     headers = [
@@ -569,6 +599,14 @@ def _create_yearly_summary_sheet(
         "Revenue 1C", "Profitable 1C %",
         "Revenue 2C", "Profitable 2C %"
     ]
+
+    # Build lookup for pre-calculated yearly stats
+    yearly_lookup = {}
+    if yearly_stats:
+        for zone, stats_list in yearly_stats.items():
+            for stat in stats_list:
+                key = (zone, int(stat["period"]))
+                yearly_lookup[key] = stat
 
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=header)
@@ -606,36 +644,38 @@ def _create_yearly_summary_sheet(
 
             # D: Avg Spread with IFERROR
             ws.cell(row=row, column=4,
-                    value=f'=IFERROR(AVERAGEIFS(Beräkningar!E:E,Beräkningar!B:B,B{row},\'Priser {zone}\'!H:H,A{row}),0)')
+                    value=f'=IFERROR(AVERAGEIFS(Beräkningar!E:E,Beräkningar!B:B,B{row},Beräkningar!L:L,A{row}),0)')
             ws.cell(row=row, column=4).number_format = "0.00"
 
-            # E: Median Spread - Excel doesn't have MEDIANIFS, use placeholder with IFERROR
-            ws.cell(row=row, column=5, value=f"=IFERROR(D{row},0)")  # Approximation
+            # E: Median Spread (pre-calculated from Python - Excel lacks MEDIANIFS)
+            lookup_key = (zone, year)
+            median_val = yearly_lookup.get(lookup_key, {}).get("median_spread", 0)
+            ws.cell(row=row, column=5, value=median_val)
             ws.cell(row=row, column=5).number_format = "0.00"
 
             # F: Max Spread with IFERROR
             ws.cell(row=row, column=6,
-                    value=f'=IFERROR(MAXIFS(Beräkningar!E:E,Beräkningar!B:B,B{row},\'Priser {zone}\'!H:H,A{row}),0)')
+                    value=f'=IFERROR(MAXIFS(Beräkningar!E:E,Beräkningar!B:B,B{row},Beräkningar!L:L,A{row}),0)')
             ws.cell(row=row, column=6).number_format = "0.00"
 
             # G: Total Revenue 1C with IFERROR
             ws.cell(row=row, column=7,
-                    value=f'=IFERROR(SUMIFS(Beräkningar!F:F,Beräkningar!B:B,B{row},\'Priser {zone}\'!H:H,A{row}),0)')
+                    value=f'=IFERROR(SUMIFS(Beräkningar!F:F,Beräkningar!B:B,B{row},Beräkningar!L:L,A{row}),0)')
             ws.cell(row=row, column=7).number_format = "0.00"
 
             # H: Profitable 1C % with IFERROR
             ws.cell(row=row, column=8,
-                    value=f'=IFERROR(SUMIFS(Beräkningar!G:G,Beräkningar!B:B,B{row},\'Priser {zone}\'!H:H,A{row})/C{row},0)')
+                    value=f'=IFERROR(SUMIFS(Beräkningar!G:G,Beräkningar!B:B,B{row},Beräkningar!L:L,A{row})/C{row},0)')
             ws.cell(row=row, column=8).number_format = "0.0%"
 
             # I: Total Revenue 2C with IFERROR
             ws.cell(row=row, column=9,
-                    value=f'=IFERROR(SUMIFS(Beräkningar!J:J,Beräkningar!B:B,B{row},\'Priser {zone}\'!H:H,A{row}),0)')
+                    value=f'=IFERROR(SUMIFS(Beräkningar!J:J,Beräkningar!B:B,B{row},Beräkningar!L:L,A{row}),0)')
             ws.cell(row=row, column=9).number_format = "0.00"
 
             # J: Profitable 2C % with IFERROR
             ws.cell(row=row, column=10,
-                    value=f'=IFERROR(SUMIFS(Beräkningar!K:K,Beräkningar!B:B,B{row},\'Priser {zone}\'!H:H,A{row})/C{row},0)')
+                    value=f'=IFERROR(SUMIFS(Beräkningar!K:K,Beräkningar!B:B,B{row},Beräkningar!L:L,A{row})/C{row},0)')
             ws.cell(row=row, column=10).number_format = "0.0%"
 
             row += 1
@@ -652,9 +692,18 @@ def _create_yearly_overview_sheet(
     wb: Workbook,
     zones: list[str],
     zone_data_ranges: dict[str, dict],
+    yearly_stats: dict[str, list[dict]] | None = None,
 ):
     """Create yearly overview sheet with pivot-style per zone comparison."""
     ws = wb.create_sheet("Zonöversikt")
+
+    # Build lookup for pre-calculated yearly stats
+    yearly_lookup = {}
+    if yearly_stats:
+        for zone, stats_list in yearly_stats.items():
+            for stat in stats_list:
+                key = (zone, int(stat["period"]))
+                yearly_lookup[key] = stat
 
     ws["A1"] = "ÅRLIG ÖVERSIKT PER ZON"
     ws["A1"].font = Font(bold=True, size=14)
@@ -679,6 +728,7 @@ def _create_yearly_overview_sheet(
     # Track ranges for conditional formatting
     revenue_ranges = []
     spread_ranges = []
+    median_spread_ranges = []
     profitable_ranges = []
 
     # Section 1: Revenue 1-Cycle
@@ -701,7 +751,7 @@ def _create_yearly_overview_sheet(
         ws.cell(row=current_row, column=1, value=year)
 
         for col_idx, zone in enumerate(zones, 2):
-            formula = f'=IFERROR(SUMIFS(Beräkningar!F:F,Beräkningar!B:B,"{zone}",\'Priser {zone}\'!H:H,A{current_row}),0)'
+            formula = f'=IFERROR(SUMIFS(Beräkningar!F:F,Beräkningar!B:B,"{zone}",Beräkningar!L:L,A{current_row}),0)'
             ws.cell(row=current_row, column=col_idx, value=formula)
             ws.cell(row=current_row, column=col_idx).number_format = "0.00"
 
@@ -728,7 +778,7 @@ def _create_yearly_overview_sheet(
         ws.cell(row=current_row, column=1, value=year)
 
         for col_idx, zone in enumerate(zones, 2):
-            formula = f'=IFERROR(SUMIFS(Beräkningar!J:J,Beräkningar!B:B,"{zone}",\'Priser {zone}\'!H:H,A{current_row}),0)'
+            formula = f'=IFERROR(SUMIFS(Beräkningar!J:J,Beräkningar!B:B,"{zone}",Beräkningar!L:L,A{current_row}),0)'
             ws.cell(row=current_row, column=col_idx, value=formula)
             ws.cell(row=current_row, column=col_idx).number_format = "0.00"
 
@@ -755,7 +805,7 @@ def _create_yearly_overview_sheet(
         ws.cell(row=current_row, column=1, value=year)
 
         for col_idx, zone in enumerate(zones, 2):
-            formula = f'=IFERROR(AVERAGEIFS(Beräkningar!E:E,Beräkningar!B:B,"{zone}",\'Priser {zone}\'!H:H,A{current_row}),0)'
+            formula = f'=IFERROR(AVERAGEIFS(Beräkningar!E:E,Beräkningar!B:B,"{zone}",Beräkningar!L:L,A{current_row}),0)'
             ws.cell(row=current_row, column=col_idx, value=formula)
             ws.cell(row=current_row, column=col_idx).number_format = "0.00"
 
@@ -763,7 +813,35 @@ def _create_yearly_overview_sheet(
     spread_end = current_row - 1
     spread_ranges.append((spread_start, spread_end))
 
-    # Section 4: Profitable Days %
+    # Section 4: Median Spread (pre-calculated from Python)
+    current_row += 1
+    ws.cell(row=current_row, column=1, value="Median Spread (EUR/MWh)")
+    ws.cell(row=current_row, column=1).font = Font(bold=True, size=12)
+    ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=len(zones) + 1)
+    current_row += 1
+
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=current_row, column=col, value=header)
+        cell.font = HEADER_FONT
+        cell.fill = HEADER_FILL
+        cell.alignment = Alignment(horizontal="center")
+    current_row += 1
+    median_start = current_row
+
+    for year in years:
+        ws.cell(row=current_row, column=1, value=year)
+
+        for col_idx, zone in enumerate(zones, 2):
+            lookup_key = (zone, year)
+            median_val = yearly_lookup.get(lookup_key, {}).get("median_spread", 0)
+            ws.cell(row=current_row, column=col_idx, value=median_val)
+            ws.cell(row=current_row, column=col_idx).number_format = "0.00"
+
+        current_row += 1
+    median_end = current_row - 1
+    median_spread_ranges.append((median_start, median_end))
+
+    # Section 5: Profitable Days %
     current_row += 1
     ws.cell(row=current_row, column=1, value="Profitable Days 1-Cycle (%)")
     ws.cell(row=current_row, column=1).font = Font(bold=True, size=12)
@@ -782,8 +860,8 @@ def _create_yearly_overview_sheet(
         ws.cell(row=current_row, column=1, value=year)
 
         for col_idx, zone in enumerate(zones, 2):
-            count_formula = f'COUNTIFS(Beräkningar!B:B,"{zone}",\'Priser {zone}\'!H:H,A{current_row})'
-            sum_formula = f'SUMIFS(Beräkningar!G:G,Beräkningar!B:B,"{zone}",\'Priser {zone}\'!H:H,A{current_row})'
+            count_formula = f'COUNTIFS(Beräkningar!B:B,"{zone}",Beräkningar!L:L,A{current_row})'
+            sum_formula = f'SUMIFS(Beräkningar!G:G,Beräkningar!B:B,"{zone}",Beräkningar!L:L,A{current_row})'
             formula = f'=IFERROR(IF({count_formula}>0,{sum_formula}/{count_formula},0),0)'
             ws.cell(row=current_row, column=col_idx, value=formula)
             ws.cell(row=current_row, column=col_idx).number_format = "0.0%"
@@ -815,6 +893,17 @@ def _create_yearly_overview_sheet(
 
     # Spread color scale (higher spread is better for arbitrage)
     for start_row, end_row in spread_ranges:
+        ws.conditional_formatting.add(
+            f"B{start_row}:{end_col}{end_row}",
+            ColorScaleRule(
+                start_type="min", start_color="F8696B",
+                mid_type="percentile", mid_value=50, mid_color="FFEB84",
+                end_type="max", end_color="63BE7B"
+            )
+        )
+
+    # Median Spread color scale (higher median is better for arbitrage)
+    for start_row, end_row in median_spread_ranges:
         ws.conditional_formatting.add(
             f"B{start_row}:{end_col}{end_row}",
             ColorScaleRule(

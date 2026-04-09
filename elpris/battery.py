@@ -88,6 +88,12 @@ def extract_daily_stats(zone: str, year: int | None = None) -> list[dict]:
 
     daily_stats = []
 
+    # Time period definitions for 2-cycle arbitrage
+    NIGHT_HOURS = {0, 1, 2, 3, 4, 5, 6}       # 00:00-06:59
+    MORNING_HOURS = {7, 8, 9, 10}              # 07:00-10:59
+    MIDDAY_HOURS = {11, 12, 13, 14, 15}        # 11:00-15:59
+    EVENING_HOURS = {17, 18, 19, 20, 21}       # 17:00-21:59
+
     for day, records in sorted(by_day.items()):
         if not records:
             continue
@@ -105,6 +111,17 @@ def extract_daily_stats(zone: str, year: int | None = None) -> list[dict]:
         min_record = min(records, key=lambda r: r["price_eur"])
         max_record = max(records, key=lambda r: r["price_eur"])
 
+        # Calculate time period averages for 2-cycle arbitrage
+        night_prices = [r["price_eur"] for r in records if r["hour"] in NIGHT_HOURS]
+        morning_prices = [r["price_eur"] for r in records if r["hour"] in MORNING_HOURS]
+        midday_prices = [r["price_eur"] for r in records if r["hour"] in MIDDAY_HOURS]
+        evening_prices = [r["price_eur"] for r in records if r["hour"] in EVENING_HOURS]
+
+        night_avg = mean(night_prices) if night_prices else 0
+        morning_avg = mean(morning_prices) if morning_prices else 0
+        midday_avg = mean(midday_prices) if midday_prices else 0
+        evening_avg = mean(evening_prices) if evening_prices else 0
+
         daily_stats.append({
             "date": day,
             "zone": zone,
@@ -117,6 +134,11 @@ def extract_daily_stats(zone: str, year: int | None = None) -> list[dict]:
             "min_hour": min_record["hour"],
             "max_hour": max_record["hour"],
             "records": len(records),
+            # Time period averages for 2-cycle arbitrage
+            "night_avg": round(night_avg, 2),
+            "morning_avg": round(morning_avg, 2),
+            "midday_avg": round(midday_avg, 2),
+            "evening_avg": round(evening_avg, 2),
         })
 
     return daily_stats
