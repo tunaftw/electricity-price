@@ -43,6 +43,12 @@ def load_park_15min(park_key: str) -> list[dict]:
     `effective_power_mw` is the best available energy reading:
         meter if available, else inverter. Use this for energy aggregation
         when meter coverage is incomplete (e.g. small parks like Stenstorp).
+
+    Stuck-value detection: When the park is down, ActivePower sometimes
+    reports a constant stale value (e.g. Stenstorp showed 0.1792 MW for
+    10 straight days during downtime). Days where active_power_mw has
+    the SAME value across ALL intervals and power_mw is entirely missing
+    are detected and effective_power_mw is forced to 0 for those days.
     """
     zone = PARK_ZONES.get(park_key)
     if not zone:
@@ -88,6 +94,32 @@ def load_park_15min(park_key: str) -> list[dict]:
             if "availability" in row and row["availability"]:
                 rec["availability"] = float(row["availability"])
             records.append(rec)
+
+    # Post-process: detect and neutralize stuck-value days (Stenstorp issue)
+    from collections import defaultdict
+    by_date: dict[str, list[dict]] = defaultdict(list)
+    for rec in records:
+        by_date[rec["date"]].append(rec)
+
+    for date_key, day_records in by_date.items():
+        # Check if meter is entirely missing this day
+        meter_missing = all(r["power_mw"] == 0 for r in day_records)
+        if not meter_missing:
+            continue
+
+        # Collect unique active_power_mw values
+        ap_values = set(
+            r.get("active_power_mw") for r in day_records
+            if r.get("active_power_mw") is not None
+        )
+
+        # If there's exactly one unique value and ActivePower is non-zero,
+        # the sensor is stuck on a stale value — treat as park off.
+        if len(ap_values) == 1 and next(iter(ap_values)) > 0:
+            for rec in day_records:
+                rec["effective_power_mw"] = 0.0
+                rec["_stuck_value"] = True  # for debugging/diagnostics
+
     return records
 
 
