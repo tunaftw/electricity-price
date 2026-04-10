@@ -77,6 +77,24 @@ PARK_WEATHER_STATIONS = {
 PARK_POINTS = ["ActivePowerMeter", "ActivePower", "IrradiancePOA", "Availability"]
 WEATHER_POINTS = ["IrradianceGHI", "WindSpeed", "Humidity"]
 
+# Per-park irradiance source override (POA workaround)
+# Bazefield's IrradiancePOA on the park object averages multiple sensors,
+# some of which report 0 — yielding values ~50% of reality. Workaround:
+# fetch IrradiancePOA from a dedicated child object (TS = transformer
+# station, WS = weather station, SATWST = satellite weather station).
+# Auto-discovered 2026-04-10 by checking IrradiancePOA on all child objects
+# of each park and picking the one with the highest peak value.
+PARK_IRRADIANCE_OVERRIDES: dict[str, str] = {
+    "horby":        "11661A83D009D000",  # HRB-TS1 (max ~318 W/m² Mar 2026)
+    "fjallskar":    "124DEAB2C9C9D000",  # FJL-SATWST (max ~346 W/m²)
+    "bjorke":       "1271E821AE89D000",  # BJK-SATWST1 (max ~294 W/m²)
+    "agerum":       "1271E8586F49D000",  # AGR-SATWST1 (max ~263 W/m²)
+    "hova":         "125F470D59C9D000",  # HOV-WS4 (max ~210 W/m²)
+    "skakelbacken": "13A6D2E2E989D000",  # SKB-SATWST1 (max ~201 W/m²)
+    "stenstorp":    "13A6D7CFA309D000",  # STT-SATWST1 (max ~185 W/m²)
+    "tangen":       "1400FCE2BFC9D000",  # TNG-SATWST (max ~266 W/m²)
+}
+
 
 def get_park_csv_path(park_key: str) -> Path:
     """Get CSV file path for a park's production profile."""
@@ -176,9 +194,23 @@ def fetch_park_data(
     """Fetch extended park data (power, irradiance, availability).
 
     Returns list of {timestamp, power_mw, active_power_mw, irradiance_poa, availability}.
+
+    If the park has a PARK_IRRADIANCE_OVERRIDES entry, IrradiancePOA is fetched
+    from the override object (e.g. HRB-TS1) instead of the park object —
+    workaround for the broken averaged POA point on the park object.
     """
     park = PARKS[park_key]
-    raw = fetch_timeseries(park["id"], PARK_POINTS, from_date, to_date, api_key)
+
+    # Fetch power and availability from park object (always)
+    park_points = ["ActivePowerMeter", "ActivePower", "Availability"]
+    raw = fetch_timeseries(park["id"], park_points, from_date, to_date, api_key)
+
+    # Fetch IrradiancePOA — from override object if configured, else from park
+    irradiance_object_id = PARK_IRRADIANCE_OVERRIDES.get(park_key, park["id"])
+    irr_raw = fetch_timeseries(
+        irradiance_object_id, ["IrradiancePOA"], from_date, to_date, api_key
+    )
+    raw["IrradiancePOA"] = irr_raw.get("IrradiancePOA", [])
 
     # Merge all points by timestamp
     by_ts: dict[str, dict] = {}
