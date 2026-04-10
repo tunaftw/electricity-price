@@ -285,6 +285,15 @@ Kör `python3 bazefield_download.py --backfill` för att synka POA-instrålning,
 - PVsyst TMY som default (automatisk)
 - Manuella overrides i `PARK_BUDGET_OVERRIDES` per park/månad
 
+### Månadsvis körning (manuell)
+```bash
+# Kör 1:a varje månad — synkar data + genererar rapporter för senaste fullständiga månad
+./monthly_reports.bat
+```
+Wrapper-script som kör `bazefield_download.py` (inkrementell synk) följt av
+`generate_performance_report.py --all` (alla 8 parker, senaste fullständiga månad).
+Loggar till `Resultat/logs/monthly_reports.log`. Kräver inga admin-rättigheter.
+
 ### Synka solparksdata (Bazefield)
 ```bash
 # Inkrementell synk alla parker
