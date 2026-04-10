@@ -47,6 +47,12 @@ _MONTH_FULL_SV = [
     "Juli", "Augusti", "September", "Oktober", "November", "December",
 ]
 
+# Svenska korta månadsnamn (1-indexerat, för kompakta tabellhuvud)
+_MONTH_SV = [
+    "", "Jan", "Feb", "Mar", "Apr", "Maj", "Jun",
+    "Jul", "Aug", "Sep", "Okt", "Nov", "Dec",
+]
+
 
 # ---------------------------------------------------------------------------
 # Hjälpfunktioner
@@ -207,6 +213,36 @@ def _render_css() -> str:
     .placeholder-card .ph-title {{ font-size: 18px; font-weight: 600; color: {_C['primary']}; margin-bottom: 8px; }}
     .placeholder-card .ph-msg {{ font-size: 14px; color: {_C['muted']}; max-width: 400px; margin: 0 auto; }}
 
+    .ppm-table {{ width: 100%; border-collapse: collapse; font-size: 13px; }}
+    .ppm-table th, .ppm-table td {{
+        padding: 8px 6px; text-align: center;
+        border: 1px solid #e2e8f0;
+    }}
+    .ppm-table thead th {{
+        background: {_C['primary']}; color: #fff; font-weight: 600;
+    }}
+    .ppm-table .ppm-task-col {{ text-align: left; min-width: 220px; }}
+    .ppm-table .ppm-task-cell {{ text-align: left; color: {_C['text']}; font-weight: 500; }}
+    .ppm-table .ppm-freq-col, .ppm-table .ppm-freq-cell {{
+        min-width: 70px; color: {_C['muted']}; font-size: 12px;
+    }}
+    .ppm-table .ppm-month-col {{ min-width: 45px; font-size: 11px; }}
+    .ppm-table .ppm-cell {{ color: #94a3b8; }}
+    .ppm-table .ppm-scheduled {{
+        background: #dbeafe; color: {_C['accent']};
+        font-size: 16px;
+    }}
+    .ppm-table .ppm-current-month {{
+        background: #fef3c7 !important;
+        border-left: 2px solid {_C['amber']};
+        border-right: 2px solid {_C['amber']};
+    }}
+    .ppm-table .ppm-scheduled.ppm-current-month {{
+        background: #fde68a !important;
+    }}
+    .ppm-table tbody tr:hover td {{ background: #f1f5f9; }}
+    .ppm-table tbody tr:hover td.ppm-scheduled {{ background: #bfdbfe; }}
+
     .chart-container {{ min-height: 350px; }}
 
     @media print {{
@@ -279,25 +315,27 @@ def _render_toc() -> str:
 def _render_monthly_summary(report: MonthlyReport) -> str:
     r = report
 
-    # KPI cards
-    kpi_cards = f"""<div class="kpi-row">
+    # KPI cards — only show cards where data is actually available
+    # (hide PR, Verkningsgrad or Modultemp if None to avoid "—" clutter)
+    kpi_entries = [
+        (r.yield_kwh_kwp, "Yield (kWh/kWp)"),  # Always shown (never None)
+    ]
+    if r.performance_ratio_pct is not None:
+        kpi_entries.append((r.performance_ratio_pct, "Performance Ratio (%)"))
+    if r.efficiency_pct is not None:
+        kpi_entries.append((r.efficiency_pct, "Verkningsgrad (%)"))
+    if r.avg_module_temp_c is not None:
+        kpi_entries.append((r.avg_module_temp_c, "Medelmodultemp (\u00b0C)"))
+
+    kpi_cards_html = '<div class="kpi-row">'
+    for value, label in kpi_entries:
+        kpi_cards_html += f"""
     <div class="kpi-card">
-        <div class="kpi-value">{_fmt(r.yield_kwh_kwp)}</div>
-        <div class="kpi-label">Yield (kWh/kWp)</div>
-    </div>
-    <div class="kpi-card">
-        <div class="kpi-value">{_fmt(r.performance_ratio_pct)}</div>
-        <div class="kpi-label">Performance Ratio (%)</div>
-    </div>
-    <div class="kpi-card">
-        <div class="kpi-value">{_fmt(r.efficiency_pct)}</div>
-        <div class="kpi-label">Verkningsgrad (%)</div>
-    </div>
-    <div class="kpi-card">
-        <div class="kpi-value">{_fmt(r.avg_module_temp_c)}</div>
-        <div class="kpi-label">Medelmodultemp (\u00b0C)</div>
-    </div>
-</div>"""
+        <div class="kpi-value">{_fmt(value)}</div>
+        <div class="kpi-label">{label}</div>
+    </div>"""
+    kpi_cards_html += '\n</div>'
+    kpi_cards = kpi_cards_html
 
     # Gauge chart data
     energy_pct = (r.actual_energy_mwh / r.budget_energy_mwh * 100) if r.budget_energy_mwh > 0 else 0
@@ -1432,20 +1470,91 @@ def _render_placeholder(section_num: int, title: str, icon: str, message: str) -
 </div>"""
 
 
-def _render_placeholders() -> str:
+def _render_inverter_placeholders() -> str:
+    """Sektion 14-15: Inverter-relaterade platshållare (före PPM)."""
     placeholders = [
         (14, "Inverter Yield", "\u2699\ufe0f",
          "Inverterniv\u00e5data kr\u00e4ver SCADA-integration med invertertillverkaren (t.ex. Sungrow iSolarCloud). Kontakta systemadministrat\u00f6ren f\u00f6r att aktivera."),
         (15, "Inverter Efficiency", "\u26a1",
          "Inverterniv\u00e5data kr\u00e4ver SCADA-integration med invertertillverkaren. Kontakta systemadministrat\u00f6ren f\u00f6r att aktivera."),
-        (16, "PPM Schedule", "\U0001f4c5",
-         "PPM-schema (Planned Preventive Maintenance) integreras fr\u00e5n underh\u00e5llssystemet. Kontakta O&M-teamet f\u00f6r att aktivera."),
+    ]
+    return "\n".join(_render_placeholder(n, t, i, m) for n, t, i, m in placeholders)
+
+
+def _render_ops_placeholders() -> str:
+    """Sektion 17-18: Incident/alarm platshållare (efter PPM)."""
+    placeholders = [
         (17, "Incidenter &amp; Arbeten", "\U0001f6e0\ufe0f",
          "Incident- och arbetslogg integreras fr\u00e5n underh\u00e5llssystemet (t.ex. QBO, ServiceNow). Kontakta O&M-teamet f\u00f6r att aktivera."),
         (18, "Larm &amp; Fel", "\U0001f514",
          "Larm- och felhistorik integreras fr\u00e5n SCADA-systemet. Kr\u00e4ver API-\u00e5tkomst till larmsystemet. Kontakta systemadministrat\u00f6ren."),
     ]
     return "\n".join(_render_placeholder(n, t, i, m) for n, t, i, m in placeholders)
+
+
+# ---------------------------------------------------------------------------
+# Section 16: PPM Schedule
+# ---------------------------------------------------------------------------
+
+def _render_ppm_schedule(report: MonthlyReport) -> str:
+    """Rendera PPM Schedule-matrisen (sektion 16).
+
+    Visar en kalendermatris med tasks som rader och månader som kolumner.
+    Schemalagda månader visas med "📅" och nuvarande månad highlightas.
+    """
+    from .ppm_schedule import get_ppm_schedule
+
+    tasks = get_ppm_schedule(report.park_key)
+    current_month = report.month
+
+    # Header: Task | Frekvens | Jan | Feb | ... | Dec
+    header_cells = ['<th class="ppm-task-col">Underh\u00e5llsuppgift</th>',
+                    '<th class="ppm-freq-col">Frekvens</th>']
+    for m in range(1, 13):
+        month_label = _MONTH_SV[m]
+        current_class = ' ppm-current-month' if m == current_month else ''
+        header_cells.append(f'<th class="ppm-month-col{current_class}">{month_label}</th>')
+
+    header_row = '<tr>' + ''.join(header_cells) + '</tr>'
+
+    # Rows: one per task
+    body_rows = []
+    freq_label = {"biannual": "Halv\u00e5rs", "annual": "\u00c5rlig", "monthly": "M\u00e5nadsvis"}
+    for task in tasks:
+        cells = [f'<td class="ppm-task-cell">{task["task"]}</td>']
+        cells.append(f'<td class="ppm-freq-cell">{freq_label.get(task["frequency"], task["frequency"])}</td>')
+        for m in range(1, 13):
+            scheduled = m in task.get("months", [])
+            current = m == current_month
+            classes = "ppm-cell"
+            if scheduled:
+                classes += " ppm-scheduled"
+            if current:
+                classes += " ppm-current-month"
+            content = "\U0001f4c5" if scheduled else ""
+            cells.append(f'<td class="{classes}">{content}</td>')
+        body_rows.append('<tr>' + ''.join(cells) + '</tr>')
+
+    table = f'''<table class="ppm-table">
+    <thead>{header_row}</thead>
+    <tbody>{"".join(body_rows)}</tbody>
+</table>'''
+
+    note = (
+        '<div class="insight-box">'
+        f'Schemat visar standardiserat f\u00f6rebyggande underh\u00e5ll f\u00f6r solparker. '
+        f'M\u00e4rkta m\u00e5nader (<span style="color:#2563eb">\U0001f4c5</span>) '
+        f'indikerar schemalagd aktivitet. Nuvarande m\u00e5nad ({_MONTH_SV[current_month]}) \u00e4r markerad.'
+        '</div>'
+    )
+
+    return f'''<div class="section" id="{_section_id(16)}">
+    <h2 class="section-title">16. PPM Schedule</h2>
+    <div class="card">
+        {table}
+        {note}
+    </div>
+</div>'''
 
 
 # ---------------------------------------------------------------------------
@@ -1597,7 +1706,9 @@ def render_html(report: MonthlyReport) -> str:
     sec13_html, sec13_script = _render_top5(report)
     all_scripts.append(sec13_script)
 
-    placeholders_html = _render_placeholders()
+    inverter_placeholders_html = _render_inverter_placeholders()
+    ppm_schedule_html = _render_ppm_schedule(report)
+    ops_placeholders_html = _render_ops_placeholders()
     exec_summary_html = _render_executive_summary(report)
 
     # Combine scripts
@@ -1632,7 +1743,9 @@ def render_html(report: MonthlyReport) -> str:
         {sec11_html}
         {sec12_html}
         {sec13_html}
-        {placeholders_html}
+        {inverter_placeholders_html}
+        {ppm_schedule_html}
+        {ops_placeholders_html}
         {exec_summary_html}
     </div>
     <footer style="text-align:center; padding:20px; color:{_C['muted']}; font-size:12px;">
