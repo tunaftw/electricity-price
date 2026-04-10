@@ -23,6 +23,12 @@ Output: `Resultat/rapporter/performance_{park}_{zone}_{YYYY-MM}.html`
 
 **Prioritet:** HÖG — låser upp ~5 sektioner som idag är delvis tomma
 
+**Status (uppdaterat 2026-04-10):** POA-datakvalitetsproblem upptäckt under pilot. Asset Management bekräftade två issues:
+1. `IrradiancePOA` på park-objektet är average av flera sensorer där några rapporterar 0 → ger ~50% av verkliga värden. Zaira jobbar på fix.
+2. `ActivePower` är opålitlig pga icke-kommunicerande invertrar → använd alltid `ActivePowerMeter`.
+
+**Workaround:** `elpris/bazefield.py:PARK_IRRADIANCE_OVERRIDES` mappar varje park till en bättre POA-källa (TS/WS/SATWST child-object). Auto-discovered via `ObjectStructureGetRequest` API. Hörby verifierad: PR gick från 204% (broken) till 89% (korrekt) — i linje med PVsyst budget 85%.
+
 **Bakgrund:** Nuvarande CSV-filer i `Resultat/profiler/parker/` har bara `timestamp,power_mw`. `bazefield.py` stödjer redan utökat format med 5 kolumner, men backfill har inte körts. När detta körs aktiveras automatiskt:
 
 | Sektion | Vad som aktiveras |
