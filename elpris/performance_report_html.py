@@ -287,6 +287,13 @@ def _render_css() -> str:
         font-size: 13px; color: {_C['text']};
     }}
 
+    .data-quality-alert {{
+        background: #dbeafe; border-left: 4px solid {_C['accent']};
+        padding: 14px 18px; margin: 16px 0; border-radius: 6px;
+        font-size: 13px; line-height: 1.5; color: {_C['text']};
+    }}
+    .data-quality-alert strong {{ color: {_C['primary']}; }}
+
     .chart-container {{ min-height: 350px; }}
 
     @media print {{
@@ -1525,6 +1532,31 @@ def _render_inverter_yield(report: MonthlyReport) -> tuple[str, str]:
     inverters = report.inverters
     by_rank = sorted(inverters, key=lambda m: m.rank)
 
+    # Datakvalitets-check: inverter-sum vs park-meter
+    # När Bazefield saknar inverter-level data (non-communicating inverters)
+    # blir inverter-sum mycket l\u00e4gre \u00e4n meter. Det m\u00e5ste tydligt
+    # kommuniceras s\u00e5 att rapporten inte ser ut som att halva parken \u00e4r nere.
+    inverter_sum_mwh = sum(inv.total_energy_kwh for inv in inverters) / 1000.0
+    meter_mwh = report.actual_energy_mwh
+    gap_pct = 0.0
+    if meter_mwh > 0:
+        gap_pct = (1 - inverter_sum_mwh / meter_mwh) * 100
+    data_quality_warning = ""
+    if gap_pct > 10:
+        inactive_count_calc = sum(1 for inv in inverters if inv.days_active == 0)
+        data_quality_warning = (
+            f'<div class="data-quality-alert">'
+            f'<strong>\u2139\ufe0f Data-kvalitet:</strong> Inverter-niv\u00e5 rapportering '
+            f'(<strong>{inverter_sum_mwh:,.0f} MWh</strong>) \u00e4r <strong>{gap_pct:.0f}% l\u00e4gre</strong> '
+            f'\u00e4n n\u00e4tm\u00e4tare ({meter_mwh:,.0f} MWh). '
+            f'Detta beror p\u00e5 att invertrar kan producera utan att rapportera till Bazefield '
+            f'("non-communicating but producing"). '
+            f'{"Siffrorna nedan visar <strong>endast det som faktiskt rapporterats</strong> &mdash; " if inactive_count_calc > 0 else ""}'
+            f'<strong>inverter-rankingen ska tolkas som indikativ, inte absolut</strong>. '
+            f'Den verkliga parkproduktionen ({meter_mwh:,.0f} MWh) \u00e4r korrekt och visas i sektion 1.'
+            f'</div>'
+        ).replace(",", " ")
+
     # Top 5 + bottom 5 ranking
     top5 = by_rank[:5]
     bottom5 = by_rank[-5:] if len(by_rank) > 5 else []
@@ -1557,7 +1589,9 @@ def _render_inverter_yield(report: MonthlyReport) -> tuple[str, str]:
 
     inactive_count = sum(1 for inv in inverters if inv.days_active == 0)
     inactive_warning = ""
-    if inactive_count:
+    # Visa "inactive inverters"-varning ENDAST om data-kvalitets-gap är litet,
+    # dvs när noll-produktion faktiskt är verklig (inte bara saknad data).
+    if inactive_count and gap_pct < 10:
         inactive_names = [inv.name for inv in inverters if inv.days_active == 0]
         inactive_warning = (
             f'<div class="warning-box">\u26a0\ufe0f <strong>{inactive_count} invertrar utan produktion:</strong> '
@@ -1616,6 +1650,7 @@ def _render_inverter_yield(report: MonthlyReport) -> tuple[str, str]:
         <div class="kpi-card"><div class="kpi-value">{total_energy:,.0f}</div><div class="kpi-label">Total energi (kWh)</div></div>
         <div class="kpi-card"><div class="kpi-value">{avg_cf:.1f}%</div><div class="kpi-label">Snitt capacity factor</div></div>
     </div>
+    {data_quality_warning}
     {inactive_warning}
     <div class="side-by-side">
         <div class="card">
@@ -1646,6 +1681,21 @@ def _render_inverter_efficiency(report: MonthlyReport) -> tuple[str, str]:
 
     inverters = sorted(report.inverters, key=lambda m: m.name)
     daily_lookup = report.inverter_daily_lookup
+
+    # Datakvalitets-varning (samma logik som sektion 14)
+    inverter_sum_mwh = sum(inv.total_energy_kwh for inv in report.inverters) / 1000.0
+    gap_pct = 0.0
+    if report.actual_energy_mwh > 0:
+        gap_pct = (1 - inverter_sum_mwh / report.actual_energy_mwh) * 100
+    efficiency_data_alert = ""
+    if gap_pct > 10:
+        efficiency_data_alert = (
+            '<div class="data-quality-alert">'
+            '<strong>\u2139\ufe0f Observera:</strong> R\u00f6da partier i heatmapen nedan '
+            'betyder inte att invertrarna \u00e4r nere \u2014 det \u00e4r data-gap pga '
+            'non-communicating invertrar. Se data-kvalitetsnotisen i sektion 14.'
+            '</div>'
+        )
 
     # Bestäm antal dagar i månaden
     import calendar as _cal
@@ -1730,6 +1780,7 @@ def _render_inverter_efficiency(report: MonthlyReport) -> tuple[str, str]:
 
     html = f'''<div class="section" id="{_section_id(15)}">
     <h2 class="section-title">15. Inverter Efficiency</h2>
+    {efficiency_data_alert}
     <div class="card">
         {chart_html}
     </div>
