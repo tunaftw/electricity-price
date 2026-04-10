@@ -34,13 +34,13 @@ from .park_config import get_budget, get_park_metadata
 SWEDEN_TZ = ZoneInfo("Europe/Stockholm")
 UTC_TZ = ZoneInfo("UTC")
 
-# Svenska veckodagar (0=måndag)
-_WEEKDAY_SV = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"]
+# Weekday short names (0=Monday) — English for international audience
+_WEEKDAY_SV = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
-# Svenska månadsnamn (1-indexerat)
+# Month short names (1-indexed) — English for international audience
 _MONTH_SV = [
-    "", "Jan", "Feb", "Mar", "Apr", "Maj", "Jun",
-    "Jul", "Aug", "Sep", "Okt", "Nov", "Dec",
+    "", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ]
 
 # Temperaturkoefficient för kiselmoduler (~0.4 %/°C)

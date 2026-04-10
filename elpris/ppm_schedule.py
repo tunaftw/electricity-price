@@ -19,60 +19,60 @@ from __future__ import annotations
 #   frequency: "biannual" (halvårsvis) eller "annual" (årligen)
 #   months:    Lista med månadsnummer (1-12) då task är schemalagd
 PPM_TASKS_DEFAULT: list[dict] = [
-    # --- Halvårsvisa tasks (mars + september typiskt) ---
+    # --- Bi-annual tasks (typically March + September) ---
     {
-        "task": "Visuell inspektion paneler",
+        "task": "Visual inspection of panels",
         "frequency": "biannual",
         "months": [3, 9],
     },
     {
-        "task": "Vegetationskontroll och gräsklippning",
+        "task": "Vegetation control and grass cutting",
         "frequency": "biannual",
         "months": [5, 9],
     },
     {
-        "task": "Kontroll staket, grindar och skalskydd",
+        "task": "Inspection of fences, gates and perimeter",
         "frequency": "biannual",
         "months": [4, 10],
     },
     {
-        "task": "Väderstation och sensorer — kalibrering",
+        "task": "Weather station and sensors — calibration",
         "frequency": "biannual",
         "months": [3, 9],
     },
     {
-        "task": "Kontroll mekaniska komponenter",
+        "task": "Inspection of mechanical components",
         "frequency": "biannual",
         "months": [4, 10],
     },
     {
-        "task": "Kontroll elektriska anslutningar och panelkablage",
+        "task": "Inspection of electrical connections and panel wiring",
         "frequency": "biannual",
         "months": [3, 9],
     },
-    # --- Årliga tasks ---
+    # --- Annual tasks ---
     {
-        "task": "Termografi MV/HV-anläggning (IEC 62446)",
+        "task": "Thermography MV/HV equipment (IEC 62446)",
         "frequency": "annual",
         "months": [6],
     },
     {
-        "task": "Inverter-underhåll",
+        "task": "Inverter maintenance",
         "frequency": "annual",
         "months": [10],
     },
     {
-        "task": "Transformator-underhåll (MV-switchgear)",
+        "task": "Transformer maintenance (MV switchgear)",
         "frequency": "annual",
         "months": [10],
     },
     {
-        "task": "Brandskyddskontroll (släckare)",
+        "task": "Fire safety inspection (extinguishers)",
         "frequency": "annual",
         "months": [6],
     },
     {
-        "task": "Inspektion byggnader, ställverk och RTU",
+        "task": "Inspection of buildings, switchgear and RTU",
         "frequency": "annual",
         "months": [3],
     },
@@ -88,12 +88,12 @@ PPM_TASKS_DEFAULT: list[dict] = [
 PARK_PPM_OVERRIDES: dict[str, list[dict]] = {
     "hova": PPM_TASKS_DEFAULT + [
         {
-            "task": "Tracker — mekanisk kontroll och smörjning",
+            "task": "Tracker — mechanical inspection and lubrication",
             "frequency": "biannual",
             "months": [4, 10],
         },
         {
-            "task": "Tracker — styrsystem och backtracking-verifiering",
+            "task": "Tracker — control system and backtracking verification",
             "frequency": "annual",
             "months": [5],
         },
