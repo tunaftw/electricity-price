@@ -99,7 +99,7 @@ PARK_IRRADIANCE_OVERRIDES: dict[str, str | list[tuple[str, str]]] = {
     "fjallskar":    "124DEAB2C9C9D000",  # FJL-SATWST (max ~346 W/m²)
     "bjorke":       "1271E821AE89D000",  # BJK-SATWST1 (max ~294 W/m²)
     "agerum":       "1271E8586F49D000",  # AGR-SATWST1 (max ~263 W/m²)
-    "hova":         "125F470D59C9D000",  # HOV-WS4 (max ~210 W/m²)
+    "hova":         "1271E89EAF89D000",  # HOV-SATWST1 (peak 810 W/m², total 84.3 kWh/m² mar)
     "skakelbacken": "13A6D2E2E989D000",  # SKB-SATWST1 (max ~201 W/m²)
     "stenstorp":    "13A6D7CFA309D000",  # STT-SATWST1 (max ~185 W/m²)
     "tangen":       "1400FCE2BFC9D000",  # TNG-SATWST (max ~266 W/m²)
@@ -236,7 +236,13 @@ def fetch_timeseries(
             t_local = point.get("t_local")
             v = point.get("v")
             if t_local is not None and v is not None:
-                records.append({"timestamp": t_local, "value": round(v, 4)})
+                # Bazefield kan returnera numeriska värden eller strängar
+                # (t.ex. fault codes). Konvertera och hoppa över ogiltiga.
+                try:
+                    val = round(float(v), 4)
+                except (TypeError, ValueError):
+                    continue
+                records.append({"timestamp": t_local, "value": val})
         result[point_name] = records
 
     return result
