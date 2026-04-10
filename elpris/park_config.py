@@ -126,11 +126,50 @@ PARK_METADATA: dict[str, dict] = _build_metadata()
 
 # --- Manuella budgetöverstyrningar per park/månad ---
 # Nyckel: park_key → "YYYY-MM" → dict med energy_mwh, irradiation_kwh_m2, pr_pct
+# ---------------------------------------------------------------------------
+# Manuella budgetöverstyrningar per park och månad
+# ---------------------------------------------------------------------------
+#
+# Hur denna dict används:
+#   1. get_budget(park_key, year, month) kollar här FÖRST
+#   2. Om inget värde hittas → fallback till _load_pvsyst_budget() som
+#      använder parkens verkliga expected_annual_yield_kwh_kwp och
+#      expected_pr_pct från PARK_PRODUCT_DATA, skalat med säsongs-
+#      fördelning från PVsyst-profilen (south/ew/tracker)
+#
+# När ska du använda overrides?
+#   - När du har PARKSPECIFIK månadsdata från PVsyst SRC Forecast-rapporten
+#     (tillgänglig i SharePoint per park, t.ex. "14102025_Hörby PVsyst_SRC
+#     Forecast 12 MW [SLC_weighted].pdf"). Där finns månadsvärden för
+#     energy, irradiation, PR som är mycket mer exakta än att skala en
+#     generisk PVsyst-profil.
+#   - När du vill lägga in degradations-kompensation år-för-år
+#     (typiskt -0.5% per år efter COD)
+#   - När du har PPA-kontrakterade målvärden (för avtalsrapportering)
+#
+# Format (alla tre värden krävs):
+#   {
+#       "park_key": {
+#           "YYYY-MM": {
+#               "energy_mwh": float,           # Förväntad produktion
+#               "irradiation_kwh_m2": float,   # Förväntad POA-instrålning
+#               "pr_pct": float,               # Förväntad PR (0-100)
+#           },
+#           ...
+#       }
+#   }
+#
+# Status: TOM idag — alla parker använder PVsyst-yield × profil-fördelning
+# som fallback. För att fylla i, kör Cowork-prompten som finns i
+# docs/plans/2026-04-10-cowork-monthly-budget-prompt.md och lägg in
+# resultatet här.
 PARK_BUDGET_OVERRIDES: dict[str, dict[str, dict]] = {
-    # Exempel:
+    # Exempel (inaktivt, bara för syntax-referens):
     # "horby": {
-    #     "2026-03": {"energy_mwh": 1200.0, "irradiation_kwh_m2": 130.0, "pr_pct": 82.0}
-    # }
+    #     "2026-01": {"energy_mwh": 195.0, "irradiation_kwh_m2": 14.0, "pr_pct": 79.5},
+    #     "2026-02": {"energy_mwh": 530.0, "irradiation_kwh_m2": 36.5, "pr_pct": 81.2},
+    #     "2026-03": {"energy_mwh": 1520.0, "irradiation_kwh_m2": 105.0, "pr_pct": 83.5},
+    # },
 }
 
 
