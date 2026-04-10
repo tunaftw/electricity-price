@@ -21,7 +21,8 @@ electricity-price/
 │   ├── dashboard_data.py      # Databeräkning för HTML-dashboard
 │   ├── operations_dashboard_data.py  # Operations-data (SY, negpris, tracker, meter)
 │   ├── nasdaq.py              # Nasdaq Nordic futures API
-│   ├── park_config.py         # Parkmetadata, budget (PVsyst + overrides)
+│   ├── park_product_data.py   # Source of truth: produktdata från SharePoint (Cowork-extrakt)
+│   ├── park_config.py         # Parkmetadata + budget (läser från park_product_data)
 │   ├── performance_report_data.py  # KPI-beräkningar för månadsrapport
 │   └── performance_report_html.py  # HTML-rendering av månadsrapport
 ├── Resultat/                  # All nedladdad data och analyser (se nedan)

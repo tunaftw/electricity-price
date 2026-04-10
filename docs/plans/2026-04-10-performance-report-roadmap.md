@@ -210,38 +210,92 @@ Sedan i `performance_report_data.py:_compute_module_temp()`, ladda väderdata om
 
 **Bakgrund:** Sektionerna 14, 15, 16, 17, 18 (Inverter Yield, Inverter Efficiency, PPM Schedule, Incidents, Alarm/Fault) är platshållare. För att aktivera dessa krävs direkt integration med invertertillverkarnas SCADA-system. Bazefield aggregerar bara på parknivå.
 
-### Inventarium per park
+**OBS (uppdaterat 2026-04-10 efter Cowork-extraktion):** Portföljen har **3 olika invertertillverkare**, inte bara Sungrow som tidigare antaget. Detta betyder 3 separata API-integrationer. Se `elpris/park_product_data.py:SCADA_INTEGRATION_GROUPS`.
 
-| Park | Antal invertrar | Trolig leverantör | API |
-|------|-----------------|-------------------|-----|
-| Hörby | 72 | Sungrow SG250HX | iSolarCloud |
-| Fjällskär | ~80 | Sungrow | iSolarCloud |
-| Björke | ~28 | TBD | TBD |
-| Agerum | ~36 | TBD | TBD |
-| Hova | ~24 | TBD | TBD |
-| Skäkelbacken | ~26 | TBD | TBD |
-| Stenstorp | ~5 | TBD | TBD |
-| Tången | ~28 | TBD | TBD |
+### Inventarium per park (verifierat från PVsyst SRC Forecast Oct 2025)
 
-**Action:** Verifiera invertertillverkare per park (kolla med Operations).
+| Park | Antal invertrar | Fabrikat | Modell | API |
+|------|-----------------|----------|--------|-----|
+| Hörby | 51 | **Sineng** | SP-275K-H1 | Sineng iSolarCloud / Modbus TCP |
+| Fjällskär | 56 | **Sineng** | SP-275K-H1 | Sineng iSolarCloud / Modbus TCP |
+| Björke | 17 | **Sineng** | SP-275K-H1 | Sineng iSolarCloud / Modbus TCP |
+| Agerum | 24 | **Sineng** | SP-275K-H1 | Sineng iSolarCloud / Modbus TCP |
+| Hova ⭐ tracker | 17 | **Huawei** | SUN2000-330KTL-H1 | Huawei FusionSolar (REST + Modbus) |
+| Stenstorp | 3 | **Huawei** | SUN2000-330KTL-H1 | Huawei FusionSolar |
+| Tången | 16 | **Huawei** | SUN2000-330KTL-H1 | Huawei FusionSolar |
+| Skäkelbacken | 16 | **Sungrow** | SG350HX-15A | Sungrow iSolarCloud |
 
-### Sungrow iSolarCloud API
-- **URL:** https://gateway.isolarcloud.com.hk/openapi
-- **Auth:** API key + secret per kund
-- **Endpoints:**
-  - `/getDeviceListByPlant` — lista alla invertrar
+**Inverter-grupper för planering:**
+- **Sineng** (4 parker, 148 enheter): Hörby, Fjällskär, Björke, Agerum — högsta prioritet (största gruppen)
+- **Huawei** (3 parker, 36 enheter): Hova, Stenstorp, Tången — andra prioritet
+- **Sungrow** (1 park, 16 enheter): Skäkelbacken — lägsta prioritet
+
+**Action:** Begär API-credentials från respektive leverantör (eller via Operations om Svea redan har avtal).
+
+### Implementations-prioritet
+
+Implementera i tre faser, en per fabrikat:
+
+**Fas 5A: Sineng (148 enheter, 4 parker — högsta värde)**
+- Sineng iSolarCloud kräver oftast Modbus TCP-uppkoppling till parkens lokala datalogger (inte cloud-API som Sungrow/Huawei)
+- Verifiera om Bazefield redan läser Modbus-data från Sineng — i så fall kan vi exponera det via befintligt CSV
+- Kontaktperson: Sineng EU support eller Operations-teamet
+
+**Fas 5B: Huawei (36 enheter, 3 parker)**
+- Huawei FusionSolar har modernt REST-API: `https://eu5.fusionsolar.huawei.com/thirdData/`
+- Auth: northbound API user + system code (måste skapas i FusionSolar UI)
+- Endpoints:
+  - `/getStationList` — lista parker
+  - `/getDevList` — lista invertrar per park
+  - `/getDevHistoryKpi` — historisk daglig produktion per inverter
+  - `/getDevRealKpi` — realtid (för varningar)
+  - `/getAlarmList` — larmhistorik
+
+**Fas 5C: Sungrow (16 enheter, 1 park)**
+- Sungrow iSolarCloud: https://gateway.isolarcloud.com.hk/openapi
+- Endpoints:
+  - `/getDeviceListByPlant` — lista invertrar
   - `/getDevicePointMinuteDataList` — 5-min eller 15-min data per inverter
   - `/getPlantAlarmInfoListNew` — larm och fel
-- **Datapunkter per inverter:** `total_yield_kwh`, `daily_yield_kwh`, `efficiency_pct`, `dc_input_power`, `ac_output_power`, `temperature`
+- Datapunkter: `total_yield_kwh`, `daily_yield_kwh`, `efficiency_pct`, `dc_input_power`, `ac_output_power`, `temperature`
 
-### Sungrow-modul
-Skapa `elpris/sungrow.py`:
+### Modul-struktur
+
+Skapa en gemensam abstraktion + per-leverantör-implementation:
+
+```
+elpris/
+├── scada/
+│   ├── __init__.py           # Re-exports
+│   ├── base.py               # Abstract SCADAClient
+│   ├── sineng.py             # Sineng-specific
+│   ├── huawei.py             # Huawei FusionSolar-specific
+│   └── sungrow.py            # Sungrow iSolarCloud-specific
+```
+
+Gemensamt interface:
 ```python
-class SungrowClient:
-    def __init__(self, api_key: str, api_secret: str): ...
-    def list_inverters(self, plant_id: str) -> list[dict]: ...
-    def fetch_inverter_yield(self, inverter_id: str, start: date, end: date) -> list[dict]: ...
-    def fetch_alarms(self, plant_id: str, start: date, end: date) -> list[dict]: ...
+class SCADAClient(ABC):
+    @abstractmethod
+    def list_inverters(self, park_key: str) -> list[InverterInfo]: ...
+    @abstractmethod
+    def fetch_daily_yield(self, park_key: str, start: date, end: date) -> list[InverterDailyData]: ...
+    @abstractmethod
+    def fetch_alarms(self, park_key: str, start: date, end: date) -> list[AlarmRecord]: ...
+```
+
+### Routing per park
+Använd `SCADA_INTEGRATION_GROUPS` från `park_product_data.py`:
+```python
+from elpris.park_product_data import SCADA_INTEGRATION_GROUPS
+
+def get_scada_client_for_park(park_key: str) -> SCADAClient:
+    for manufacturer, parks in SCADA_INTEGRATION_GROUPS.items():
+        if park_key in parks:
+            if manufacturer == "sineng": return SinengClient()
+            if manufacturer == "huawei": return HuaweiClient()
+            if manufacturer == "sungrow": return SungrowClient()
+    raise ValueError(f"Ingen SCADA-mappning för park: {park_key}")
 ```
 
 ### Datalagring
