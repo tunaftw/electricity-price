@@ -219,8 +219,8 @@ def _aggregate_daily(
         day_records = by_day[date_str]
         day_num = int(date_str.split("-")[2])
 
-        # Energi
-        actual_energy = sum(r["power_mw"] * 0.25 for r in day_records)
+        # Energi: använd effective_power_mw (meter om tillgänglig, annars inverter)
+        actual_energy = sum(r.get("effective_power_mw", r.get("power_mw", 0)) * 0.25 for r in day_records)
 
         # Instrålning (kWh/m²)
         actual_irr: Optional[float] = None
@@ -254,6 +254,9 @@ def _aggregate_daily(
                 pi *= 100.0
 
         # Verkningsgrad (meter vs inverter)
+        # OBS: ActivePower (inverter sum) är ofta opålitlig pga icke-
+        # kommunicerande invertrar — om värdet är >100% eller <50% är
+        # det ett tecken på att data är broken, då sätter vi None.
         efficiency: Optional[float] = None
         if has_active_power:
             inv_sum = sum(r.get("active_power_mw", 0) or 0 for r in day_records
@@ -262,7 +265,10 @@ def _aggregate_daily(
                            if r.get("active_power_mw") is not None
                            and r["power_mw"] > 0)
             if inv_sum > 0:
-                efficiency = (meter_sum / inv_sum) * 100.0
+                eff_raw = (meter_sum / inv_sum) * 100.0
+                # Sanity check: efficiency ska vara 90-100% i normalfall
+                if 50.0 <= eff_raw <= 105.0:
+                    efficiency = eff_raw
 
         # Modultemperatur (Sandia NOCT-uppskattning)
         avg_mod_temp: Optional[float] = None
@@ -321,7 +327,7 @@ def _extract_day_detail(
     for rec in day_records:
         ts_local = rec["timestamp_utc"].astimezone(SWEDEN_TZ)
         timestamps.append(ts_local.strftime("%H:%M"))
-        power_mw.append(round(rec["power_mw"], 4))
+        power_mw.append(round(rec.get("effective_power_mw", rec.get("power_mw", 0)), 4))
         irr = rec.get("irradiance_poa")
         irradiance_wm2.append(round(irr, 2) if irr is not None else None)
 
@@ -431,8 +437,8 @@ def _build_ytd(
     for m in range(1, up_to_month + 1):
         month_records = _filter_month(all_records, year, m)
 
-        # Faktisk energi
-        actual_energy = sum(r["power_mw"] * 0.25 for r in month_records)
+        # Faktisk energi: använd effective_power_mw (meter om tillgänglig, annars inverter)
+        actual_energy = sum(r.get("effective_power_mw", r.get("power_mw", 0)) * 0.25 for r in month_records)
 
         # Budget
         try:
@@ -606,6 +612,9 @@ def generate_report(park_key: str, year: int, month: int) -> MonthlyReport:
         if pr_val is not None:
             pr = round(pr_val * 100.0, 2)
 
+    # Verkningsgrad: meter vs inverter sum.
+    # OBS: ActivePower är ofta opålitlig pga icke-kommunicerande invertrar.
+    # Om värdet är >100% eller <50% är data broken — sätt till None.
     efficiency: Optional[float] = None
     if has_active_power:
         inv_total = sum(
@@ -620,7 +629,9 @@ def generate_report(park_key: str, year: int, month: int) -> MonthlyReport:
             and r["power_mw"] > 0
         )
         if inv_total > 0:
-            efficiency = round((meter_total / inv_total) * 100.0, 2)
+            eff_raw = (meter_total / inv_total) * 100.0
+            if 50.0 <= eff_raw <= 105.0:
+                efficiency = round(eff_raw, 2)
 
     # Modultemperatur (medelvärde av dagliga)
     avg_mod_temp: Optional[float] = None

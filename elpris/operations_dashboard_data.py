@@ -35,8 +35,14 @@ def load_park_15min(park_key: str) -> list[dict]:
     """Load 15-min park data from extended CSV.
 
     Returns list of {timestamp_utc: datetime, power_mw: float,
-    active_power_mw: float|None, irradiance_poa: float|None,
-    availability: float|None}.
+    active_power_mw: float|None, effective_power_mw: float,
+    irradiance_poa: float|None, availability: float|None}.
+
+    `power_mw` is the grid meter reading (ActivePowerMeter).
+    `active_power_mw` is the inverter output (ActivePower).
+    `effective_power_mw` is the best available energy reading:
+        meter if available, else inverter. Use this for energy aggregation
+        when meter coverage is incomplete (e.g. small parks like Stenstorp).
     """
     zone = PARK_ZONES.get(park_key)
     if not zone:
@@ -57,15 +63,26 @@ def load_park_15min(park_key: str) -> list[dict]:
             power = float(row.get("power_mw") or 0)
             if power > max_mw:
                 continue  # Sensor error
+
+            active_power = None
+            if "active_power_mw" in row and row["active_power_mw"]:
+                ap_val = float(row["active_power_mw"])
+                if ap_val <= max_mw:  # Sanity check
+                    active_power = ap_val
+
+            # Effective power: meter (preferred) → inverter → 0
+            effective = power if power > 0 else (active_power or 0)
+
             rec = {
                 "timestamp_utc": ts_utc,
                 "date": ts_utc.strftime("%Y-%m-%d"),
                 "year": ts_utc.year,
                 "month": ts_utc.month,
                 "power_mw": power,
+                "effective_power_mw": effective,
             }
-            if "active_power_mw" in row and row["active_power_mw"]:
-                rec["active_power_mw"] = float(row["active_power_mw"])
+            if active_power is not None:
+                rec["active_power_mw"] = active_power
             if "irradiance_poa" in row and row["irradiance_poa"]:
                 rec["irradiance_poa"] = float(row["irradiance_poa"])
             if "availability" in row and row["availability"]:
