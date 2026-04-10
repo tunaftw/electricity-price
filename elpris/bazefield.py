@@ -478,6 +478,391 @@ def save_weather_data(park_key: str, records: list[dict]) -> int:
     return len(new_records)
 
 
+# ---------------------------------------------------------------------------
+# Inverter-level data (Phase 6: SCADA via Bazefield)
+# ---------------------------------------------------------------------------
+
+INVERTER_DAILY_FIELDS = [
+    "date", "inverter_name", "energy_kwh", "max_power_kw",
+    "rated_kw", "capacity_factor_pct",
+]
+
+INVERTER_EVENT_FIELDS = [
+    "inverter_name", "event_name", "event_code", "event_type",
+    "time_start_utc", "time_end_utc", "duration_min", "description",
+]
+
+INVERTER_DIR = PARKS_PROFILE_DIR / "inverters"
+
+
+def get_inverter_yield_csv_path(park_key: str) -> Path:
+    """Returnera CSV-sökväg för en parks dagliga inverter-yield."""
+    return INVERTER_DIR / f"{park_key}_daily_yield.csv"
+
+
+def get_inverter_events_csv_path(park_key: str) -> Path:
+    """Returnera CSV-sökväg för en parks alarm-events."""
+    return INVERTER_DIR / f"{park_key}_events.csv"
+
+
+def fetch_inverter_daily_yield(
+    park_key: str,
+    from_date: date,
+    to_date: date,
+    api_key: str | None = None,
+    verbose: bool = False,
+) -> list[dict]:
+    """Hämta daglig yield per inverter för en park.
+
+    För varje inverter i parken hämtas TotalEnergyProduced.1h (timvärden)
+    och ActivePower (15-min) från Bazefield, sedan aggregeras till
+    dagliga totaler.
+
+    Returns: [{date, inverter_name, energy_kwh, max_power_kw, rated_kw,
+               capacity_factor_pct}, ...]
+    """
+    from .inverter_registry import get_inverters
+
+    inverters = get_inverters(park_key)
+    if not inverters:
+        return []
+
+    all_records: list[dict] = []
+    for idx, inv in enumerate(inverters, 1):
+        if verbose:
+            print(f"    [{idx}/{len(inverters)}] {inv['name']}...", end=" ", flush=True)
+
+        try:
+            time.sleep(REQUEST_DELAY)
+            raw = fetch_timeseries(
+                inv["id"],
+                ["TotalEnergyProduced.1h", "ActivePower"],
+                from_date,
+                to_date,
+                api_key,
+            )
+        except Exception as e:
+            if verbose:
+                print(f"FEL: {e}")
+            continue
+
+        # Aggregera per datum
+        daily_energy: dict[str, float] = {}
+        daily_max_power: dict[str, float] = {}
+
+        # Energi-poster (timvärden) — summera per dag
+        for rec in raw.get("TotalEnergyProduced.1h", []):
+            date_str = rec["timestamp"][:10]
+            daily_energy[date_str] = daily_energy.get(date_str, 0.0) + float(rec["value"])
+
+        # Max power per dag (från ActivePower 15-min)
+        for rec in raw.get("ActivePower", []):
+            date_str = rec["timestamp"][:10]
+            v = float(rec["value"])
+            if date_str not in daily_max_power or v > daily_max_power[date_str]:
+                daily_max_power[date_str] = v
+
+        # Bygg dagliga rader
+        rated = inv["rated_kw"]
+        all_dates = sorted(set(daily_energy.keys()) | set(daily_max_power.keys()))
+        for date_str in all_dates:
+            energy = daily_energy.get(date_str, 0.0)
+            max_p = daily_max_power.get(date_str, 0.0)
+            cf_pct = (energy / (rated * 24.0) * 100.0) if rated > 0 else 0.0
+            # Sanity cap (Sineng kan kortvarigt peaka över rated)
+            if cf_pct > 110:
+                cf_pct = 110
+            all_records.append({
+                "date": date_str,
+                "inverter_name": inv["name"],
+                "energy_kwh": round(energy, 2),
+                "max_power_kw": round(max_p, 2),
+                "rated_kw": rated,
+                "capacity_factor_pct": round(cf_pct, 2),
+            })
+
+        if verbose:
+            print(f"{len(all_dates)} dagar")
+
+    return all_records
+
+
+# Event-namn som ska filtreras bort som "brus" — operationella status-ändringar
+# rapporteras som eventType=='Alarm' men är inte verkliga fel
+_NOISE_EVENT_PATTERNS = (
+    "Idle",                       # Huawei: Idle: No irradiation, etc.
+    "On-grid",                    # Huawei: On-grid (normal drift), undantag: Power limit
+    "Starting",                   # Huawei: Starting (uppstart)
+    "Standby",                    # Huawei/Sungrow: Standby
+    "Inspecting",                 # Huawei: Inspecting
+    "EVENT-",                     # Generiska EVENT- (NightHours, DaylightHours)
+)
+
+# Specifika namn att alltid filtrera (inte mönster)
+_NOISE_EVENT_NAMES = {
+    "Asset_no_comm",              # Sineng: kommunikationsfel (inte produktionsfel)
+    "Comm_error",                 # Sineng: dito
+}
+
+# Patterns att ALLTID behålla även om de matchar brus-patterns
+_KEEP_PATTERNS = (
+    "Fault",                      # Allt med Fault i namnet är ett verkligt fel
+    "Error",                      # Allt med Error
+    "Power limit",                # Curtailment är intressant
+    "Curtailment",
+)
+
+
+def _is_noise_event(event_name: str) -> bool:
+    """Avgör om en event är operationellt brus snarare än verkligt fel."""
+    if not event_name:
+        return True
+
+    # Alltid behåll om matchar keep-pattern
+    for keep in _KEEP_PATTERNS:
+        if keep in event_name:
+            return False
+
+    # Specifika namn alltid brus
+    if event_name in _NOISE_EVENT_NAMES:
+        return True
+
+    # Pattern-baserad filtrering
+    for pattern in _NOISE_EVENT_PATTERNS:
+        if pattern in event_name:
+            return True
+
+    return False
+
+
+def fetch_inverter_events(
+    park_key: str,
+    from_date: date,
+    to_date: date,
+    api_key: str | None = None,
+    verbose: bool = False,
+) -> list[dict]:
+    """Hämta alarm-events per inverter för en park.
+
+    Använder ObjectEventsHistoryGetRequest. Filtrerar till eventType=='Alarm'
+    OCH _is_noise_event()=False (exkluderar idle-states, kommunikationsglitches
+    och andra operationella brus-events).
+
+    Returns: [{inverter_name, event_name, event_code, event_type,
+               time_start_utc, time_end_utc, duration_min, description}, ...]
+    """
+    from .inverter_registry import get_inverters
+
+    inverters = get_inverters(park_key)
+    if not inverters:
+        return []
+
+    key = api_key or BAZEFIELD_API_KEY
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+    }
+    url = f"{BAZEFIELD_BASE_URL}/json/reply/ObjectEventsHistoryGetRequest"
+
+    all_events: list[dict] = []
+    for idx, inv in enumerate(inverters, 1):
+        if verbose:
+            print(f"    [{idx}/{len(inverters)}] {inv['name']}...", end=" ", flush=True)
+
+        payload = {
+            "ObjectIds": [inv["id"]],
+            "From": f"{from_date.isoformat()}T00:00:00Z",
+            "To": f"{to_date.isoformat()}T23:59:59Z",
+        }
+
+        try:
+            time.sleep(REQUEST_DELAY)
+            r = requests.post(url, json=payload, headers=headers, timeout=60)
+            r.raise_for_status()
+            data = r.json()
+        except Exception as e:
+            if verbose:
+                print(f"FEL: {e}")
+            continue
+
+        events = data if isinstance(data, list) else data.get("events", [])
+        if not isinstance(events, list):
+            events = []
+
+        kept = 0
+        for evt in events:
+            event_type = evt.get("eventType", "")
+            if event_type != "Alarm":
+                continue  # Skippa Status, EVENT-NightHours etc.
+
+            event_name = evt.get("eventName", "")
+            if _is_noise_event(event_name):
+                continue  # Skippa brus (idle, on-grid, comm errors)
+
+            event_code_obj = evt.get("eventCode", {})
+            event_code = event_code_obj.get("code", 0) if isinstance(event_code_obj, dict) else 0
+            time_start = evt.get("timeStart", "")
+            time_end = evt.get("timeEnd", "")
+            description = evt.get("eventDescription", "")
+
+            # Beräkna duration i minuter
+            duration_min = 0.0
+            if time_start and time_end:
+                try:
+                    ts_start = datetime.fromisoformat(time_start.replace("Z", "+00:00"))
+                    ts_end = datetime.fromisoformat(time_end.replace("Z", "+00:00"))
+                    duration_min = round((ts_end - ts_start).total_seconds() / 60.0, 2)
+                except (ValueError, TypeError):
+                    pass
+
+            all_events.append({
+                "inverter_name": inv["name"],
+                "event_name": event_name,
+                "event_code": event_code,
+                "event_type": event_type,
+                "time_start_utc": time_start,
+                "time_end_utc": time_end,
+                "duration_min": duration_min,
+                "description": description,
+            })
+            kept += 1
+
+        if verbose:
+            print(f"{kept} alarms")
+
+    return all_events
+
+
+def save_inverter_yield_csv(park_key: str, records: list[dict]) -> int:
+    """Spara daglig inverter-yield till CSV (upsert med deduplicering).
+
+    Dedup-nyckel: (date, inverter_name).
+    Returnerar antal nya rader skrivna.
+    """
+    if not records:
+        return 0
+
+    csv_path = get_inverter_yield_csv_path(park_key)
+    INVERTER_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Läs befintliga rader och bygg dedup-set
+    existing: dict[tuple[str, str], dict] = {}
+    if csv_path.exists():
+        with open(csv_path, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                key = (row["date"], row["inverter_name"])
+                existing[key] = row
+
+    # Lägg till/uppdatera nya rader
+    for rec in records:
+        key = (rec["date"], rec["inverter_name"])
+        existing[key] = {k: rec.get(k, "") for k in INVERTER_DAILY_FIELDS}
+
+    # Skriv ut allt sorterat
+    sorted_rows = sorted(existing.values(), key=lambda r: (r["date"], r["inverter_name"]))
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=INVERTER_DAILY_FIELDS, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(sorted_rows)
+
+    return len(records)
+
+
+def save_inverter_events_csv(park_key: str, records: list[dict]) -> int:
+    """Spara alarm-events till CSV (upsert med deduplicering).
+
+    Dedup-nyckel: (inverter_name, event_name, time_start_utc).
+    Returnerar antal nya rader skrivna.
+    """
+    if not records:
+        return 0
+
+    csv_path = get_inverter_events_csv_path(park_key)
+    INVERTER_DIR.mkdir(parents=True, exist_ok=True)
+
+    existing: dict[tuple, dict] = {}
+    if csv_path.exists():
+        with open(csv_path, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                key = (row["inverter_name"], row["event_name"], row["time_start_utc"])
+                existing[key] = row
+
+    for rec in records:
+        key = (rec["inverter_name"], rec["event_name"], rec["time_start_utc"])
+        existing[key] = {k: rec.get(k, "") for k in INVERTER_EVENT_FIELDS}
+
+    sorted_rows = sorted(
+        existing.values(),
+        key=lambda r: (r["time_start_utc"], r["inverter_name"]),
+    )
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=INVERTER_EVENT_FIELDS, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(sorted_rows)
+
+    return len(records)
+
+
+def download_park_inverters(
+    park_key: str,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    api_key: str | None = None,
+    verbose: bool = True,
+) -> dict:
+    """Hämta inverter-nivå data + alarm-events för en park.
+
+    Args:
+        park_key: Park-nyckel (t.ex. "horby")
+        start_date: Start-datum (default: 2026-01-01)
+        end_date: Slut-datum (default: idag)
+        api_key: Override API-nyckel
+        verbose: Logga progress
+
+    Returns:
+        dict med statistik (yield_records, event_records)
+    """
+    park = PARKS[park_key]
+
+    if end_date is None:
+        end_date = date.today()
+    if start_date is None:
+        # Default: senaste 100 dagarna
+        start_date = end_date - timedelta(days=100)
+
+    if verbose:
+        print(f"\n{park['name']} ({park_key}, {park['zone']}) — invertrar")
+        print("-" * 50)
+        print(f"  Period: {start_date} -> {end_date}")
+        print(f"  Hämtar daglig yield per inverter...")
+
+    yield_records = fetch_inverter_daily_yield(
+        park_key, start_date, end_date, api_key, verbose=verbose
+    )
+    yield_saved = save_inverter_yield_csv(park_key, yield_records)
+
+    if verbose:
+        print(f"  Sparade {yield_saved} yield-rader")
+        print(f"  Hämtar alarm-events per inverter...")
+
+    event_records = fetch_inverter_events(
+        park_key, start_date, end_date, api_key, verbose=verbose
+    )
+    event_saved = save_inverter_events_csv(park_key, event_records)
+
+    if verbose:
+        print(f"  Sparade {event_saved} alarm-events")
+
+    return {
+        "park": park_key,
+        "yield_records": yield_saved,
+        "event_records": event_saved,
+    }
+
+
 def download_park(
     park_key: str,
     start_date: date | None = None,

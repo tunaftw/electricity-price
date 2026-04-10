@@ -13,6 +13,7 @@ from elpris.bazefield import (
     BAZEFIELD_API_KEY,
     PARKS,
     download_all_parks,
+    download_park_inverters,
     print_status,
 )
 
@@ -50,6 +51,12 @@ def main():
         default=None,
         help="End date (YYYY-MM-DD)",
     )
+    parser.add_argument(
+        "--inverters",
+        action="store_true",
+        help="Sync inverter-level data (daily yield + alarm events) per park. "
+             "Tar 5-15 min per park. K\u00f6rs separat fr\u00e5n park-niv\u00e5 sync.",
+    )
 
     args = parser.parse_args()
 
@@ -69,11 +76,41 @@ def main():
     print("Bazefield Solar Park Downloader")
     print("=" * 50)
     print(f"Parker: {', '.join(parks)}")
-    if args.backfill:
+    if args.inverters:
+        print("L\u00e4ge: Inverter-niv\u00e5 (daglig yield + alarm events)")
+    elif args.backfill:
         print("Läge: Full historik (backfill)")
     else:
         print("Läge: Inkrementell uppdatering")
     print("=" * 50)
+
+    if args.inverters:
+        # Inverter-mode: synka inverter-data + events per park
+        # Default-period: senaste 100 dagar om inget angivet
+        from datetime import date as _date, timedelta as _td
+        end = args.end or _date.today()
+        start = args.start or (end - _td(days=100))
+
+        total_yield = 0
+        total_events = 0
+        for park_key in parks:
+            try:
+                result = download_park_inverters(
+                    park_key=park_key,
+                    start_date=start,
+                    end_date=end,
+                    verbose=True,
+                )
+                total_yield += result.get("yield_records", 0)
+                total_events += result.get("event_records", 0)
+            except Exception as e:
+                print(f"\n[FEL] {park_key}: {e}")
+
+        print("\n" + "=" * 50)
+        print("Inverter-synk klar!")
+        print(f"  Totalt yield-rader: {total_yield}")
+        print(f"  Totalt alarm-events: {total_events}")
+        return 0
 
     results = download_all_parks(
         park_keys=parks,
