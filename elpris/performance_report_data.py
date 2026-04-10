@@ -159,6 +159,13 @@ class MonthlyReport:
     has_irradiance: bool
     has_availability: bool
     has_active_power: bool
+    # Inverter-data (Phase 6)
+    inverters: list = field(default_factory=list)         # list[InverterMonthly]
+    inverter_daily_lookup: dict = field(default_factory=dict)  # {inv_name: {day: InverterDaily}}
+    alarm_stats: object = None                              # AlarmStats | None
+    recent_alarms: list = field(default_factory=list)     # list[AlarmEvent]
+    has_inverter_data: bool = False
+    has_alarm_data: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -690,7 +697,35 @@ def generate_report(park_key: str, year: int, month: int) -> MonthlyReport:
         has_availability=has_availability,
     )
 
-    # 12. Bygg rapport
+    # 12. Ladda inverter-data om det finns (Phase 6)
+    inverters_monthly: list = []
+    inverter_daily_lookup: dict = {}
+    alarm_stats = None
+    recent_alarms: list = []
+    has_inverter_data = False
+    has_alarm_data = False
+
+    try:
+        from .inverter_data import (
+            load_inverter_yield, load_alarm_events,
+            aggregate_inverter_monthly, aggregate_alarm_stats,
+            get_filtered_alarms, get_daily_inverter_data,
+        )
+        inv_yield = load_inverter_yield(park_key)
+        if inv_yield:
+            inverters_monthly = aggregate_inverter_monthly(inv_yield, year, month)
+            inverter_daily_lookup = get_daily_inverter_data(inv_yield, year, month)
+            has_inverter_data = bool(inverters_monthly)
+
+        alarm_events = load_alarm_events(park_key)
+        if alarm_events:
+            alarm_stats = aggregate_alarm_stats(alarm_events, year, month)
+            recent_alarms = get_filtered_alarms(alarm_events, year, month, limit=50)
+            has_alarm_data = (alarm_stats.total_alarms > 0)
+    except ImportError:
+        pass  # inverter_data inte tillgänglig — graceful degradation
+
+    # 13. Bygg rapport
     return MonthlyReport(
         park_key=park_key,
         park_display_name=display_name,
@@ -722,6 +757,12 @@ def generate_report(park_key: str, year: int, month: int) -> MonthlyReport:
         has_irradiance=has_irradiance,
         has_availability=has_availability,
         has_active_power=has_active_power,
+        inverters=inverters_monthly,
+        inverter_daily_lookup=inverter_daily_lookup,
+        alarm_stats=alarm_stats,
+        recent_alarms=recent_alarms,
+        has_inverter_data=has_inverter_data,
+        has_alarm_data=has_alarm_data,
     )
 
 
