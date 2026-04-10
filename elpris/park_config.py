@@ -2,6 +2,10 @@
 
 Utökar elpris.config med displaynamn, platsinformation, anläggningsdata
 och PVsyst-baserad budgetberäkning per park och månad.
+
+Parkmetadata byggs dynamiskt från ``park_product_data.PARK_PRODUCT_DATA``
+som är källan för teknisk parkinformation (moduler, växelriktare, geometri,
+PVsyst-förväntningar m.m.). Se ``elpris/park_product_data.py``.
 """
 
 import csv
@@ -15,6 +19,7 @@ from .config import (
     PARK_ZONES,
     RESULTAT_DIR,
 )
+from .park_product_data import PARK_PRODUCT_DATA
 
 # --- Profilkatalog ---
 PVSYST_PROFILE_DIR = RESULTAT_DIR / "profiler" / "beraknade"
@@ -33,113 +38,91 @@ SPECIFIC_YIELD_KWH_KWP: dict[str, float] = {
     "tracker": 1202.0,
 }
 
-# --- Parkmetadata ---
-PARK_METADATA: dict[str, dict] = {
-    "horby": {
-        "display_name": "Hörby",
-        "location": "Hörby, Skåne",
-        "module_type": "TBD",
-        "module_wp": None,
-        "num_modules": None,
-        "inverter_model": "TBD",
-        "num_inverters": None,
-        "tilt_angle": None,
-        "tracking": False,
-        "standard_pr": 0.80,
-        "profile_type": "south",
-    },
-    "fjallskar": {
-        "display_name": "Fjällskär",
-        "location": "Fjällskär, Ångermanland",
-        "module_type": "TBD",
-        "module_wp": None,
-        "num_modules": None,
-        "inverter_model": "TBD",
-        "num_inverters": None,
-        "tilt_angle": None,
-        "tracking": False,
-        "standard_pr": 0.80,
-        "profile_type": "south",
-    },
-    "bjorke": {
-        "display_name": "Björke",
-        "location": "Björke, Västra Götaland",
-        "module_type": "TBD",
-        "module_wp": None,
-        "num_modules": None,
-        "inverter_model": "TBD",
-        "num_inverters": None,
-        "tilt_angle": None,
-        "tracking": False,
-        "standard_pr": 0.80,
-        "profile_type": "south",
-    },
-    "agerum": {
-        "display_name": "Agerum",
-        "location": "Agerum, Blekinge",
-        "module_type": "TBD",
-        "module_wp": None,
-        "num_modules": None,
-        "inverter_model": "TBD",
-        "num_inverters": None,
-        "tilt_angle": None,
-        "tracking": False,
-        "standard_pr": 0.80,
-        "profile_type": "south",
-    },
-    "hova": {
-        "display_name": "Hova",
-        "location": "Hova, Västra Götaland",
-        "module_type": "TBD",
-        "module_wp": None,
-        "num_modules": None,
-        "inverter_model": "TBD",
-        "num_inverters": None,
-        "tilt_angle": None,
-        "tracking": True,
-        "standard_pr": 0.80,
-        "profile_type": "tracker",
-    },
-    "skakelbacken": {
-        "display_name": "Skäkelbacken",
-        "location": "Skäkelbacken, Västra Götaland",
-        "module_type": "TBD",
-        "module_wp": None,
-        "num_modules": None,
-        "inverter_model": "TBD",
-        "num_inverters": None,
-        "tilt_angle": None,
-        "tracking": False,
-        "standard_pr": 0.80,
-        "profile_type": "south",
-    },
-    "stenstorp": {
-        "display_name": "Stenstorp",
-        "location": "Stenstorp, Västra Götaland",
-        "module_type": "TBD",
-        "module_wp": None,
-        "num_modules": None,
-        "inverter_model": "TBD",
-        "num_inverters": None,
-        "tilt_angle": None,
-        "tracking": False,
-        "standard_pr": 0.80,
-        "profile_type": "south",
-    },
-    "tangen": {
-        "display_name": "Tången",
-        "location": "Tången, Halland",
-        "module_type": "TBD",
-        "module_wp": None,
-        "num_modules": None,
-        "inverter_model": "TBD",
-        "num_inverters": None,
-        "tilt_angle": None,
-        "tracking": False,
-        "standard_pr": 0.80,
-        "profile_type": "south",
-    },
+
+# ---------------------------------------------------------------------------
+# Bygg PARK_METADATA dynamiskt från PARK_PRODUCT_DATA
+# ---------------------------------------------------------------------------
+
+# Mappning: exact_location_name → svenskt län (för visning i rapporter).
+_LOCATION_COUNTY: dict[str, str] = {
+    "Mjällby": "Blekinge",
+    "Enstaberga": "Södermanland",
+    "Trödje": "Gävleborg",
+    "Örelycke": "Blekinge",
+    "Källtorp": "Västra Götaland",
+    "Skäkelbacken (Skackelbacken_SC)": "Dalarna",
+    "Stenstorp": "Västra Götaland",
+    "Gungvala": "Blekinge",
 }
+
+# Rensade visningsnamn för platser där SharePoint-namnet är "smutsigt".
+_LOCATION_DISPLAY: dict[str, str] = {
+    "Skäkelbacken (Skackelbacken_SC)": "Skäkelbacken",
+}
+
+
+def _build_metadata() -> dict[str, dict]:
+    """Bygg PARK_METADATA från PARK_PRODUCT_DATA.
+
+    Lägger till visningsvänlig plats (``"Ort, Län"``) och profiltyp som
+    matchar ``PVSYST_PROFILE_MAP``. Alla tekniska fält kopieras igenom
+    så att rapportgeneratorn kan läsa dem direkt från metadata-dicten.
+    """
+    metadata: dict[str, dict] = {}
+    for park_key, pd in PARK_PRODUCT_DATA.items():
+        exact_name = pd["exact_location_name"]
+        location_clean = _LOCATION_DISPLAY.get(exact_name, exact_name)
+        county = _LOCATION_COUNTY.get(exact_name, "")
+        location = f"{location_clean}, {county}" if county else location_clean
+
+        # Profiltyp: tracker om parken har något tracker-system, annars south.
+        profile_type = "tracker" if pd["tracking_type"] != "fixed" else "south"
+
+        metadata[park_key] = {
+            # --- Visningsfält (rapporthuvud) ---
+            "display_name": pd["park_name"],
+            "location": location,
+
+            # --- Modulspecifikation ---
+            "module_type": pd["module_type"],
+            "module_wp": pd["module_wp"],
+            "num_modules": pd["num_modules"],
+
+            # --- Växelriktare ---
+            "inverter_model": pd["inverter_model"],
+            "inverter_manufacturer": pd["inverter_manufacturer"],
+            "num_inverters": pd["num_inverters"],
+
+            # --- Geometri ---
+            "tilt_angle": pd["tilt_angle"],
+            "azimuth": pd["azimuth"],
+            "tracking": pd["tracking_type"] != "fixed",
+            "tracking_type": pd["tracking_type"],
+
+            # --- Effekt ---
+            "ac_capacity_mwac": pd["ac_capacity_mwac"],
+            "grid_limit_mwac": pd["grid_limit_mwac"],
+
+            # --- BoS / transformator ---
+            "transformer_capacity_kva": pd["transformer_capacity_kva"],
+            "transformer_count": pd["transformer_count"],
+
+            # --- Datum ---
+            "commissioning_date": pd["commissioning_date"],
+
+            # --- Prestandareferens (parkspecifik, inte generisk 0.80) ---
+            "standard_pr": pd["expected_pr_pct"] / 100,
+            "expected_annual_yield_kwh_kwp": pd["expected_annual_yield_kwh_kwp"],
+
+            # --- PVsyst-profilmappning ---
+            "profile_type": profile_type,
+        }
+
+    return metadata
+
+
+PARK_METADATA: dict[str, dict] = _build_metadata()
+
 
 # --- Manuella budgetöverstyrningar per park/månad ---
 # Nyckel: park_key → "YYYY-MM" → dict med energy_mwh, irradiation_kwh_m2, pr_pct
@@ -188,14 +171,18 @@ def _load_pvsyst_monthly_energy(profile_type: str) -> dict[int, float]:
 
 
 def _load_pvsyst_budget(
-    profile_type: str,
+    park_key: str,
     capacity_kwp: float,
     month: int,
 ) -> dict:
-    """Beräkna månadsbudget från PVsyst TMY-profil.
+    """Beräkna månadsbudget från PVsyst TMY-profil + parkspecifik yield/PR.
+
+    Använder parkens egna förväntade årsproduktion (kWh/kWp) och PR
+    från ``PARK_PRODUCT_DATA``, men skalar fördelningen mellan månader
+    enligt PVsyst TMY-profilen som är kopplad till parken (``profile_type``).
 
     Args:
-        profile_type: Profiltyp ("south", "ew", "tracker")
+        park_key: Parknyckel (används för att slå upp parkspecifik yield/PR)
         capacity_kwp: Installerad DC-kapacitet i kWp
         month: Månad (1-12)
 
@@ -203,31 +190,52 @@ def _load_pvsyst_budget(
         dict med:
             energy_mwh: Förväntad produktion i MWh
             irradiation_kwh_m2: Uppskattad instrålning i kWh/m²
-            pr_pct: Standard Performance Ratio (%)
+            pr_pct: Parkspecifik Performance Ratio (%)
     """
     if not 1 <= month <= 12:
         raise ValueError(f"Ogiltig månad: {month}. Måste vara 1-12.")
 
+    meta = PARK_METADATA.get(park_key)
+    if meta is None:
+        raise ValueError(
+            f"Okänd park: {park_key!r}. "
+            f"Tillgängliga: {list(PARK_METADATA.keys())}"
+        )
+
+    profile_type = meta["profile_type"]
+    park_pr = meta["standard_pr"]  # parkspecifik, t.ex. 0.85 för Hörby
+    park_annual_yield = meta["expected_annual_yield_kwh_kwp"]  # t.ex. 1036 för Hörby
+
+    # Ladda PVsyst månadsfördelning (MWh per 1 MW installerat).
     monthly_energy = _load_pvsyst_monthly_energy(profile_type)
-    # Energi per MW installerat
-    energy_per_mw = monthly_energy.get(month, 0.0)
-    # Skala till parkens kapacitet (kWp → MW)
-    capacity_mw = capacity_kwp / 1000.0
-    energy_mwh = energy_per_mw * capacity_mw
+    annual_per_mw = sum(monthly_energy.values())
+
+    if annual_per_mw == 0:
+        return {
+            "energy_mwh": 0.0,
+            "irradiation_kwh_m2": 0.0,
+            "pr_pct": round(park_pr * 100, 2),
+        }
+
+    # Andel av årsproduktionen som infaller i denna månad enligt TMY.
+    month_fraction = monthly_energy.get(month, 0.0) / annual_per_mw
+
+    # Använd parkens egna årsproduktion istället för profilens generiska.
+    park_annual_energy_mwh = park_annual_yield * capacity_kwp / 1000.0
+    month_energy_mwh = park_annual_energy_mwh * month_fraction
 
     # Uppskatta instrålning: E = Irr * PR * (kWp/1000)
-    # → Irr = E / (PR * capacity_mw) [kWh/kWp]
-    # Vi rapporterar kWh/m² ≈ kWh/kWp (approximation vid STC)
-    standard_pr = 0.80
-    if capacity_mw > 0 and standard_pr > 0:
-        irradiation_kwh_m2 = energy_per_mw / (standard_pr * 1.0)  # per MW → per kWp = /1000*1000
+    # → Irr = E / (PR * kWp/1000) [kWh/m²]
+    capacity_mw = capacity_kwp / 1000.0
+    if capacity_mw > 0 and park_pr > 0:
+        irradiation_kwh_m2 = month_energy_mwh / (park_pr * capacity_mw)
     else:
         irradiation_kwh_m2 = 0.0
 
     return {
-        "energy_mwh": round(energy_mwh, 2),
+        "energy_mwh": round(month_energy_mwh, 2),
         "irradiation_kwh_m2": round(irradiation_kwh_m2, 2),
-        "pr_pct": standard_pr * 100.0,
+        "pr_pct": round(park_pr * 100, 2),
     }
 
 
@@ -265,7 +273,7 @@ def get_budget(park_key: str, year: int, month: int) -> dict:
     """Hämta månadsbudget för en park.
 
     Kontrollerar först PARK_BUDGET_OVERRIDES, faller sedan tillbaka
-    på PVsyst TMY-beräkning.
+    på PVsyst TMY-beräkning med parkspecifik yield/PR.
 
     Args:
         park_key: Parknyckel (t.ex. "horby")
@@ -284,7 +292,7 @@ def get_budget(park_key: str, year: int, month: int) -> dict:
     if month_key in overrides:
         return dict(overrides[month_key])
 
-    # Hämta metadata
+    # Hämta metadata (för att validera att parken finns)
     meta = PARK_METADATA.get(park_key)
     if meta is None:
         raise ValueError(
@@ -298,8 +306,7 @@ def get_budget(park_key: str, year: int, month: int) -> dict:
             f"Kapacitet saknas för park {park_key!r} i PARK_CAPACITY_KWP"
         )
 
-    profile_type = meta["profile_type"]
-    return _load_pvsyst_budget(profile_type, capacity_kwp, month)
+    return _load_pvsyst_budget(park_key, capacity_kwp, month)
 
 
 def list_parks() -> list[str]:
