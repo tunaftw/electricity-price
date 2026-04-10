@@ -371,18 +371,73 @@ Plotly.newPlot('gauge-irr', [{_safe_json(gauge_irr)}], {_safe_json(gauge_layout)
 
     # Key Project Parameters table
     meta = r.metadata
+
+    # Format helpers for new fields
+    def _fmt_int(v):
+        return _fmt(v, 0) if v is not None else "\u2014"
+
+    def _fmt_tracking(meta):
+        if not meta.get("tracking"):
+            return "Nej (fast montage)"
+        ttype = meta.get("tracking_type", "")
+        if "single_axis" in ttype:
+            return "Ja \u2014 single-axis tracker"
+        if "dual_axis" in ttype:
+            return "Ja \u2014 dual-axis tracker"
+        return "Ja"
+
+    def _fmt_tilt(meta):
+        if meta.get("tracking"):
+            return "N/A (tracker)"
+        ta = meta.get("tilt_angle")
+        return f"{ta}\u00b0" if ta is not None else "\u2014"
+
+    def _fmt_azimuth(meta):
+        if meta.get("tracking"):
+            return "N/A (tracker)"
+        az = meta.get("azimuth")
+        if az is None:
+            return "\u2014"
+        return f"{az}\u00b0 ({'syd' if abs(az) < 5 else 'syd' + ('v\u00e4st' if az > 0 else '\u00f6st')})"
+
+    def _fmt_transformer(meta):
+        cap = meta.get("transformer_capacity_kva")
+        cnt = meta.get("transformer_count")
+        if cap is None or cnt is None:
+            return "\u2014"
+        return f"{cnt} \u00d7 {cap:,} kVA".replace(",", " ")
+
+    annual_yield = meta.get("expected_annual_yield_kwh_kwp")
+    annual_energy_mwh = (annual_yield * r.capacity_kwp / 1000) if annual_yield else None
+
     params_rows = [
+        # --- Identitet ---
         ("Park", r.park_display_name),
         ("Plats", r.park_location),
         ("Elomr\u00e5de", r.zone),
+        ("Driftsattning (COD)", meta.get("commissioning_date", "\u2014")),
+        # --- Kapacitet ---
         ("DC-kapacitet", f"{_fmt(r.capacity_kwp, 0)} kWp ({_fmt(r.capacity_mwp, 2)} MWp)"),
+        ("AC-kapacitet", f"{_fmt(meta.get('ac_capacity_mwac'), 2)} MWac" if meta.get("ac_capacity_mwac") else "\u2014"),
+        ("N\u00e4tanslutning", f"{_fmt(meta.get('grid_limit_mwac'), 2)} MWac" if meta.get("grid_limit_mwac") else "\u2014"),
         ("Exportgr\u00e4ns", _fmt((meta.get("export_limit") or 0) * 100, 0) + "% av DC" if meta.get("export_limit") else "\u2014"),
+        # --- Moduler ---
         ("Modultyp", meta.get("module_type", "\u2014")),
-        ("Inverter", meta.get("inverter_model", "\u2014")),
-        ("Antal invertrar", _fmt(meta.get("num_inverters"), 0) if meta.get("num_inverters") else "\u2014"),
-        ("Tracking", "Ja" if meta.get("tracking") else "Nej"),
-        ("Tiltvinkel", f'{meta.get("tilt_angle")}\u00b0' if meta.get("tilt_angle") else "\u2014"),
-        ("Budget PR", _fmt_pct(r.budget_pr_pct)),
+        ("Modul Wp", f"{_fmt_int(meta.get('module_wp'))} Wp"),
+        ("Antal moduler", _fmt_int(meta.get("num_modules"))),
+        # --- Invertrar ---
+        ("Inverterfabrikat", meta.get("inverter_manufacturer", "\u2014")),
+        ("Invertermodell", meta.get("inverter_model", "\u2014")),
+        ("Antal invertrar", _fmt_int(meta.get("num_inverters"))),
+        # --- Geometri ---
+        ("Tracking", _fmt_tracking(meta)),
+        ("Tiltvinkel", _fmt_tilt(meta)),
+        ("Azimut", _fmt_azimuth(meta)),
+        # --- Transformator ---
+        ("Transformator", _fmt_transformer(meta)),
+        # --- Performance baseline ---
+        ("F\u00f6rv\u00e4ntad \u00e5rsproduktion", f"{_fmt(annual_yield, 0)} kWh/kWp ({_fmt(annual_energy_mwh, 0)} MWh)" if annual_yield else "\u2014"),
+        ("Budget PR (PVsyst)", _fmt_pct(r.budget_pr_pct)),
     ]
     params_html = '<table class="params-table">'
     params_html += '<tr><th>Parameter</th><th>V\u00e4rde</th></tr>'
