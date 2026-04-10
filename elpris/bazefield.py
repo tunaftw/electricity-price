@@ -84,8 +84,18 @@ WEATHER_POINTS = ["IrradianceGHI", "WindSpeed", "Humidity"]
 # station, WS = weather station, SATWST = satellite weather station).
 # Auto-discovered 2026-04-10 by checking IrradiancePOA on all child objects
 # of each park and picking the one with the highest peak value.
-PARK_IRRADIANCE_OVERRIDES: dict[str, str] = {
-    "horby":        "11661A83D009D000",  # HRB-TS1 (max ~318 W/m² Mar 2026)
+#
+# Format: park_key → either a single object_id (str) for static mapping,
+# or a list of (start_date_iso, object_id) tuples for time-dependent
+# switching. The list must be sorted ascending by start_date. For a
+# given timestamp, the latest entry where start_date <= timestamp wins.
+PARK_IRRADIANCE_OVERRIDES: dict[str, str | list[tuple[str, str]]] = {
+    # Hörby: HRB-TS1 stopped working ~2026-04-01 per AM team. Use HRB-TS2
+    # from April onwards (will be reconfigured during SCADA migration).
+    "horby": [
+        ("2024-01-01", "11661A83D009D000"),  # HRB-TS1 from start
+        ("2026-04-01", "11662CA0D4C9D000"),  # HRB-TS2 from April 2026
+    ],
     "fjallskar":    "124DEAB2C9C9D000",  # FJL-SATWST (max ~346 W/m²)
     "bjorke":       "1271E821AE89D000",  # BJK-SATWST1 (max ~294 W/m²)
     "agerum":       "1271E8586F49D000",  # AGR-SATWST1 (max ~263 W/m²)
@@ -94,6 +104,53 @@ PARK_IRRADIANCE_OVERRIDES: dict[str, str] = {
     "stenstorp":    "13A6D7CFA309D000",  # STT-SATWST1 (max ~185 W/m²)
     "tangen":       "1400FCE2BFC9D000",  # TNG-SATWST (max ~266 W/m²)
 }
+
+
+def _get_irradiance_segments(
+    park_key: str,
+    park_object_id: str,
+    from_date: date,
+    to_date: date,
+) -> list[tuple[str, date, date]]:
+    """Returnera lista med (object_id, segment_start, segment_end) för POA-fetch.
+
+    Hanterar både statiska och tidsbaserade overrides. Om parken inte har
+    någon override returnerar den ett enda segment med park-objektets ID.
+    """
+    override = PARK_IRRADIANCE_OVERRIDES.get(park_key)
+
+    # No override: fetch from park object itself
+    if override is None:
+        return [(park_object_id, from_date, to_date)]
+
+    # Static override (single string)
+    if isinstance(override, str):
+        return [(override, from_date, to_date)]
+
+    # Time-dependent override (list of tuples)
+    entries = sorted(override, key=lambda e: e[0])
+    segments: list[tuple[str, date, date]] = []
+    current_start = from_date
+    current_object: str | None = None
+
+    for entry_start_iso, entry_object_id in entries:
+        entry_start = date.fromisoformat(entry_start_iso)
+        if entry_start >= to_date:
+            break
+        if entry_start > current_start:
+            if current_object is not None:
+                segments.append((current_object, current_start, entry_start))
+            current_start = entry_start
+        current_object = entry_object_id
+
+    if current_object is not None and current_start < to_date:
+        segments.append((current_object, current_start, to_date))
+
+    # If first entry was after from_date, fall back to park object for the gap
+    if segments and segments[0][1] > from_date:
+        segments.insert(0, (park_object_id, from_date, segments[0][1]))
+
+    return segments or [(park_object_id, from_date, to_date)]
 
 
 def get_park_csv_path(park_key: str) -> Path:
@@ -196,8 +253,9 @@ def fetch_park_data(
     Returns list of {timestamp, power_mw, active_power_mw, irradiance_poa, availability}.
 
     If the park has a PARK_IRRADIANCE_OVERRIDES entry, IrradiancePOA is fetched
-    from the override object (e.g. HRB-TS1) instead of the park object —
-    workaround for the broken averaged POA point on the park object.
+    from the override object(s) instead of the park object — workaround for the
+    broken averaged POA point on the park object. Override can be a single
+    object_id or a time-dependent list of (start_date, object_id) tuples.
     """
     park = PARKS[park_key]
 
@@ -205,12 +263,16 @@ def fetch_park_data(
     park_points = ["ActivePowerMeter", "ActivePower", "Availability"]
     raw = fetch_timeseries(park["id"], park_points, from_date, to_date, api_key)
 
-    # Fetch IrradiancePOA — from override object if configured, else from park
-    irradiance_object_id = PARK_IRRADIANCE_OVERRIDES.get(park_key, park["id"])
-    irr_raw = fetch_timeseries(
-        irradiance_object_id, ["IrradiancePOA"], from_date, to_date, api_key
-    )
-    raw["IrradiancePOA"] = irr_raw.get("IrradiancePOA", [])
+    # Fetch IrradiancePOA from override segments (handles time-dependent
+    # switching when a sensor stops working and we need to use another)
+    segments = _get_irradiance_segments(park_key, park["id"], from_date, to_date)
+    all_irr_records: list[dict] = []
+    for obj_id, seg_start, seg_end in segments:
+        seg_raw = fetch_timeseries(
+            obj_id, ["IrradiancePOA"], seg_start, seg_end, api_key
+        )
+        all_irr_records.extend(seg_raw.get("IrradiancePOA", []))
+    raw["IrradiancePOA"] = all_irr_records
 
     # Merge all points by timestamp
     by_ts: dict[str, dict] = {}
