@@ -243,6 +243,50 @@ def _render_css() -> str:
     .ppm-table tbody tr:hover td {{ background: #f1f5f9; }}
     .ppm-table tbody tr:hover td.ppm-scheduled {{ background: #bfdbfe; }}
 
+    /* Inverter & alarm tables (Phase 6) */
+    .inverter-table, .ranking-table, .alarm-table, .alarm-detail-table {{
+        width: 100%; border-collapse: collapse; font-size: 12px;
+        margin-top: 8px;
+    }}
+    .inverter-table th, .ranking-table th, .alarm-table th, .alarm-detail-table th {{
+        background: {_C['primary']}; color: #fff;
+        padding: 6px 8px; text-align: left; font-weight: 600;
+    }}
+    .inverter-table td, .ranking-table td, .alarm-table td, .alarm-detail-table td {{
+        padding: 5px 8px; border-bottom: 1px solid #e2e8f0;
+    }}
+    .inverter-table tbody tr:hover, .alarm-table tbody tr:hover {{
+        background: #f1f5f9;
+    }}
+    .inverter-table .num, .ranking-table .num, .alarm-table .num, .alarm-detail-table .num {{
+        text-align: right; font-variant-numeric: tabular-nums;
+    }}
+    .inverter-table .rank-cell {{
+        text-align: center; color: {_C['muted']}; font-size: 11px;
+    }}
+    .inverter-table .inactive-row {{
+        background: #fef2f2; color: {_C['muted']}; font-style: italic;
+    }}
+    .inverter-table .cf-good {{ color: {_C['green']}; font-weight: 600; }}
+    .inverter-table .cf-bad {{ color: {_C['red']}; font-weight: 600; }}
+    .ranking-table .rank-num {{
+        text-align: center; font-weight: 700; color: {_C['accent']};
+        width: 30px;
+    }}
+    .transformer-group {{ margin-bottom: 20px; }}
+    .ts-header {{
+        background: #f1f5f9; padding: 8px 12px; border-radius: 6px;
+        margin-bottom: 8px; font-size: 13px; color: {_C['text']};
+    }}
+    .alarm-detail-table {{ font-size: 11px; }}
+    .alarm-detail-table td {{ padding: 4px 8px; }}
+
+    .warning-box {{
+        background: #fef3c7; border-left: 4px solid {_C['amber']};
+        padding: 12px 16px; margin: 12px 0; border-radius: 6px;
+        font-size: 13px; color: {_C['text']};
+    }}
+
     .chart-container {{ min-height: 350px; }}
 
     @media print {{
@@ -1456,7 +1500,7 @@ Plotly.newPlot('chart-top5-worst', {_safe_json(traces_worst)}, {_safe_json(bar_l
 
 
 # ---------------------------------------------------------------------------
-# Sections 14-18: Placeholders
+# Sections 14, 15, 18: Inverter & alarm data (Phase 6)
 # ---------------------------------------------------------------------------
 
 def _render_placeholder(section_num: int, title: str, icon: str, message: str) -> str:
@@ -1470,26 +1514,350 @@ def _render_placeholder(section_num: int, title: str, icon: str, message: str) -
 </div>"""
 
 
-def _render_inverter_placeholders() -> str:
-    """Sektion 14-15: Inverter-relaterade platshållare (före PPM)."""
-    placeholders = [
-        (14, "Inverter Yield", "\u2699\ufe0f",
-         "Inverterniv\u00e5data kr\u00e4ver SCADA-integration med invertertillverkaren (t.ex. Sungrow iSolarCloud). Kontakta systemadministrat\u00f6ren f\u00f6r att aktivera."),
-        (15, "Inverter Efficiency", "\u26a1",
-         "Inverterniv\u00e5data kr\u00e4ver SCADA-integration med invertertillverkaren. Kontakta systemadministrat\u00f6ren f\u00f6r att aktivera."),
-    ]
-    return "\n".join(_render_placeholder(n, t, i, m) for n, t, i, m in placeholders)
+def _render_inverter_yield(report: MonthlyReport) -> tuple[str, str]:
+    """Sektion 14: Inverter Yield — tabell + ranking."""
+    if not report.has_inverter_data or not report.inverters:
+        return _render_placeholder(
+            14, "Inverter Yield", "\u2699\ufe0f",
+            "Inverter-niv\u00e5 data saknas f\u00f6r denna park. K\u00f6r 'python bazefield_download.py --inverters' f\u00f6r att synka."
+        ), ""
+
+    inverters = report.inverters
+    by_rank = sorted(inverters, key=lambda m: m.rank)
+
+    # Top 5 + bottom 5 ranking
+    top5 = by_rank[:5]
+    bottom5 = by_rank[-5:] if len(by_rank) > 5 else []
+
+    def _ranking_row(inv, color_class):
+        return (
+            f'<tr><td class="rank-num">{inv.rank}</td>'
+            f'<td>{inv.name}</td>'
+            f'<td class="num">{inv.total_energy_kwh:,.0f}</td>'
+            f'<td class="num">{inv.avg_capacity_factor_pct:.1f}%</td>'
+            f'</tr>'
+        ).replace(",", " ")
+
+    top_table = '<table class="ranking-table"><thead><tr><th>#</th><th>Inverter</th><th>kWh</th><th>CF%</th></tr></thead><tbody>'
+    for inv in top5:
+        top_table += _ranking_row(inv, "good")
+    top_table += '</tbody></table>'
+
+    bottom_table = '<table class="ranking-table"><thead><tr><th>#</th><th>Inverter</th><th>kWh</th><th>CF%</th></tr></thead><tbody>'
+    for inv in bottom5:
+        top_class = "bad" if inv.total_energy_kwh < 1 else ""
+        bottom_table += _ranking_row(inv, top_class)
+    bottom_table += '</tbody></table>'
+
+    # Sammanfattnings-statistik
+    total_energy = sum(inv.total_energy_kwh for inv in inverters)
+    avg_cf = sum(inv.avg_capacity_factor_pct for inv in inverters if inv.days_active > 0)
+    active_count = sum(1 for inv in inverters if inv.days_active > 0)
+    avg_cf = (avg_cf / active_count) if active_count else 0
+
+    inactive_count = sum(1 for inv in inverters if inv.days_active == 0)
+    inactive_warning = ""
+    if inactive_count:
+        inactive_names = [inv.name for inv in inverters if inv.days_active == 0]
+        inactive_warning = (
+            f'<div class="warning-box">\u26a0\ufe0f <strong>{inactive_count} invertrar utan produktion:</strong> '
+            f'{", ".join(inactive_names[:5])}{("..." if len(inactive_names) > 5 else "")}</div>'
+        )
+
+    # Stora tabellen — gruppera per transformer för läsbarhet
+    by_transformer: dict[str, list] = {}
+    for inv in sorted(inverters, key=lambda m: m.name):
+        by_transformer.setdefault(inv.transformer, []).append(inv)
+
+    transformer_html = ""
+    for ts, ts_inverters in by_transformer.items():
+        ts_total = sum(i.total_energy_kwh for i in ts_inverters)
+        ts_avg_cf = sum(i.avg_capacity_factor_pct for i in ts_inverters if i.days_active > 0)
+        ts_active = sum(1 for i in ts_inverters if i.days_active > 0)
+        ts_avg_cf = (ts_avg_cf / ts_active) if ts_active else 0
+
+        rows_html = ""
+        for inv in ts_inverters:
+            cf = inv.avg_capacity_factor_pct
+            cf_class = "good" if cf >= 15 else ("bad" if cf < 5 else "")
+            inactive = ' class="inactive-row"' if inv.days_active == 0 else ''
+            rows_html += (
+                f'<tr{inactive}>'
+                f'<td>{inv.name}</td>'
+                f'<td class="num">{inv.total_energy_kwh:,.0f}</td>'
+                f'<td class="num">{inv.max_power_kw:.1f}</td>'
+                f'<td class="num">{inv.rated_kw:.0f}</td>'
+                f'<td class="num cf-{cf_class}">{cf:.1f}%</td>'
+                f'<td class="num">{inv.days_active}</td>'
+                f'<td class="rank-cell">#{inv.rank}</td>'
+                f'</tr>'
+            ).replace(",", " ")
+
+        transformer_html += f'''
+        <div class="transformer-group">
+            <div class="ts-header">
+                <strong>{ts}</strong> ({len(ts_inverters)} invertrar)
+                — Total: {ts_total:,.0f} kWh, Avg CF: {ts_avg_cf:.1f}%
+            </div>
+            <table class="inverter-table">
+                <thead><tr>
+                    <th>Inverter</th><th>kWh</th><th>Max kW</th>
+                    <th>Rated</th><th>CF%</th><th>Dagar</th><th>Rank</th>
+                </tr></thead>
+                <tbody>{rows_html}</tbody>
+            </table>
+        </div>
+        '''.replace(",", " ")
+
+    html = f'''<div class="section" id="{_section_id(14)}">
+    <h2 class="section-title">14. Inverter Yield</h2>
+    <div class="kpi-row" style="grid-template-columns: repeat(3, 1fr);">
+        <div class="kpi-card"><div class="kpi-value">{len(inverters)}</div><div class="kpi-label">Totalt invertrar</div></div>
+        <div class="kpi-card"><div class="kpi-value">{total_energy:,.0f}</div><div class="kpi-label">Total energi (kWh)</div></div>
+        <div class="kpi-card"><div class="kpi-value">{avg_cf:.1f}%</div><div class="kpi-label">Snitt capacity factor</div></div>
+    </div>
+    {inactive_warning}
+    <div class="side-by-side">
+        <div class="card">
+            <h3 style="color:{_C['green']}; margin-bottom:12px;">\U0001f3c6 Top 5 b\u00e4sta</h3>
+            {top_table}
+        </div>
+        <div class="card">
+            <h3 style="color:{_C['red']}; margin-bottom:12px;">\u26a0\ufe0f Bottom 5</h3>
+            {bottom_table}
+        </div>
+    </div>
+    <div class="card" style="margin-top:16px;">
+        <h3 style="margin-bottom:12px;">Per transformator-grupp</h3>
+        {transformer_html}
+    </div>
+</div>'''.replace(",", " ")
+
+    return html, ""
 
 
-def _render_ops_placeholders() -> str:
-    """Sektion 17-18: Incident/alarm platshållare (efter PPM)."""
-    placeholders = [
-        (17, "Incidenter &amp; Arbeten", "\U0001f6e0\ufe0f",
-         "Incident- och arbetslogg integreras fr\u00e5n underh\u00e5llssystemet (t.ex. QBO, ServiceNow). Kontakta O&M-teamet f\u00f6r att aktivera."),
-        (18, "Larm &amp; Fel", "\U0001f514",
-         "Larm- och felhistorik integreras fr\u00e5n SCADA-systemet. Kr\u00e4ver API-\u00e5tkomst till larmsystemet. Kontakta systemadministrat\u00f6ren."),
-    ]
-    return "\n".join(_render_placeholder(n, t, i, m) for n, t, i, m in placeholders)
+def _render_inverter_efficiency(report: MonthlyReport) -> tuple[str, str]:
+    """Sektion 15: Inverter Efficiency — multi-line + heatmap."""
+    if not report.has_inverter_data or not report.inverter_daily_lookup:
+        return _render_placeholder(
+            15, "Inverter Efficiency", "\u26a1",
+            "Inverter-niv\u00e5 data saknas. K\u00f6r 'python bazefield_download.py --inverters' f\u00f6r att synka."
+        ), ""
+
+    inverters = sorted(report.inverters, key=lambda m: m.name)
+    daily_lookup = report.inverter_daily_lookup
+
+    # Bestäm antal dagar i månaden
+    import calendar as _cal
+    days_in_month = _cal.monthrange(report.year, report.month)[1]
+    days = list(range(1, days_in_month + 1))
+
+    # Bygg multi-line chart-data — en linje per inverter
+    traces = []
+    for inv in inverters:
+        cf_per_day = []
+        for d in days:
+            day_data = daily_lookup.get(inv.name, {}).get(d)
+            cf_per_day.append(day_data.capacity_factor_pct if day_data else None)
+        traces.append({
+            "x": days,
+            "y": cf_per_day,
+            "name": inv.name,
+            "type": "scatter",
+            "mode": "lines",
+            "line": {"width": 1.5},
+            "showlegend": False,  # För många för legend
+            "hovertemplate": f"{inv.name}<br>Dag %{{x}}: %{{y:.1f}}%<extra></extra>",
+        })
+
+    layout = {
+        "paper_bgcolor": _C["card"],
+        "plot_bgcolor": _C["card"],
+        "font": {"family": "'Segoe UI', system-ui, sans-serif", "size": 11, "color": _C["text"]},
+        "title": {"text": "Daglig Capacity Factor per inverter", "font": {"size": 14}},
+        "xaxis": {"title": "Dag", "dtick": 1, "gridcolor": "#e2e8f0"},
+        "yaxis": {"title": "Capacity Factor (%)", "gridcolor": "#e2e8f0", "rangemode": "tozero"},
+        "height": 420,
+        "margin": {"l": 60, "r": 20, "t": 50, "b": 50},
+    }
+
+    chart_id = "chart-inverter-efficiency"
+    chart_html = f'<div id="{chart_id}" class="chart-container"></div>'
+    script = f"Plotly.newPlot('{chart_id}', {json.dumps(traces)}, {json.dumps(layout)}, {{responsive: true}});"
+
+    # Heatmap-data: rows = invertrar, cols = dagar, values = CF%
+    z_data = []
+    y_labels = []
+    for inv in inverters:
+        row = []
+        for d in days:
+            day_data = daily_lookup.get(inv.name, {}).get(d)
+            row.append(day_data.capacity_factor_pct if day_data else 0)
+        z_data.append(row)
+        y_labels.append(inv.name)
+
+    heatmap_trace = {
+        "z": z_data,
+        "x": days,
+        "y": y_labels,
+        "type": "heatmap",
+        "colorscale": [
+            [0, "#ef4444"],     # Röd (0%)
+            [0.3, "#f59e0b"],   # Amber (~5%)
+            [0.6, "#fbbf24"],   # Gul (~10%)
+            [1.0, "#10b981"],   # Grön (~20%+)
+        ],
+        "zmin": 0,
+        "zmax": 25,
+        "colorbar": {"title": "CF%"},
+        "hovertemplate": "%{y}<br>Dag %{x}: %{z:.1f}%<extra></extra>",
+    }
+
+    heatmap_layout = {
+        "paper_bgcolor": _C["card"],
+        "plot_bgcolor": _C["card"],
+        "font": {"family": "'Segoe UI', system-ui, sans-serif", "size": 10, "color": _C["text"]},
+        "title": {"text": "CF heatmap (dag \u00d7 inverter)", "font": {"size": 14}},
+        "xaxis": {"title": "Dag", "dtick": 1},
+        "yaxis": {"title": "", "automargin": True},
+        "height": max(300, 18 * len(inverters)),
+        "margin": {"l": 130, "r": 20, "t": 50, "b": 50},
+    }
+
+    heatmap_id = "chart-inverter-efficiency-heatmap"
+    heatmap_html = f'<div id="{heatmap_id}" class="chart-container"></div>'
+    heatmap_script = f"Plotly.newPlot('{heatmap_id}', [{json.dumps(heatmap_trace)}], {json.dumps(heatmap_layout)}, {{responsive: true}});"
+
+    html = f'''<div class="section" id="{_section_id(15)}">
+    <h2 class="section-title">15. Inverter Efficiency</h2>
+    <div class="card">
+        {chart_html}
+    </div>
+    <div class="card" style="margin-top:16px;">
+        {heatmap_html}
+    </div>
+</div>'''
+
+    full_script = script + "\n" + heatmap_script
+    return html, full_script
+
+
+def _render_alarm_summary(report: MonthlyReport) -> tuple[str, str]:
+    """Sektion 18: Alarm & Fault Summary."""
+    if not report.has_alarm_data or report.alarm_stats is None:
+        return _render_placeholder(
+            18, "Larm &amp; Fel", "\U0001f514",
+            "Inga alarm-events f\u00f6r denna m\u00e5nad. Antingen k\u00f6r 'python bazefield_download.py --inverters' f\u00f6r att synka, eller s\u00e5 var parken stabil."
+        ), ""
+
+    stats = report.alarm_stats
+
+    # KPI-rad
+    kpi_html = f'''
+    <div class="kpi-row" style="grid-template-columns: repeat(4, 1fr);">
+        <div class="kpi-card"><div class="kpi-value">{stats.total_alarms}</div><div class="kpi-label">Totalt larm</div></div>
+        <div class="kpi-card"><div class="kpi-value">{stats.unique_types}</div><div class="kpi-label">Unika typer</div></div>
+        <div class="kpi-card"><div class="kpi-value">{stats.avg_mtba_hours:.1f}</div><div class="kpi-label">MTBA (timmar)</div></div>
+        <div class="kpi-card"><div class="kpi-value">{stats.active_at_period_end}</div><div class="kpi-label">Aktiva (period-slut)</div></div>
+    </div>
+    '''
+
+    # Daily timeline chart
+    if stats.daily_count:
+        sorted_dates = sorted(stats.daily_count.keys())
+        days_x = [int(d.split("-")[2]) for d in sorted_dates]
+        counts_y = [stats.daily_count[d] for d in sorted_dates]
+
+        timeline_trace = {
+            "x": days_x,
+            "y": counts_y,
+            "type": "bar",
+            "marker": {"color": _C["red"]},
+            "name": "Antal larm",
+        }
+        timeline_layout = {
+            "paper_bgcolor": _C["card"],
+            "plot_bgcolor": _C["card"],
+            "font": {"family": "'Segoe UI', system-ui, sans-serif", "size": 11, "color": _C["text"]},
+            "title": {"text": "Daglig larm-frekvens", "font": {"size": 14}},
+            "xaxis": {"title": "Dag", "dtick": 1, "gridcolor": "#e2e8f0"},
+            "yaxis": {"title": "Antal larm", "gridcolor": "#e2e8f0"},
+            "height": 280,
+            "margin": {"l": 60, "r": 20, "t": 50, "b": 50},
+        }
+
+        timeline_id = "chart-alarm-timeline"
+        timeline_html = f'<div id="{timeline_id}" class="chart-container"></div>'
+        timeline_script = f"Plotly.newPlot('{timeline_id}', [{json.dumps(timeline_trace)}], {json.dumps(timeline_layout)}, {{responsive: true}});"
+    else:
+        timeline_html = ""
+        timeline_script = ""
+
+    # Top alarm types-tabell
+    top_html = '<table class="alarm-table"><thead><tr><th>#</th><th>Larm-typ</th><th>Antal</th><th>Total tid (min)</th></tr></thead><tbody>'
+    for idx, (name, count, dur) in enumerate(stats.top_alarms, 1):
+        top_html += (
+            f'<tr><td>{idx}</td>'
+            f'<td>{name}</td>'
+            f'<td class="num">{count}</td>'
+            f'<td class="num">{dur:,.0f}</td>'
+            f'</tr>'
+        ).replace(",", " ")
+    top_html += '</tbody></table>'
+
+    # Per-inverter breakdown (top 10)
+    sorted_invs = sorted(stats.by_inverter.items(), key=lambda x: x[1], reverse=True)[:10]
+    inv_html = '<table class="alarm-table"><thead><tr><th>Inverter</th><th>Antal larm</th></tr></thead><tbody>'
+    for inv_name, count in sorted_invs:
+        inv_html += f'<tr><td>{inv_name}</td><td class="num">{count}</td></tr>'
+    inv_html += '</tbody></table>'
+
+    # Senaste alarm-detaljer (top 15 för att inte överbelasta)
+    detail_html = '<table class="alarm-detail-table"><thead><tr><th>Tid</th><th>Inverter</th><th>Typ</th><th>Beskrivning</th><th>Tid (min)</th></tr></thead><tbody>'
+    for evt in report.recent_alarms[:15]:
+        time_short = evt.time_start_utc[:16].replace("T", " ")
+        dur_str = f'{evt.duration_min:.0f}' if evt.duration_min > 0 else '\u2014'
+        detail_html += (
+            f'<tr><td>{time_short}</td>'
+            f'<td>{evt.inverter_name}</td>'
+            f'<td>{evt.event_name}</td>'
+            f'<td>{evt.description}</td>'
+            f'<td class="num">{dur_str}</td>'
+            f'</tr>'
+        )
+    detail_html += '</tbody></table>'
+
+    html = f'''<div class="section" id="{_section_id(18)}">
+    <h2 class="section-title">18. Larm &amp; Fel</h2>
+    {kpi_html}
+    <div class="card">
+        {timeline_html}
+    </div>
+    <div class="side-by-side" style="margin-top:16px;">
+        <div class="card">
+            <h3 style="margin-bottom:12px;">Topp larm-typer</h3>
+            {top_html}
+        </div>
+        <div class="card">
+            <h3 style="margin-bottom:12px;">Per inverter (topp 10)</h3>
+            {inv_html}
+        </div>
+    </div>
+    <div class="card" style="margin-top:16px;">
+        <h3 style="margin-bottom:12px;">Senaste larm (max 15)</h3>
+        {detail_html}
+    </div>
+</div>'''
+
+    return html, timeline_script
+
+
+def _render_incidents_placeholder() -> str:
+    """Sektion 17: Incident-platshållare (sektion 14, 15, 18 har egna funktioner nu)."""
+    return _render_placeholder(
+        17, "Incidenter &amp; Arbeten", "\U0001f6e0\ufe0f",
+        "Incident- och arbetslogg integreras fr\u00e5n underh\u00e5llssystemet (t.ex. QBO, ServiceNow). Kontakta O&M-teamet f\u00f6r att aktivera."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1706,9 +2074,18 @@ def render_html(report: MonthlyReport) -> str:
     sec13_html, sec13_script = _render_top5(report)
     all_scripts.append(sec13_script)
 
-    inverter_placeholders_html = _render_inverter_placeholders()
+    sec14_html, sec14_script = _render_inverter_yield(report)
+    all_scripts.append(sec14_script)
+
+    sec15_html, sec15_script = _render_inverter_efficiency(report)
+    all_scripts.append(sec15_script)
+
     ppm_schedule_html = _render_ppm_schedule(report)
-    ops_placeholders_html = _render_ops_placeholders()
+    incidents_html = _render_incidents_placeholder()
+
+    sec18_html, sec18_script = _render_alarm_summary(report)
+    all_scripts.append(sec18_script)
+
     exec_summary_html = _render_executive_summary(report)
 
     # Combine scripts
@@ -1743,9 +2120,11 @@ def render_html(report: MonthlyReport) -> str:
         {sec11_html}
         {sec12_html}
         {sec13_html}
-        {inverter_placeholders_html}
+        {sec14_html}
+        {sec15_html}
         {ppm_schedule_html}
-        {ops_placeholders_html}
+        {incidents_html}
+        {sec18_html}
         {exec_summary_html}
     </div>
     <footer style="text-align:center; padding:20px; color:{_C['muted']}; font-size:12px;">
