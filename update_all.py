@@ -101,6 +101,11 @@ def main():
         help="Skip eSett imbalance prices",
     )
     parser.add_argument(
+        "--skip-nasdaq",
+        action="store_true",
+        help="Skip Nasdaq futures download",
+    )
+    parser.add_argument(
         "--skip-bazefield",
         action="store_true",
         help="Skip Bazefield solar park sync",
@@ -127,7 +132,7 @@ def main():
     print(f"Bazefield key: {'Found' if BAZEFIELD_API_KEY else 'Not found'}")
     print("=" * 60)
 
-    total_steps = 10
+    total_steps = 11
     current_step = 0
     success_count = 0
 
@@ -186,7 +191,19 @@ def main():
         else:
             print("  Failed or no updates needed")
 
-    # Step 4: Update eSett imbalance prices
+    # Step 4: Update Nasdaq futures
+    current_step += 1
+    if args.skip_nasdaq:
+        step(current_step, total_steps, "Nasdaq futures (SKIPPED)")
+    else:
+        step(current_step, total_steps, "Updating Nasdaq Nordic futures")
+        if run_script("nasdaq_download.py", quiet=args.quiet):
+            success_count += 1
+            print("  Done!")
+        else:
+            print("  Failed or no updates needed")
+
+    # Step 5: Update eSett imbalance prices
     current_step += 1
     if args.skip_esett:
         step(current_step, total_steps, "eSett imbalance prices (SKIPPED)")
