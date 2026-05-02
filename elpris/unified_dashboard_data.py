@@ -29,32 +29,13 @@ PARK_KEYS: List[str] = [
 ]
 
 
-def _empty_market() -> Dict[str, Any]:
-    """Tom market-struktur när dashboard_v2_data inte kan beräknas
-    (t.ex. på grund av datafel eller saknade källor).
-    """
-    return {
-        "zones": [],
-        "profiles": {},
-        "colors": {},
-        "data": {},
-    }
-
-
 def _build_market_section() -> Dict[str, Any]:
     """Hämta marknadsdata från dashboard_v2_data.
 
     Returnerar dict med zones, profiles, colors, data, validation,
-    heatmap, operations, forward (om tillgängligt) m.fl. Vid fel i
-    underliggande beräkning returneras en tom struktur så att unified
-    builder fortfarande är användbar.
+    heatmap, operations, forward (om tillgängligt) m.fl.
     """
-    try:
-        return calculate_dashboard_v2_data()
-    except Exception as exc:
-        # Logga men låt bygget fortsätta — bättre med partial data än crash.
-        print(f"[unified_dashboard] market beräkning misslyckades: {exc}")
-        return _empty_market()
+    return calculate_dashboard_v2_data()
 
 
 def _build_meta_section(market: Dict[str, Any]) -> Dict[str, Any]:
