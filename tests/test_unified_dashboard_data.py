@@ -148,3 +148,18 @@ def test_assets_tracker_gain_exists():
     assert isinstance(tg, dict)
     assert "monthly" in tg
     assert isinstance(tg["monthly"], list)
+
+
+# ---------------------------------------------------------------------------
+# Task 1.7 — smoke test
+# ---------------------------------------------------------------------------
+
+def test_build_unified_data_no_errors_and_serializable():
+    """build_unified_data() ska inte krascha och resultatet ska gå att
+    serialisera till JSON med default=str (för date/datetime-objekt).
+    """
+    data = build_unified_data()
+    serialized = json.dumps(data, default=str)
+    assert len(serialized) > 1000, (
+        f"Förväntade > 1000 tecken JSON, fick {len(serialized)}"
+    )
