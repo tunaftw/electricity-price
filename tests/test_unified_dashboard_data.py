@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -107,6 +108,21 @@ def test_assets_fleet_section_exists():
     for field in ("latest_month", "park_count", "total_capacity_mwp",
                   "total_energy_mwh", "vs_budget_pct"):
         assert field in fleet, f"fleet saknar fält: {field}"
+
+
+def test_assets_fleet_latest_month_is_yyyy_mm_string():
+    """fleet.latest_month ska vara en sträng på formen 'YYYY-MM'."""
+    fleet = _data()["assets"]["fleet"]
+    latest = fleet["latest_month"]
+    # Endast None tillåts om ingen park har data alls
+    if latest is None:
+        return
+    assert isinstance(latest, str), (
+        f"latest_month måste vara str, fick {type(latest).__name__}"
+    )
+    assert re.match(r"^\d{4}-\d{2}$", latest), (
+        f"latest_month måste matcha 'YYYY-MM', fick {latest!r}"
+    )
 
 
 def test_assets_fleet_park_count_matches():

@@ -259,7 +259,7 @@ def _build_fleet_overview(parks: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
         vs_budget = round((total_energy / total_budget - 1.0) * 100.0, 1)
 
     return {
-        "latest_month": {"year": year, "month": month},
+        "latest_month": f"{year}-{month:02d}",
         "park_count": park_count,
         "total_capacity_mwp": round(total_capacity, 3),
         "total_energy_mwh": round(total_energy, 2),
