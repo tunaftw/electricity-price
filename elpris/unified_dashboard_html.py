@@ -798,90 +798,136 @@ def _merge_data(unified: dict) -> dict:
     return merged
 
 
+def _replace_or_fail(html: str, old: str, new: str, context: str) -> str:
+    """Single-shot string replace that raises if the pattern is missing.
+
+    The Track A renderer is a stack of brittle surgical patches against the
+    rendered v2 HTML. If v2 ever changes a snippet we patch, ``str.replace``
+    silently no-ops and the bug surfaces only when a user opens the dashboard
+    and finds a missing tab. Wrapping every patch in this helper turns those
+    silent failures into a loud RuntimeError at generation time.
+    """
+    if old not in html:
+        raise RuntimeError(
+            f"v2 patch failed at {context}: pattern not found "
+            f"(dashboard_v2 markup likely changed)"
+        )
+    return html.replace(old, new, 1)
+
+
 def _patch_v2_html(html: str) -> str:
     """Apply the surgical edits that turn dashboard_v2 into the unified Track A."""
 
     # 0. Inject ASSETS CSS just before </style>
-    html = html.replace("</style>", ASSETS_CSS + "\n</style>", 1)
+    html = _replace_or_fail(html, "</style>", ASSETS_CSS + "\n</style>", "inject ASSETS CSS")
 
     # 1. Update <title>
-    html = html.replace(
+    html = _replace_or_fail(
+        html,
         "<title>Elpris Dashboard v2</title>",
         "<title>Elpris Unified Dashboard</title>",
-        1,
+        "rename <title>",
     )
 
     # 2. Topbar: rename OPERATIONS tab → ASSETS
-    html = html.replace(
+    html = _replace_or_fail(
+        html,
         '<div class="topbar-title dash-tab" id="tab-operations" onclick="switchDashboard(\'operations\')" style="cursor:pointer"><span>ELPRIS</span> OPERATIONS</div>',
         '<div class="topbar-title dash-tab" id="tab-assets" onclick="switchDashboard(\'assets\')" style="cursor:pointer"><span>ELPRIS</span> ASSETS</div>',
-        1,
+        "rename topbar OPERATIONS tab",
     )
 
     # 3. Sidebar block — rename operations-sidebar to assets-sidebar (kept hidden)
-    html = html.replace(
+    html = _replace_or_fail(
+        html,
         '<aside class="sidebar" id="operations-sidebar" style="display:none"></aside>',
         '<aside class="sidebar" id="assets-sidebar" style="display:none"></aside>',
-        1,
+        "rename operations-sidebar",
     )
 
     # 4. Replace the entire "<!-- Operations sections -->" block (operations-view div)
     # with the new ASSETS view.
     ops_open = '<!-- Operations sections -->'
     end_marker = '</div>\n        </div>\n    </main>'  # closes operations-view + main wrapper
-    if ops_open in html:
-        before, _, rest = html.partition(ops_open)
-        end_idx = rest.find(end_marker)
-        if end_idx != -1:
-            after = '</div>\n    </main>' + rest[end_idx + len(end_marker):]
-            html = (
-                before
-                + '<!-- ASSETS sections -->\n        '
-                + ASSETS_VIEW_HTML
-                + '\n        '
-                + after
-            )
+    if ops_open not in html:
+        raise RuntimeError(
+            "v2 patch failed at swap operations-view: '<!-- Operations sections -->' not found"
+        )
+    before, _, rest = html.partition(ops_open)
+    end_idx = rest.find(end_marker)
+    if end_idx == -1:
+        raise RuntimeError(
+            "v2 patch failed at swap operations-view: end_marker for operations-view not found"
+        )
+    after = '</div>\n    </main>' + rest[end_idx + len(end_marker):]
+    html = (
+        before
+        + '<!-- ASSETS sections -->\n        '
+        + ASSETS_VIEW_HTML
+        + '\n        '
+        + after
+    )
 
     # 5. switchDashboard JS — operates on rendered HTML (single braces).
-    html = html.replace(
+    html = _replace_or_fail(
+        html,
         "['capture', 'bess', 'futures', 'operations'].forEach(t => {",
         "['capture', 'bess', 'futures', 'assets'].forEach(t => {",
-        1,
+        "switchDashboard tab list",
     )
-    html = html.replace(
+    html = _replace_or_fail(
+        html,
         "document.getElementById('operations-view').style.display = which === 'operations' ? '' : 'none';",
         "document.getElementById('assets-view').style.display = which === 'assets' ? '' : 'none';",
-        1,
+        "switchDashboard view toggle",
     )
-    html = html.replace(
+    html = _replace_or_fail(
+        html,
         "document.getElementById('operations-sidebar').style.display = which === 'operations' ? '' : 'none';",
         "document.getElementById('assets-sidebar').style.display = which === 'assets' ? '' : 'none';",
-        1,
+        "switchDashboard sidebar toggle",
     )
     # Disable the now-stale ops-sidebar init (assets-sidebar is empty)
-    html = html.replace(
+    html = _replace_or_fail(
+        html,
         "if (which === 'operations' && !state.ops_initialized) {",
         "if (false /* assets tab no longer uses ops sidebar */) {",
-        1,
+        "neuter ops-sidebar init",
     )
 
     # 6. render() dispatcher — point 'assets' to renderAssets()
-    html = html.replace(
+    html = _replace_or_fail(
+        html,
         "} else if (state.dashboard === 'operations') {",
         "} else if (state.dashboard === 'assets') {",
-        1,
+        "render() dispatcher branch",
     )
-    html = html.replace(
+    html = _replace_or_fail(
+        html,
         "        renderOperations();\n    } else {\n        renderForwardCurve();",
         "        renderAssets();\n    } else {\n        renderForwardCurve();",
-        1,
+        "render() operations -> assets call",
     )
 
     # 7. Inject the ASSETS_JS block just before the GO marker
-    html = html.replace(
+    html = _replace_or_fail(
+        html,
         "// ================================================================\n// GO\n// ================================================================",
         ASSETS_JS + "\n\n// ================================================================\n// GO\n// ================================================================",
-        1,
+        "inject ASSETS_JS",
+    )
+
+    # 8. Neuter the inherited renderOperations() body — the dispatcher above
+    # no longer calls it, but the function and its four ~40-line helpers
+    # (renderSpecificYield/renderNegativePrice/renderTrackerGain/renderMeterLoss)
+    # are still emitted as ~240 lines of dead JS. Replace just the entry point
+    # so any stray caller fails loudly; the helpers themselves become
+    # unreachable and any reasonable minifier strips them.
+    html = _replace_or_fail(
+        html,
+        "function renderOperations() {\n    const OPS = DATA.operations;",
+        "function renderOperations() {\n    /* Track A: operations tab replaced by assets — see renderAssets(). */\n    return;\n    /* eslint-disable */\n    const OPS = DATA.operations;",
+        "neuter dead renderOperations()",
     )
 
     return html
