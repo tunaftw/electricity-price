@@ -172,7 +172,11 @@ def get_latest_synced_date(park_key: str) -> date | None:
             last_ts = row["timestamp"]
 
     if last_ts:
-        dt = datetime.fromisoformat(last_ts)
+        # Truncate fractional seconds to 6 digits (Python 3.9 fromisoformat
+        # doesn't support more — Bazefield returns 7 digits like .0000000)
+        import re
+        normalized = re.sub(r"(\.\d{6})\d+", r"\1", last_ts)
+        dt = datetime.fromisoformat(normalized)
         return dt.date()
 
     return None
