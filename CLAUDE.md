@@ -24,7 +24,10 @@ electricity-price/
 │   ├── park_product_data.py   # Source of truth: produktdata från SharePoint (Cowork-extrakt)
 │   ├── park_config.py         # Parkmetadata + budget (läser från park_product_data)
 │   ├── performance_report_data.py  # KPI-beräkningar för månadsrapport
-│   └── performance_report_html.py  # HTML-rendering av månadsrapport
+│   ├── performance_report_html.py  # HTML-rendering av månadsrapport
+│   ├── unified_dashboard_data.py   # NY: aggregerar all data till JSON
+│   ├── unified_dashboard_html.py   # NY: Track A renderer — Bloomberg-dark
+│   └── unified_dashboard_v3_html.py  # NY: Track C renderer — Nordic Editorial
 ├── Resultat/                  # All nedladdad data och analyser (se nedan)
 ├── data/                      # Symlinks till Resultat/ för bakåtkompatibilitet
 ├── docs/                      # Dokumentation
@@ -41,7 +44,8 @@ electricity-price/
 ├── nasdaq_download.py         # Ladda ner elfutures (Nasdaq)
 ├── installed_download.py      # Ladda ner installerad kapacitet
 ├── generate_dashboard.py      # Generera HTML-dashboard (Plotly.js)
-└── generate_performance_report.py  # Generera månadsrapport per park (HTML)
+├── generate_performance_report.py  # Generera månadsrapport per park (HTML)
+└── generate_unified_dashboard.py   # NY: entrypoint för unified dashboard (Track A + C)
 ```
 
 ## Datakatalog
@@ -97,6 +101,8 @@ Resultat/
 │
 ├── sol-kalldata/                    # Råa PVsyst-dokument
 ├── rapporter/                       # Analysrapporter och Excel-filer
+│   ├── dashboard_unified_YYYYMMDD.html     # Track A — Bloomberg-dark
+│   └── dashboard_unified_v3_YYYYMMDD.html  # Track C — Nordic Editorial
 ├── BESS-PV-Vind-Baseload-PPA/       # Komplett analysproject
 ├── historik-nordpool/               # Duplicerad historisk data
 └── presentationer/                  # PowerPoint-generering
@@ -263,6 +269,19 @@ python3 generate_dashboard.py
 ```
 Skapar en fristående HTML-fil i `Resultat/rapporter/dashboard_elpris_YYYYMMDD.html` med Plotly.js-grafer. Visar baseload och capture prices per zon och solprofil.
 
+### Generera unified dashboard
+```bash
+python3 generate_unified_dashboard.py            # båda spår
+python3 generate_unified_dashboard.py --track A  # bara Bloomberg-dark
+python3 generate_unified_dashboard.py --track C  # bara Nordic Editorial
+```
+Skapar fristående HTML-dashboards i `Resultat/rapporter/`:
+- `dashboard_unified_YYYYMMDD.html` — Track A (Bloomberg-dark)
+- `dashboard_unified_v3_YYYYMMDD.html` — Track C (Nordic Editorial)
+
+Båda spåren har 4 flikar: **CAPTURE**, **BESS**, **FUTURES**, **ASSETS**. Data aggregeras
+av `elpris/unified_dashboard_data.py` och renderas av respektive HTML-modul.
+
 ### Generera månadsrapport per park
 ```bash
 # En park, specifik månad
@@ -363,7 +382,7 @@ Från 1 oktober 2025 övergår den svenska elmarknaden till 15-minutersupplösni
 Projektet har slash commands i `.claude/commands/`:
 
 ### Master Update (rekommenderad)
-- `/elpris-update-all` - **Kör hela uppdateringskedjan** (data + beräkningar + Excel)
+- `/elpris-update-all` - **Kör hela uppdateringskedjan** (12 steg: data + beräkningar + Excel + unified dashboard; lägg till `--reports` för att även generera per-park månadsrapport)
 
 ### Datakällor
 - `/elpris-download` - Ladda ner spotpriser (full historik)
@@ -378,6 +397,8 @@ Projektet har slash commands i `.claude/commands/`:
 - `/elpris-status` - Visa datastatus
 - `/elpris-capture` - Beräkna capture prices
 - `/elpris-excel` - Generera Excel-rapporter
+- `/elpris-dashboard` - Generera unified dashboard (Track A + Track C)
+- `/elpris-reports` - Generera per-park månadsrapport (alla 8 parker)
 
 ## Beroenden
 
@@ -497,6 +518,9 @@ CSV-filer migreras automatiskt från gammalt format vid nästa synk.
 - [x] mFRR energiaktivering (Mimer)
 - [x] Operations Dashboard Fas 1
 - [x] Månadsrapport per park (HTML, 19 sektioner, MVP + platshållare)
+- [x] Unified dashboard (Track A + Track C, 4 flikar: CAPTURE/BESS/FUTURES/ASSETS)
+- [ ] Migrera till hosted version med autentisering (Vercel/Netlify privat)
+- [ ] Välja vinnande spår (A vs C) och deprecera den andra
 - [ ] Månadsrapport: SCADA-integration (inverter-nivå, alarm/fault)
 - [ ] Månadsrapport: Bazefield re-synk med utökat format (POA, availability)
 - [ ] Automatisk daglig uppdatering
