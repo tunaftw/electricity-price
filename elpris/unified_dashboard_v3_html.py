@@ -437,6 +437,49 @@ select:focus, input:focus { outline: none; border-color: var(--accent-deep); box
 }
 .label-control select { padding: 5px 28px 5px 10px; font-size: var(--fs-sm); font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--ink-1); }
 
+/* time-window range bar (above grid-2 charts) */
+.range-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface-raised);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-rest);
+  margin-bottom: var(--sp-5);
+  flex-wrap: wrap;
+}
+.range-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--ink-3);
+}
+.range-nav button {
+  padding: 5px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  color: var(--ink-1);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  border: 1px solid transparent;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+.range-nav button:hover:not(:disabled) { background: var(--surface-base); border-color: var(--ink-5); }
+.range-nav button:disabled { opacity: 0.35; cursor: not-allowed; }
+.range-nav .range-arrow { padding: 5px 12px; font-size: 14px; line-height: 1; }
+.range-label {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: var(--fs-xs);
+  color: var(--ink-2);
+  letter-spacing: 0.04em;
+  min-width: 18ch;
+  text-align: center;
+}
+
 /* card */
 .card {
   background: var(--surface-raised);
@@ -1047,7 +1090,121 @@ var CAPTURE_STATE = {
     zone: null,
     period: 'monthly',     // 'yearly' | 'monthly' | 'daily'
     profiles: ['baseload', 'sol_syd'],
+    range: 'all',          // 'all' | '10y' | '5y' | '2y' | '1y' | '6m' | '3m' | '1m'
+    rangeEnd: null,        // epoch ms anchor for window end; null = follow latest data
 };
+var CAPTURE_RANGE_OPTIONS = {
+    yearly:  ['all', '10y', '5y'],
+    monthly: ['all', '5y', '2y', '1y', '6m'],
+    daily:   ['all', '1y', '6m', '3m', '1m'],
+};
+var CAPTURE_RANGE_LABELS = { all:'All', '10y':'10Y', '5y':'5Y', '2y':'2Y', '1y':'1Y', '6m':'6M', '3m':'3M', '1m':'1M' };
+var CAPTURE_RANGE_MONTHS = { '10y':120, '5y':60, '2y':24, '1y':12, '6m':6, '3m':3, '1m':1 };
+
+function captureRowDate(r, period) {
+    if (period === 'yearly')  return new Date(Date.UTC(r.year, 6, 1));
+    if (period === 'monthly') return new Date(Date.UTC(r.year, r.month - 1, 15));
+    var p = String(r.date).split('-');
+    return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2]));
+}
+function captureLatestDateMs() {
+    var z = (DATA.data && DATA.data[CAPTURE_STATE.zone]) || {};
+    var period = CAPTURE_STATE.period;
+    var maxMs = null;
+    CAPTURE_STATE.profiles.forEach(function(k) {
+        var rows = z[k] && z[k][period];
+        if (!rows || !rows.length) return;
+        var ms = captureRowDate(rows[rows.length - 1], period).getTime();
+        if (maxMs == null || ms > maxMs) maxMs = ms;
+    });
+    return maxMs;
+}
+function captureCurrentWindow() {
+    if (CAPTURE_STATE.range === 'all') return null;
+    var months = CAPTURE_RANGE_MONTHS[CAPTURE_STATE.range];
+    if (!months) return null;
+    var latestMs = captureLatestDateMs();
+    if (latestMs == null) return null;
+    var endMs = CAPTURE_STATE.rangeEnd != null ? CAPTURE_STATE.rangeEnd : latestMs;
+    if (endMs > latestMs) endMs = latestMs;
+    var endDate = new Date(endMs);
+    var startDate = new Date(endDate);
+    startDate.setUTCMonth(startDate.getUTCMonth() - months);
+    return { startMs: startDate.getTime(), endMs: endMs, months: months, atLatest: endMs === latestMs };
+}
+function captureSliceRows(rows, period, win) {
+    if (!win) return rows;
+    return rows.filter(function(r) {
+        var ms = captureRowDate(r, period).getTime();
+        return ms >= win.startMs && ms <= win.endMs;
+    });
+}
+function captureWindowLabel(win) {
+    if (!win) return 'All time';
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var fmt = function(ms) { var d = new Date(ms); return months[d.getUTCMonth()] + ' ' + d.getUTCFullYear(); };
+    return fmt(win.startMs) + ' – ' + fmt(win.endMs);
+}
+function captureNavRange(direction) {
+    var months = CAPTURE_RANGE_MONTHS[CAPTURE_STATE.range];
+    if (!months) return;
+    var latestMs = captureLatestDateMs();
+    if (latestMs == null) return;
+    var endMs = CAPTURE_STATE.rangeEnd != null ? CAPTURE_STATE.rangeEnd : latestMs;
+    var d = new Date(endMs);
+    d.setUTCMonth(d.getUTCMonth() + direction * months);
+    var newEnd = d.getTime();
+    if (newEnd > latestMs) newEnd = latestMs;
+    CAPTURE_STATE.rangeEnd = newEnd;
+    renderCaptureRangeBar();
+    renderCaptureChart();
+    renderCaptureRatioChart();
+}
+function renderCaptureRangeBar() {
+    var period = CAPTURE_STATE.period;
+    var opts = CAPTURE_RANGE_OPTIONS[period] || ['all'];
+    if (opts.indexOf(CAPTURE_STATE.range) === -1) {
+        CAPTURE_STATE.range = 'all';
+        CAPTURE_STATE.rangeEnd = null;
+    }
+    var rangeHtml = opts.map(function(r) {
+        return '<button type="button" data-range="' + r + '" aria-pressed="' + (r === CAPTURE_STATE.range) + '">' + CAPTURE_RANGE_LABELS[r] + '</button>';
+    }).join('');
+    el('capture-range').innerHTML = rangeHtml;
+    el('capture-range').querySelectorAll('button').forEach(function(b) {
+        b.onclick = function() {
+            CAPTURE_STATE.range = b.dataset.range;
+            CAPTURE_STATE.rangeEnd = null;
+            renderCaptureRangeBar();
+            renderCaptureChart();
+            renderCaptureRatioChart();
+        };
+    });
+    var win = captureCurrentWindow();
+    var nav = el('capture-range-nav');
+    var prev = el('capture-range-prev');
+    var next = el('capture-range-next');
+    var now  = el('capture-range-now');
+    var label = el('capture-range-label');
+    if (!win) {
+        nav.style.visibility = 'hidden';
+        label.textContent = 'All time';
+    } else {
+        nav.style.visibility = 'visible';
+        label.textContent = captureWindowLabel(win) + (win.atLatest ? ' · latest' : '');
+        prev.onclick = function() { captureNavRange(-1); };
+        next.onclick = function() { captureNavRange(+1); };
+        now.onclick  = function() {
+            CAPTURE_STATE.rangeEnd = null;
+            renderCaptureRangeBar();
+            renderCaptureChart();
+            renderCaptureRatioChart();
+        };
+        next.disabled = !!win.atLatest;
+        now.disabled  = !!win.atLatest;
+    }
+}
+
 var CAPTURE_PROFILE_GROUPS = [
     { label: 'Reference', keys: ['baseload'] },
     { label: 'Solar PV',  keys: ['sol_syd', 'sol_ov', 'sol_tracker'] },
@@ -1080,7 +1237,11 @@ function renderCapture() {
         b.onclick = function() { CAPTURE_STATE.zone = b.dataset.zone; renderCapture(); };
     });
     el('capture-period').querySelectorAll('button').forEach(function(b) {
-        b.onclick = function() { CAPTURE_STATE.period = b.dataset.period; renderCapture(); };
+        b.onclick = function() {
+            CAPTURE_STATE.period = b.dataset.period;
+            CAPTURE_STATE.rangeEnd = null;  // reset window anchor when granularity changes
+            renderCapture();
+        };
     });
 
     // Build profile checkboxes by group
@@ -1112,6 +1273,7 @@ function renderCapture() {
 
     // KPI strip — latest baseload + each chosen profile latest capture
     renderCaptureKPIs();
+    renderCaptureRangeBar();
     renderCaptureChart();
     renderCaptureRatioChart();
     renderHeatmap();
@@ -1168,13 +1330,14 @@ function renderCaptureChart() {
     var zone = CAPTURE_STATE.zone;
     var z = (DATA.data && DATA.data[zone]) || {};
     var period = CAPTURE_STATE.period;
+    var win = captureCurrentWindow();
     var traces = [];
     var unit = 'EUR/MWh';
 
     CAPTURE_STATE.profiles.forEach(function(k) {
         var p = z[k];
         if (!p || !p[period]) return;
-        var rows = p[period];
+        var rows = captureSliceRows(p[period], period, win);
         var xs = rows.map(function(r) {
             if (period === 'yearly')  return String(r.year);
             if (period === 'monthly') return r.year + '-' + String(r.month).padStart(2, '0');
@@ -1184,16 +1347,25 @@ function renderCaptureChart() {
         var meta = (DATA.profile_meta && DATA.profile_meta[k]) || {};
         var color = profileColor(k);
         var label = (DATA.profiles && DATA.profiles[k]) || k;
-        traces.push({
+        var isBaseload = k === 'baseload';
+        var trace = {
             x: xs,
             y: ys,
             name: label,
             mode: period === 'daily' ? 'lines' : 'lines+markers',
             type: 'scatter',
-            line: { width: k === 'baseload' ? 2.5 : 1.8, color: color, shape: 'spline' },
+            line: { width: isBaseload ? 2.5 : 1.8, color: color, shape: 'spline' },
             marker: { size: period === 'daily' ? 0 : 5, color: color },
-            hovertemplate: '%{x}<br>' + htmlEsc(label) + ': <b>%{y:.1f}</b> ' + (meta.unit || unit) + '<extra></extra>',
-        });
+        };
+        if (isBaseload) {
+            trace.hovertemplate = '%{x}<br>' + htmlEsc(label) + ': <b>%{y:.1f}</b> ' + (meta.unit || unit) + '<extra></extra>';
+        } else {
+            trace.customdata = rows.map(function(r) {
+                return r.ratio != null ? '  ·  <b>' + (r.ratio * 100).toFixed(1) + '%</b> of baseload' : '';
+            });
+            trace.hovertemplate = '%{x}<br>' + htmlEsc(label) + ': <b>%{y:.1f}</b> ' + (meta.unit || unit) + '%{customdata}<extra></extra>';
+        }
+        traces.push(trace);
     });
 
     if (!traces.length) {
@@ -1212,11 +1384,12 @@ function renderCaptureRatioChart() {
     var zone = CAPTURE_STATE.zone;
     var z = (DATA.data && DATA.data[zone]) || {};
     var period = CAPTURE_STATE.period;
+    var win = captureCurrentWindow();
     var traces = [];
     CAPTURE_STATE.profiles.filter(function(k) { return k !== 'baseload'; }).forEach(function(k) {
         var p = z[k];
         if (!p || !p[period]) return;
-        var rows = p[period];
+        var rows = captureSliceRows(p[period], period, win);
         var xs = rows.map(function(r) {
             if (period === 'yearly')  return String(r.year);
             if (period === 'monthly') return r.year + '-' + String(r.month).padStart(2, '0');
@@ -2520,6 +2693,16 @@ _SHELL = r"""<!DOCTYPE html>
             </div>
           </div>
           <div id="capture-profiles"></div>
+        </div>
+
+        <div class="range-bar" id="capture-range-bar">
+          <span class="label-control">Range <div class="seg" id="capture-range"></div></span>
+          <span class="range-nav" id="capture-range-nav">
+            <button type="button" class="range-arrow" id="capture-range-prev" aria-label="Previous window">‹</button>
+            <span class="range-label" id="capture-range-label">All time</span>
+            <button type="button" class="range-arrow" id="capture-range-next" aria-label="Next window">›</button>
+            <button type="button" id="capture-range-now">Latest</button>
+          </span>
         </div>
 
         <div class="grid-2">
