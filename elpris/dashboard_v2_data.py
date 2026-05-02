@@ -173,7 +173,10 @@ def load_park_actual_data(
             # Convert to UTC for consistency with spot prices
             ts_utc = ts.astimezone(UTC_TZ)
             date_key = ts_utc.strftime("%Y-%m-%d")
-            hourly_values[date_key][ts_utc.hour].append(float(row["power_mw"]))
+            # Empty power_mw cells represent missing meter data —
+            # treat as 0 (same convention as operations_dashboard_data).
+            power = float(row.get("power_mw") or 0)
+            hourly_values[date_key][ts_utc.hour].append(power)
 
     # Average 15-min values to hourly
     result: dict[str, dict[int, float]] = {}
