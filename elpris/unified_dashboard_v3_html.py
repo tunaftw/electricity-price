@@ -1584,27 +1584,38 @@ function renderForwardTable(fwd) {
         var z = (sys != null && epad != null) ? sys + epad : null;
         return { label: c.label, type: c.type, start: c.start, end: c.end, sys: sys, epad: epad, zone: z };
     });
+    rows.sort(function(a, b) { return (a.start || '').localeCompare(b.start || ''); });
+
     var head = '<thead><tr>' +
         '<th>Contract</th>' +
-        '<th>Type</th>' +
         '<th>Start</th>' +
         '<th>End</th>' +
         '<th class="num">SYS</th>' +
         '<th class="num">EPAD ' + zone + '</th>' +
         '<th class="num">Implied ' + zone + '</th>' +
         '</tr></thead>';
-    var body = '<tbody>' + rows.map(function(r) {
+    function rowHtml(r) {
         return '<tr>' +
             '<td>' + htmlEsc(r.label) + '</td>' +
-            '<td>' + htmlEsc(r.type) + '</td>' +
             '<td class="muted">' + htmlEsc(r.start || '') + '</td>' +
             '<td class="muted">' + htmlEsc(r.end || '') + '</td>' +
             '<td class="num">' + fmtNum(r.sys, 2) + '</td>' +
             '<td class="num">' + fmtNum(r.epad, 2) + '</td>' +
             '<td class="num"><b>' + fmtNum(r.zone, 2) + '</b></td>' +
             '</tr>';
-    }).join('') + '</tbody>';
-    el('futures-table').innerHTML = head + body;
+    }
+    function buildBody(filteredRows) {
+        if (!filteredRows.length) {
+            return '<tbody><tr><td colspan="6" class="muted" style="text-align:center;padding:24px">No active contracts.</td></tr></tbody>';
+        }
+        return '<tbody>' + filteredRows.map(rowHtml).join('') + '</tbody>';
+    }
+
+    var quarterRows = rows.filter(function(r) { return r.type === 'quarter'; });
+    var yearRows = rows.filter(function(r) { return r.type === 'year'; });
+
+    el('futures-table-quarter').innerHTML = head + buildBody(quarterRows);
+    el('futures-table-year').innerHTML = head + buildBody(yearRows);
 }
 
 
@@ -1857,6 +1868,8 @@ function tableRows(monthKey) {
             vs_budget_pct: m ? m.vs_budget_pct : null,
             ytd_mwh: ytdSum(p, monthKey),
             yield_kwh_kwp: m ? m.yield_kwh_kwp : null,
+            actual_irr_kwh_m2: m ? m.actual_irr_kwh_m2 : null,
+            vs_budget_irr_pct: m ? m.vs_budget_irr_pct : null,
         };
     });
 }
@@ -1878,8 +1891,10 @@ function renderParkTable(monthKey) {
         { k: 'capacity_mwp',  label: 'Cap MWp',         fmt: function(v) { return fmtNum(v, 2); }, cls: 'num' },
         { k: 'energy_mwh',    label: 'MWh (latest)',    fmt: function(v) { return fmtNum(v, 0); }, cls: 'num' },
         { k: 'vs_budget_pct', label: 'vs Budget',       fmt: function(v) { if (v == null) return '–'; var c = vsClass(v); return '<span class="pill ' + c + '">' + fmtPct(v) + '</span>'; }, cls: 'num', html: true },
-        { k: 'ytd_mwh',       label: 'YTD MWh',         fmt: function(v) { return fmtNum(v, 0); }, cls: 'num' },
-        { k: 'yield_kwh_kwp', label: 'Yield kWh/kWp',   fmt: function(v) { return fmtNum(v, 1); }, cls: 'num' },
+        { k: 'ytd_mwh',          label: 'YTD MWh',         fmt: function(v) { return fmtNum(v, 0); }, cls: 'num' },
+        { k: 'actual_irr_kwh_m2', label: 'Irr (kWh/m²)',   fmt: function(v) { return fmtNum(v, 1); }, cls: 'num' },
+        { k: 'vs_budget_irr_pct', label: 'vs Bdg',         fmt: function(v) { if (v == null) return '–'; var c = vsClass(v); return '<span class="pill ' + c + '">' + fmtPct(v) + '</span>'; }, cls: 'num', html: true },
+        { k: 'yield_kwh_kwp',    label: 'Yield kWh/kWp',   fmt: function(v) { return fmtNum(v, 1); }, cls: 'num' },
     ];
     var head = '<thead><tr>' + cols.map(function(c) {
         var sortAttr = (c.k === sk) ? (dir > 0 ? 'ascending' : 'descending') : 'none';
@@ -1915,10 +1930,10 @@ function renderParkTable(monthKey) {
 
 function exportParkCsv() {
     var monthKey = activeMonthKey();
-    var header = ['Park','Zone','Capacity_MWp','Energy_MWh_' + monthKey,'vs_Budget_pct','YTD_MWh','Yield_kWh_kWp'];
+    var header = ['Park','Zone','Capacity_MWp','Energy_MWh_' + monthKey,'vs_Budget_pct','YTD_MWh','Irr_kWh_m2','vs_Budget_Irr_pct','Yield_kWh_kWp'];
     var rows = [header];
     tableRows(monthKey).forEach(function(r) {
-        rows.push([r.name, r.zone, r.capacity_mwp, r.energy_mwh, r.vs_budget_pct, r.ytd_mwh, r.yield_kwh_kwp]);
+        rows.push([r.name, r.zone, r.capacity_mwp, r.energy_mwh, r.vs_budget_pct, r.ytd_mwh, r.actual_irr_kwh_m2, r.vs_budget_irr_pct, r.yield_kwh_kwp]);
     });
     var csv = rows.map(function(r) {
         return r.map(function(c) {
@@ -2025,10 +2040,28 @@ function renderDrilldown() {
     var vsTile = '<div class="kpi"><div class="kpi-label">vs Budget</div><div class="kpi-value">' +
         (m && m.vs_budget_pct != null ? fmtPct(m.vs_budget_pct) : '–') + '</div><div class="kpi-sub">' + pillHtml + '</div></div>';
 
+    // POA Irradiation tile (actual + vs budget colored pill)
+    var irrTile;
+    if (m && m.actual_irr_kwh_m2 != null) {
+        var irrSubHtml;
+        if (m.vs_budget_irr_pct != null) {
+            irrSubHtml = '<span class="pill ' + vsClass(m.vs_budget_irr_pct) + '">' + fmtPct(m.vs_budget_irr_pct) + '</span>';
+        } else {
+            irrSubHtml = '<span class="pill neutral">vs Budget –</span>';
+        }
+        irrTile = '<div class="kpi"><div class="kpi-label">POA Irradiation</div>' +
+            '<div><span class="kpi-value">' + fmtNum(m.actual_irr_kwh_m2, 1) + '</span><span class="kpi-unit">kWh/m²</span></div>' +
+            '<div class="kpi-sub">' + irrSubHtml + '</div></div>';
+    } else {
+        irrTile = '<div class="kpi" style="opacity:0.55"><div class="kpi-label">POA Irradiation</div>' +
+            '<div class="kpi-value">—</div><div class="kpi-sub">no data</div></div>';
+    }
+
     var tiles = [
         kpiTile('Energy', m ? fmtNum(m.energy_mwh, 0) : '–', 'MWh', monthKey || ''),
         vsTile,
         kpiTile('Yield', m ? fmtNum(m.yield_kwh_kwp, 1) : '–', 'kWh/kWp', ''),
+        irrTile,
         kpiTile('Capture · ' + (p.zone || ''), captureZone != null ? fmtNum(captureZone, 1) : '–', 'EUR/MWh', ''),
         kpiTile('Negative-price h', m && m.neg_price_hours != null ? fmtNum(m.neg_price_hours, 0) : '–', 'h', m && m.neg_price_volume_mwh != null ? fmtNum(m.neg_price_volume_mwh, 0) + ' MWh forgone' : ''),
         trackerTile,
@@ -2323,12 +2356,22 @@ _SHELL = r"""<!DOCTYPE html>
           <div class="chart" id="futures-epad-chart"></div>
         </div>
 
-        <div class="card">
-          <div class="card-head">
-            <div><div class="card-title">Contract table</div><div class="card-sub">Active forwards and their components.</div></div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head">
+              <div><div class="card-title">Quarterly forwards</div><div class="card-sub">Active quarter contracts and their components.</div></div>
+            </div>
+            <div style="overflow-x:auto">
+              <table class="editorial" id="futures-table-quarter"></table>
+            </div>
           </div>
-          <div style="overflow-x:auto">
-            <table class="editorial" id="futures-table"></table>
+          <div class="card">
+            <div class="card-head">
+              <div><div class="card-title">Yearly forwards</div><div class="card-sub">Active year contracts and their components.</div></div>
+            </div>
+            <div style="overflow-x:auto">
+              <table class="editorial" id="futures-table-year"></table>
+            </div>
           </div>
         </div>
       </div>
