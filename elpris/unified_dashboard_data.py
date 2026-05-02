@@ -32,6 +32,10 @@ PARK_KEYS: List[str] = [
 # Antal månader bakåt vi visar i assets-vyn (12 månader rullande + nuvarande)
 DEFAULT_HISTORY_MONTHS = 13
 
+# Antal månader bakåt vi inkluderar daglig data för (drill-down behöver det
+# bara för senaste månaderna; håller JSON-storleken nere).
+DAILY_HISTORY_MONTHS = 3
+
 
 def _build_market_section() -> Dict[str, Any]:
     """Hämta marknadsdata från dashboard_v2_data.
@@ -93,14 +97,48 @@ def _safe_round(value, decimals: int = 2):
         return None
 
 
-def _build_park_months(park_key: str, num_months: int = DEFAULT_HISTORY_MONTHS) -> List[Dict[str, Any]]:
-    """Bygg lista med månadsvisa KPI:er för en park.
+def _daily_records_from_report(report) -> List[Dict[str, Any]]:
+    """Konvertera report.daily (List[DailyData]) till JSON-vänliga records."""
+    out: List[Dict[str, Any]] = []
+    for d in (report.daily or []):
+        out.append({
+            "day": d.day,
+            "date": d.date_str,
+            "weekday": d.weekday,
+            "energy_mwh": _safe_round(d.actual_energy_mwh, 3),
+            "irradiation_kwh_m2": _safe_round(d.actual_irradiation_kwh_m2, 2),
+            "yield_kwh_kwp": _safe_round(d.norm_yield_kwh_kwp, 2),
+            "expected_mwh": _safe_round(d.expected_gen_mwh, 3),
+            "pr_pct": _safe_round(d.performance_ratio_pct, 2),
+            "pi_pct": _safe_round(d.performance_index_pct, 2),
+        })
+    return out
+
+
+def _build_park_months(
+    park_key: str,
+    num_months: int = DEFAULT_HISTORY_MONTHS,
+    daily_months: int = DAILY_HISTORY_MONTHS,
+) -> tuple[List[Dict[str, Any]], Dict[str, List[Dict[str, Any]]]]:
+    """Bygg lista med månadsvisa KPI:er för en park samt daglig data per månad.
 
     Går bakåt från senaste fullständiga månad. Hoppar över månader där
     generate_report() kraschar (saknad data är normalt).
+
+    Returnerar (months_list, daily_by_month_dict). daily_by_month_dict
+    har formatet {"YYYY-MM": [daily_record, ...]} och inkluderar bara
+    de senaste `daily_months` månaderna för att begränsa JSON-storleken.
     """
     months_out: List[Dict[str, Any]] = []
-    for year, month in _walk_months_back(num_months):
+    walked = _walk_months_back(num_months)
+    # Sista `daily_months` månaderna i listan (= senaste; walked är äldst→nyast)
+    daily_keys: set = set()
+    for ym in walked[-daily_months:]:
+        daily_keys.add(ym)
+
+    daily_by_month: Dict[str, List[Dict[str, Any]]] = {}
+
+    for year, month in walked:
         try:
             report = generate_report(park_key, year, month)
         except (FileNotFoundError, KeyError, ValueError) as exc:
@@ -126,7 +164,10 @@ def _build_park_months(park_key: str, num_months: int = DEFAULT_HISTORY_MONTHS) 
             "pr_pct": _safe_round(report.performance_ratio_pct, 2),
         })
 
-    return months_out
+        if (year, month) in daily_keys:
+            daily_by_month[f"{year}-{month:02d}"] = _daily_records_from_report(report)
+
+    return months_out, daily_by_month
 
 
 def _safe_negative_price_exposure() -> Dict[str, List[Dict[str, Any]]]:
@@ -162,16 +203,21 @@ def _merge_operations_into_months(
                 m["neg_price_volume_mwh"] = rec.get("neg_volume_mwh", 0.0)
 
 
-def _build_assets_section(num_months: int = DEFAULT_HISTORY_MONTHS) -> Dict[str, Any]:
+def _build_assets_section(
+    market: Dict[str, Any],
+    num_months: int = DEFAULT_HISTORY_MONTHS,
+) -> Dict[str, Any]:
     """Bygg assets-sektionen med per-park månadsvisa KPI:er."""
     parks: Dict[str, Dict[str, Any]] = {}
     for park_key in PARK_KEYS:
         capacity_kwp = PARK_CAPACITY_KWP.get(park_key, 0)
+        months, daily_by_month = _build_park_months(park_key, num_months=num_months)
         parks[park_key] = {
             "name": _park_display_name(park_key),
             "zone": PARK_ZONES.get(park_key, ""),
             "capacity_mwp": round(capacity_kwp / 1000.0, 3),
-            "months": _build_park_months(park_key, num_months=num_months),
+            "months": months,
+            "daily_by_month": daily_by_month,
         }
 
     # Berika med operations-data (negativa pris-exponering)
@@ -182,7 +228,42 @@ def _build_assets_section(num_months: int = DEFAULT_HISTORY_MONTHS) -> Dict[str,
         "parks": parks,
         "fleet": _build_fleet_overview(parks),
         "tracker_gain": _build_tracker_gain(),
+        "capture_by_zone": _build_capture_by_zone(market),
     }
+
+
+def _build_capture_by_zone(market: Dict[str, Any]) -> Dict[str, List[Dict[str, Any]]]:
+    """Plocka fram capture price per zon per månad från market-datan.
+
+    Använder solprofilen `sol_syd` som standard-referens. Returnerar
+    `{"SE3": [{"month": "2025-05", "capture_eur_mwh": 45.2}, ...], ...}`.
+    """
+    out: Dict[str, List[Dict[str, Any]]] = {}
+    market_data = market.get("data") or {}
+    for zone, profiles in market_data.items():
+        # Föredra sol_syd; fall tillbaka till första tillgängliga solprofil
+        candidate_keys = ["sol_syd", "sol_ov", "sol_tracker"]
+        chosen = None
+        for k in candidate_keys:
+            if k in profiles and profiles[k].get("monthly"):
+                chosen = profiles[k]
+                break
+        if chosen is None:
+            continue
+        records = []
+        for m in chosen.get("monthly", []):
+            year = m.get("year")
+            month = m.get("month")
+            cap = m.get("capture")
+            if year is None or month is None:
+                continue
+            records.append({
+                "month": f"{year}-{month:02d}",
+                "capture_eur_mwh": _safe_round(cap, 2),
+            })
+        if records:
+            out[zone] = records
+    return out
 
 
 def _build_tracker_gain() -> Dict[str, Any]:
@@ -267,7 +348,7 @@ def build_unified_data() -> Dict[str, Any]:
         - meta: zoner, profiler, färger (för frontend-rendering)
     """
     market = _build_market_section()
-    assets = _build_assets_section()
+    assets = _build_assets_section(market)
     return {
         "generated": datetime.now().isoformat(timespec="seconds"),
         "market": market,

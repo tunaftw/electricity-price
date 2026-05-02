@@ -167,6 +167,80 @@ def test_assets_tracker_gain_exists():
 
 
 # ---------------------------------------------------------------------------
+# Phase 2 fix — daily-by-month per park
+# ---------------------------------------------------------------------------
+
+def test_park_has_daily_by_month():
+    """Varje park ska ha en daily_by_month dict (tom om data saknas)."""
+    parks = _data()["assets"]["parks"]
+    for park_key, park in parks.items():
+        assert "daily_by_month" in park, f"{park_key} saknar daily_by_month"
+        assert isinstance(park["daily_by_month"], dict)
+
+
+def test_daily_by_month_keys_are_yyyy_mm():
+    """Nycklarna ska följa formatet YYYY-MM."""
+    parks = _data()["assets"]["parks"]
+    for park in parks.values():
+        for key in park["daily_by_month"].keys():
+            assert re.match(r"^\d{4}-\d{2}$", key), (
+                f"Ogiltig nyckel i daily_by_month: {key!r}"
+            )
+
+
+def test_daily_by_month_record_fields():
+    """Varje daglig record ska ha förväntade fält."""
+    parks = _data()["assets"]["parks"]
+    sample = None
+    for park in parks.values():
+        for month_key, days in park["daily_by_month"].items():
+            if days:
+                sample = days[0]
+                break
+        if sample is not None:
+            break
+    if sample is None:
+        # Ingen park har dagsdata — acceptabelt om Bazefield-data saknas
+        return
+    for field in ("day", "date", "weekday", "energy_mwh",
+                  "yield_kwh_kwp", "expected_mwh", "pr_pct"):
+        assert field in sample, f"Saknat fält i daglig record: {field}"
+
+
+def test_daily_by_month_limited_to_recent_months():
+    """daily_by_month ska bara innehålla senaste DAILY_HISTORY_MONTHS månaderna."""
+    from elpris.unified_dashboard_data import DAILY_HISTORY_MONTHS
+    parks = _data()["assets"]["parks"]
+    for park in parks.values():
+        assert len(park["daily_by_month"]) <= DAILY_HISTORY_MONTHS
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 fix — capture-by-zone reference
+# ---------------------------------------------------------------------------
+
+def test_assets_has_capture_by_zone():
+    """data['assets']['capture_by_zone'] ska finnas."""
+    assets = _data()["assets"]
+    assert "capture_by_zone" in assets
+    assert isinstance(assets["capture_by_zone"], dict)
+
+
+def test_capture_by_zone_record_shape():
+    """Varje record i capture_by_zone[zone] ska ha month + capture_eur_mwh."""
+    cap = _data()["assets"]["capture_by_zone"]
+    if not cap:
+        return  # acceptabelt om ingen marknadsdata finns
+    for zone, records in cap.items():
+        assert isinstance(records, list)
+        if records:
+            sample = records[0]
+            assert "month" in sample
+            assert "capture_eur_mwh" in sample
+            assert re.match(r"^\d{4}-\d{2}$", sample["month"])
+
+
+# ---------------------------------------------------------------------------
 # Task 1.7 — smoke test
 # ---------------------------------------------------------------------------
 
