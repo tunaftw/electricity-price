@@ -271,16 +271,18 @@ Skapar en fristående HTML-fil i `Resultat/rapporter/dashboard_elpris_YYYYMMDD.h
 
 ### Generera unified dashboard
 ```bash
-python3 generate_unified_dashboard.py            # båda spår
-python3 generate_unified_dashboard.py --track A  # bara Bloomberg-dark
-python3 generate_unified_dashboard.py --track C  # bara Nordic Editorial
+python3 generate_unified_dashboard.py            # Track C (default)
+python3 generate_unified_dashboard.py --track A  # Track A (deprecated, fallback)
+python3 generate_unified_dashboard.py --track both  # båda för jämförelse
 ```
-Skapar fristående HTML-dashboards i `Resultat/rapporter/`:
-- `dashboard_unified_YYYYMMDD.html` — Track A (Bloomberg-dark)
-- `dashboard_unified_v3_YYYYMMDD.html` — Track C (Nordic Editorial)
+Skapar fristående HTML-dashboard i `Resultat/rapporter/`:
+- `dashboard_unified_v3_YYYYMMDD.html` — **Track C (Nordic Editorial, primär)**
+- `dashboard_unified_YYYYMMDD.html` — Track A (Bloomberg-dark, **deprecated** sedan 2026-05)
 
-Båda spåren har 4 flikar: **CAPTURE**, **BESS**, **FUTURES**, **ASSETS**. Data aggregeras
-av `elpris/unified_dashboard_data.py` och renderas av respektive HTML-modul.
+4 flikar: **CAPTURE**, **BESS**, **FUTURES**, **ASSETS**. Data aggregeras
+av `elpris/unified_dashboard_data.py` och renderas av Track C (`unified_dashboard_v3_html.py`).
+Track A behålls i kodbasen för bakåtkompatibilitet och kan tas bort efter
+ytterligare iteration på Track C.
 
 ### Generera månadsrapport per park
 ```bash
@@ -519,8 +521,10 @@ CSV-filer migreras automatiskt från gammalt format vid nästa synk.
 - [x] Operations Dashboard Fas 1
 - [x] Månadsrapport per park (HTML, 19 sektioner, MVP + platshållare)
 - [x] Unified dashboard (Track A + Track C, 4 flikar: CAPTURE/BESS/FUTURES/ASSETS)
+- [x] Välja vinnande spår — **Track C (Nordic Editorial) valt 2026-05**
+- [ ] Vidareutveckla Track C (layout, datapunkter, interaktivitet baserat på team-feedback)
+- [ ] Ta bort Track A-renderern när Track C är 100 % stabil
 - [ ] Migrera till hosted version med autentisering (Vercel/Netlify privat)
-- [ ] Välja vinnande spår (A vs C) och deprecera den andra
 - [ ] Månadsrapport: SCADA-integration (inverter-nivå, alarm/fault)
 - [ ] Månadsrapport: Bazefield re-synk med utökat format (POA, availability)
 - [ ] Automatisk daglig uppdatering

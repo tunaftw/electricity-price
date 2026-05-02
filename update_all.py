@@ -272,9 +272,9 @@ def main():
         except Exception as e:
             print(f"  Error generating Excel: {e}")
 
-    # Step 10: Generate Unified Dashboard (Track A + Track C)
+    # Step 10: Generate Unified Dashboard (Track C — Nordic Editorial)
     current_step += 1
-    step(current_step, total_steps, "Generating Unified Dashboard (Track A + C)")
+    step(current_step, total_steps, "Generating Unified Dashboard (Track C)")
     if run_script("generate_unified_dashboard.py", quiet=args.quiet):
         success_count += 1
         print("  Done!")

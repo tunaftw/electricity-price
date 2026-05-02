@@ -1,7 +1,7 @@
 # Generera Unified Dashboard
 
-Genererar både Track A (Bloomberg-dark) och Track C (Nordic Editorial)
-dashboards till `Resultat/rapporter/`.
+Genererar Track C (Nordic Editorial) — den valda primära dashboarden — till
+`Resultat/rapporter/`.
 
 ## Instruktioner
 
@@ -9,17 +9,21 @@ Kör `python3 generate_unified_dashboard.py`
 
 ### Flaggor
 
-- `--track A` — bara Track A (Bloomberg-dark, vidareutveckling av v2)
-- `--track C` — bara Track C (Nordic Editorial, modern design)
-- `--track both` — båda spåren (default)
+- `--track C` — Track C (Nordic Editorial, **default**)
+- `--track A` — Track A (Bloomberg-dark, **deprecated** sedan 2026-05)
+- `--track both` — båda spåren (för jämförelse)
 
 ## Output
 
 `Resultat/rapporter/`
-- `dashboard_unified_YYYYMMDD.html` (Track A, ~17 MB)
-- `dashboard_unified_v3_YYYYMMDD.html` (Track C, ~17 MB)
+- `dashboard_unified_v3_YYYYMMDD.html` (Track C, ~17 MB) — primär
+- `dashboard_unified_YYYYMMDD.html` (Track A, ~17 MB) — bara om `--track A` eller `both`
 
-Båda dashboards är fristående HTML-filer med inbäddad data och Plotly.js
-via CDN. De delar samma backend (`elpris.unified_dashboard_data.build_unified_data`)
-så CAPTURE/BESS/FUTURES/ASSETS-flikar visar identisk data, men i två
-parallella visuella spår.
+Dashboards är fristående HTML-filer med inbäddad data och Plotly.js via CDN.
+Båda spår delar samma backend (`elpris.unified_dashboard_data.build_unified_data`).
+
+## Status
+
+**Track C valt som primär** efter A/B-jämförelse 2026-05. Track A behålls
+i kodbasen för bakåtkompatibilitet och kan tas bort efter ytterligare
+iteration på Track C.

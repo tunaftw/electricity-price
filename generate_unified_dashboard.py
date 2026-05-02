@@ -18,8 +18,19 @@ OUT_DIR = PROJECT_ROOT / "Resultat" / "rapporter"
 
 
 def main() -> int:
-    p = argparse.ArgumentParser()
-    p.add_argument("--track", choices=["A", "C", "both"], default="both")
+    p = argparse.ArgumentParser(
+        description=(
+            "Generera unified dashboard. Track C (Nordic Editorial) är "
+            "default sedan 2026-05. Track A (Bloomberg-dark) är deprecated "
+            "och tillgänglig endast via --track A för bakåtkompatibilitet."
+        )
+    )
+    p.add_argument(
+        "--track",
+        choices=["A", "C", "both"],
+        default="C",
+        help="Vilken renderer (default: C — Nordic Editorial)",
+    )
     args = p.parse_args()
 
     print("Building unified data...", file=sys.stderr)
@@ -28,6 +39,11 @@ def main() -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
     if args.track in ("A", "both"):
+        print(
+            "  [DEPRECATED] Track A (Bloomberg-dark) is no longer the "
+            "primary renderer. Use --track C for Nordic Editorial.",
+            file=sys.stderr,
+        )
         html = render_track_a(data)
         out = OUT_DIR / f"dashboard_unified_{today}.html"
         out.write_text(html, encoding="utf-8")
