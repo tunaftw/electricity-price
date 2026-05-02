@@ -12,7 +12,8 @@ This script runs the entire update pipeline:
  8. Calculate capture prices
  9. Generate Excel reports
 10. Generate Unified Dashboard (Track A + Track C)
-11. Show status
+11. Generate park performance reports (only with --reports)
+12. Show status
 """
 
 from __future__ import annotations
@@ -115,6 +116,15 @@ def main():
         "--skip-excel",
         action="store_true",
         help="Skip Excel report generation",
+    )
+    parser.add_argument(
+        "--reports",
+        action="store_true",
+        help="Also regenerate park performance reports",
+    )
+    parser.add_argument(
+        "--month",
+        help="Month for park reports (YYYY-MM); only used with --reports",
     )
     parser.add_argument(
         "--quiet",
@@ -271,7 +281,22 @@ def main():
     else:
         print("  Failed")
 
-    # Step 11: Show status
+    # Step 11: Park performance reports (conditional on --reports)
+    current_step += 1
+    if args.reports:
+        step(current_step, total_steps, "Generating park performance reports")
+        report_args = ["--all"]
+        if args.month:
+            report_args += ["--month", args.month]
+        if run_script("generate_performance_report.py", report_args, quiet=args.quiet):
+            success_count += 1
+            print("  Done!")
+        else:
+            print("  Failed")
+    else:
+        step(current_step, total_steps, "Park reports (SKIPPED — use --reports)")
+
+    # Step 12: Show status
     current_step += 1
     step(current_step, total_steps, "Data status")
     run_script("status.py", quiet=False)
