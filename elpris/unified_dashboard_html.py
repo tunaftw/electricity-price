@@ -37,6 +37,18 @@ ASSETS_VIEW_HTML = """
         </div>
         <div id="park-cards-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem"></div>
     </div>
+    <div class="card">
+        <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
+            <span>J&auml;mf&ouml;relse</span>
+            <button onclick="exportParkTableCsv()" style="padding:4px 10px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:0.7rem;font-weight:600;cursor:pointer;border-radius:4px;font-family:var(--font)">Export CSV</button>
+        </div>
+        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:-0.4rem;margin-bottom:0.8rem;line-height:1.4">
+            Klicka p&aring; en kolumnrubrik f&ouml;r att sortera. Klicka p&aring; en rad f&ouml;r drill-down.
+        </div>
+        <div style="overflow-x:auto">
+            <table id="park-comparison-table" style="width:100%;border-collapse:collapse;font-size:0.85rem"></table>
+        </div>
+    </div>
 </div>
 """.strip()
 
@@ -256,6 +268,115 @@ ASSETS_JS = r"""
     // Default click handler — overridden when drill-down is wired in.
     window.assetsOnPark = function(pk) { console.log('park click:', pk); };
 
+    // ----------------- Comparison Table ---------------
+    var TABLE_STATE = { sortKey: 'energy_mwh', sortDir: 'desc' };
+
+    function ytdSum(park, monthKey) {
+        if (!monthKey) return 0;
+        var yr = parseInt(monthKey.split('-')[0]);
+        var mo = parseInt(monthKey.split('-')[1]);
+        var sum = 0;
+        (park.months || []).forEach(function(m) {
+            if (m.year === yr && m.month <= mo && m.energy_mwh) sum += m.energy_mwh;
+        });
+        return sum;
+    }
+
+    function tableRows(monthKey) {
+        return Object.entries((ASSETS && ASSETS.parks) || {}).map(function(e) {
+            var pk = e[0], p = e[1];
+            var m = parkMonth(p, monthKey);
+            return {
+                key: pk,
+                name: p.name || pk,
+                zone: p.zone || '',
+                capacity_mwp: p.capacity_mwp || 0,
+                energy_mwh: m ? m.energy_mwh : null,
+                budget_mwh: m ? m.budget_mwh : null,
+                vs_budget_pct: m ? m.vs_budget_pct : null,
+                ytd_mwh: ytdSum(p, monthKey),
+                yield_kwh_kwp: m ? m.yield_kwh_kwp : null,
+            };
+        });
+    }
+
+    function renderParkTable() {
+        var monthKey = latestMonthKey();
+        var rows = tableRows(monthKey);
+        var dir = TABLE_STATE.sortDir === 'asc' ? 1 : -1;
+        var sk = TABLE_STATE.sortKey;
+        rows.sort(function(a, b) {
+            var av = a[sk], bv = b[sk];
+            if (av === null || av === undefined) return 1;
+            if (bv === null || bv === undefined) return -1;
+            if (typeof av === 'string') return dir * av.localeCompare(bv);
+            return dir * (av - bv);
+        });
+
+        var cols = [
+            { k: 'name',          label: 'Park' },
+            { k: 'zone',          label: 'Zon' },
+            { k: 'capacity_mwp',  label: 'Cap MWp', fmt: function(v) { return fmtNum(v, 2); } },
+            { k: 'energy_mwh',    label: 'MWh (' + (monthKey || '-') + ')', fmt: function(v) { return fmtNum(v, 0); } },
+            { k: 'vs_budget_pct', label: 'vs Budget', fmt: fmtPct, color: true },
+            { k: 'ytd_mwh',       label: 'YTD MWh', fmt: function(v) { return fmtNum(v, 0); } },
+            { k: 'yield_kwh_kwp', label: 'Yield kWh/kWp', fmt: function(v) { return fmtNum(v, 1); } },
+        ];
+
+        var head = '<thead><tr>' + cols.map(function(c) {
+            var arrow = (c.k === sk) ? (dir > 0 ? ' ▲' : ' ▼') : '';
+            return '<th onclick="sortParkTable(\'' + c.k + '\')" style="cursor:pointer;text-align:left;padding:8px;border-bottom:1px solid var(--border);color:var(--text-muted);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em">' + c.label + arrow + '</th>';
+        }).join('') + '</tr></thead>';
+
+        var body = '<tbody>' + rows.map(function(r) {
+            return '<tr style="cursor:pointer" onclick="window.assetsOnPark && window.assetsOnPark(\'' + r.key + '\')">' +
+                cols.map(function(c) {
+                    var color = (c.color) ? ('color:' + vsBudgetColor(r[c.k])) : '';
+                    var v = r[c.k];
+                    var disp = c.fmt ? c.fmt(v) : (v == null ? '–' : v);
+                    return '<td style="padding:8px;border-bottom:1px solid var(--border);' + color + '">' + disp + '</td>';
+                }).join('') +
+            '</tr>';
+        }).join('') + '</tbody>';
+
+        document.getElementById('park-comparison-table').innerHTML = head + body;
+    }
+
+    window.sortParkTable = function(k) {
+        if (TABLE_STATE.sortKey === k) {
+            TABLE_STATE.sortDir = TABLE_STATE.sortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+            TABLE_STATE.sortKey = k;
+            TABLE_STATE.sortDir = 'desc';
+        }
+        renderParkTable();
+    };
+
+    window.exportParkTableCsv = function() {
+        var monthKey = latestMonthKey();
+        var rows = [['Park','Zon','Capacity_MWp','Energy_MWh_' + monthKey,'Budget_MWh','vs_Budget_pct','YTD_MWh','Yield_kWh_kWp']];
+        tableRows(monthKey).forEach(function(r) {
+            rows.push([r.name, r.zone, r.capacity_mwp, r.energy_mwh, r.budget_mwh, r.vs_budget_pct, r.ytd_mwh, r.yield_kwh_kwp]);
+        });
+        var csv = rows.map(function(r) {
+            return r.map(function(c) {
+                if (c == null) return '';
+                var s = String(c);
+                if (s.indexOf(',') !== -1 || s.indexOf('"') !== -1) {
+                    return '"' + s.replace(/"/g, '""') + '"';
+                }
+                return s;
+            }).join(',');
+        }).join('\n');
+        var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'park_comparison_' + monthKey + '.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    };
+
     window.renderAssets = function() {
         if (!ASSETS) {
             document.getElementById('assets-view').innerHTML =
@@ -264,6 +385,7 @@ ASSETS_JS = r"""
         }
         renderFleetKPIs();
         renderParkCards();
+        renderParkTable();
     };
 })();
 """.strip()
