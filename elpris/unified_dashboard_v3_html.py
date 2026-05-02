@@ -827,6 +827,39 @@ table.editorial tbody tr:last-child td { border-bottom: 0; }
   font-style: italic;
 }
 
+/* methodology / caveat note — small editorial disclaimer */
+.method-note {
+  display: flex;
+  gap: var(--sp-3);
+  align-items: flex-start;
+  padding: var(--sp-3) var(--sp-4);
+  margin: 0 0 var(--sp-5);
+  background: var(--surface-sunken);
+  border-left: 2px solid var(--ink-4);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  line-height: var(--lh-snug);
+}
+.method-note .method-icon {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 15px;
+  color: var(--ink-3);
+  flex-shrink: 0;
+  line-height: 1;
+  padding-top: 1px;
+}
+.method-note .method-label {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 10.5px;
+  color: var(--ink-3);
+  margin-right: var(--sp-2);
+}
+.method-note em { font-style: italic; color: var(--ink-1); }
+
 /* utility */
 .hide { display: none !important; }
 .flex { display: flex; }
@@ -2527,6 +2560,14 @@ _SHELL = r"""<!DOCTYPE html>
         </div>
       </header>
       <div id="bess-content">
+        <div class="method-note">
+          <span class="method-icon">i</span>
+          <div>
+            <span class="method-label">Methodology</span>
+            All BESS figures assume <em>perfect-foresight</em> dynamic-programming optimisation against day-ahead spot, 88 % round-trip efficiency, 1 MW power per MW installed, no degradation or cycle cost. Sol+BESS is <em>behind-the-meter</em> only — the battery cannot charge from the grid, which limits the marginal value of 2h+ durations. Arbitrage and ancillary revenue are shown <em>separately</em>; in reality they can be stacked on the same asset.
+          </div>
+        </div>
+
         <div class="kpi-strip" id="bess-kpis"></div>
 
         <div class="card">
