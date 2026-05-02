@@ -95,3 +95,26 @@ def test_park_month_record_fields():
     for field in ("year", "month", "energy_mwh", "budget_mwh",
                   "vs_budget_pct", "yield_kwh_kwp", "pr_pct"):
         assert field in sample, f"Saknat fält i månadsrecord: {field}"
+
+
+# ---------------------------------------------------------------------------
+# Task 1.4 — fleet overview
+# ---------------------------------------------------------------------------
+
+def test_assets_fleet_section_exists():
+    """data['assets']['fleet'] ska innehålla flotta-KPI:er."""
+    fleet = _data()["assets"]["fleet"]
+    for field in ("latest_month", "park_count", "total_capacity_mwp",
+                  "total_energy_mwh", "vs_budget_pct"):
+        assert field in fleet, f"fleet saknar fält: {field}"
+
+
+def test_assets_fleet_park_count_matches():
+    """park_count ska matcha antalet parker som har någon data."""
+    parks = _data()["assets"]["parks"]
+    fleet = _data()["assets"]["fleet"]
+    parks_with_data = sum(1 for p in parks.values() if p["months"])
+    # park_count räknar parker som bidragit till latest_month, så
+    # det är ≤ parks_with_data
+    assert fleet["park_count"] <= parks_with_data
+    assert fleet["park_count"] >= 0

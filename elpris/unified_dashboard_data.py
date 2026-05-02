@@ -151,7 +151,64 @@ def _build_assets_section(num_months: int = 13) -> Dict[str, Any]:
             "capacity_mwp": round(capacity_kwp / 1000.0, 3),
             "months": _build_park_months(park_key, num_months=num_months),
         }
-    return {"parks": parks}
+    return {
+        "parks": parks,
+        "fleet": _build_fleet_overview(parks),
+    }
+
+
+def _build_fleet_overview(parks: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+    """Räkna ut flotta-KPI:er för senaste månad där minst en park har data.
+
+    Summerar energi/budget/kapacitet över alla parker som rapporterat
+    den månaden.
+    """
+    # Hitta senaste (year, month) som finns i någon park
+    candidates: set = set()
+    for park in parks.values():
+        for m in park["months"]:
+            candidates.add((m["year"], m["month"]))
+
+    if not candidates:
+        return {
+            "latest_month": None,
+            "park_count": 0,
+            "total_capacity_mwp": 0.0,
+            "total_energy_mwh": 0.0,
+            "vs_budget_pct": None,
+        }
+
+    latest = max(candidates)
+    year, month = latest
+
+    park_count = 0
+    total_capacity = 0.0
+    total_energy = 0.0
+    total_budget = 0.0
+    for park_key, park in parks.items():
+        match = next(
+            (m for m in park["months"]
+             if m["year"] == year and m["month"] == month),
+            None,
+        )
+        if match is None:
+            continue
+        park_count += 1
+        total_capacity += park.get("capacity_mwp", 0.0) or 0.0
+        total_energy += match.get("energy_mwh") or 0.0
+        total_budget += match.get("budget_mwh") or 0.0
+
+    vs_budget = None
+    if total_budget > 0:
+        vs_budget = round((total_energy / total_budget - 1.0) * 100.0, 1)
+
+    return {
+        "latest_month": {"year": year, "month": month},
+        "park_count": park_count,
+        "total_capacity_mwp": round(total_capacity, 3),
+        "total_energy_mwh": round(total_energy, 2),
+        "vs_budget_pct": vs_budget,
+    }
 
 
 def build_unified_data() -> Dict[str, Any]:
