@@ -118,3 +118,21 @@ def test_assets_fleet_park_count_matches():
     # det är ≤ parks_with_data
     assert fleet["park_count"] <= parks_with_data
     assert fleet["park_count"] >= 0
+
+
+# ---------------------------------------------------------------------------
+# Task 1.5 — operations metrics per park
+# ---------------------------------------------------------------------------
+
+def test_park_months_have_neg_price_fields():
+    """Varje månadsrecord ska ha neg_price_hours och neg_price_volume_mwh."""
+    parks = _data()["assets"]["parks"]
+    parks_with_data = [p for p in parks.values() if p["months"]]
+    assert parks_with_data, "Ingen park hade några månadsdata"
+    for park in parks_with_data:
+        for m in park["months"]:
+            assert "neg_price_hours" in m, (
+                f"Saknar neg_price_hours i {park['name']} "
+                f"{m['year']}-{m['month']}"
+            )
+            assert "neg_price_volume_mwh" in m

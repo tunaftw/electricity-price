@@ -15,6 +15,10 @@ from typing import Any, Dict, List, Optional
 
 from .config import PARK_CAPACITY_KWP, PARK_ZONES
 from .dashboard_v2_data import calculate_dashboard_v2_data
+from .operations_dashboard_data import (
+    calculate_negative_price_exposure,
+    calculate_tracker_gain,
+)
 from .park_config import get_park_metadata
 from .performance_report_data import generate_report
 
@@ -140,6 +144,36 @@ def _build_park_months(park_key: str, num_months: int = 13) -> List[Dict[str, An
     return months_out
 
 
+def _safe_negative_price_exposure() -> Dict[str, List[Dict[str, Any]]]:
+    """Hämta negativa pris-exponering, fallback till tom dict vid fel."""
+    try:
+        return calculate_negative_price_exposure()
+    except Exception as exc:
+        print(f"[unified_dashboard] negative_price beräkning misslyckades: {exc}")
+        return {}
+
+
+def _merge_operations_into_months(
+    parks: Dict[str, Dict[str, Any]],
+    neg_exposure: Dict[str, List[Dict[str, Any]]],
+) -> None:
+    """Mutera parks: lägg till neg_price_hours/neg_price_volume_mwh per månad."""
+    for park_key, park in parks.items():
+        # Bygg lookup (year, month) -> exposure-record
+        park_neg = neg_exposure.get(park_key, [])
+        neg_lookup: Dict[tuple, Dict[str, Any]] = {
+            (rec["year"], rec["month"]): rec for rec in park_neg
+        }
+        for m in park["months"]:
+            rec = neg_lookup.get((m["year"], m["month"]))
+            if rec is None:
+                m["neg_price_hours"] = 0.0
+                m["neg_price_volume_mwh"] = 0.0
+            else:
+                m["neg_price_hours"] = rec.get("neg_hours", 0.0)
+                m["neg_price_volume_mwh"] = rec.get("neg_volume_mwh", 0.0)
+
+
 def _build_assets_section(num_months: int = 13) -> Dict[str, Any]:
     """Bygg assets-sektionen med per-park månadsvisa KPI:er."""
     parks: Dict[str, Dict[str, Any]] = {}
@@ -151,6 +185,11 @@ def _build_assets_section(num_months: int = 13) -> Dict[str, Any]:
             "capacity_mwp": round(capacity_kwp / 1000.0, 3),
             "months": _build_park_months(park_key, num_months=num_months),
         }
+
+    # Berika med operations-data (negativa pris-exponering)
+    neg_exposure = _safe_negative_price_exposure()
+    _merge_operations_into_months(parks, neg_exposure)
+
     return {
         "parks": parks,
         "fleet": _build_fleet_overview(parks),
