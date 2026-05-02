@@ -193,6 +193,12 @@ ASSETS_CSS = r"""
 }
 .park-card-row span:first-child { color: var(--text-muted); }
 .park-card-spark { margin-top: 0.6rem; }
+
+/* Comparison table row hover */
+#park-comparison-table tbody tr:hover { background: var(--bg-hover); }
+
+/* Drill-down KPI tile size override (slightly compact) */
+#drilldown-kpi-row .assets-kpi { flex: 1 1 140px; }
 """.strip()
 
 
