@@ -211,7 +211,7 @@ ASSETS_JS = r"""
 // ASSETS TAB
 // ================================================================
 (function() {
-    var ASSETS = (window.DATA && DATA.assets) ? DATA.assets : null;
+    var ASSETS = (typeof DATA !== 'undefined' && DATA.assets) ? DATA.assets : null;
 
     function vsBudgetClass(pct) {
         if (pct === null || pct === undefined || isNaN(pct)) return '';
