@@ -24,6 +24,22 @@ from generate_dashboard_v2 import _build_html as _build_v2_html  # noqa: E402
 ASSETS_VIEW_HTML = """
 <div id="assets-view" style="display:none">
   <div id="assets-fleet-mode">
+    <div class="card" id="assets-filterbar" style="padding:0.7rem 1rem;display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
+        <div style="display:flex;gap:6px;align-items:center">
+            <span style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);font-weight:600">M&aring;nad:</span>
+            <select id="assets-month-select" class="invest-input" style="width:auto;padding:4px 8px"></select>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+            <span style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);font-weight:600">Zon:</span>
+            <select id="assets-zone-select" class="invest-input" style="width:auto;padding:4px 8px">
+                <option value="ALL">Alla zoner</option>
+                <option value="SE1">SE1</option>
+                <option value="SE2">SE2</option>
+                <option value="SE3">SE3</option>
+                <option value="SE4">SE4</option>
+            </select>
+        </div>
+    </div>
     <div class="card">
         <div class="card-title">Fleet Overview</div>
         <div id="fleet-kpi-row" style="display:flex;gap:1rem;margin-top:0.6rem;flex-wrap:wrap"></div>
@@ -225,6 +241,8 @@ ASSETS_JS = r"""
         return '#fde68a';
     }
 
+    var FILTER_STATE = { monthKey: 'latest', zone: 'ALL' };
+
     function latestMonthKey() {
         if (!ASSETS || !ASSETS.parks) return null;
         var maxKey = null;
@@ -235,6 +253,26 @@ ASSETS_JS = r"""
             });
         });
         return maxKey;
+    }
+    function activeMonthKey() {
+        return FILTER_STATE.monthKey === 'latest' ? latestMonthKey() : FILTER_STATE.monthKey;
+    }
+    function allMonthKeys() {
+        if (!ASSETS || !ASSETS.parks) return [];
+        var set = {};
+        Object.values(ASSETS.parks).forEach(function(p) {
+            (p.months || []).forEach(function(m) {
+                set[m.year + '-' + String(m.month).padStart(2, '0')] = true;
+            });
+        });
+        return Object.keys(set).sort();
+    }
+    function filteredParkEntries() {
+        var entries = Object.entries((ASSETS && ASSETS.parks) || {});
+        if (FILTER_STATE.zone !== 'ALL') {
+            entries = entries.filter(function(e) { return e[1].zone === FILTER_STATE.zone; });
+        }
+        return entries;
     }
 
     function parkMonth(park, monthKey) {
@@ -258,31 +296,43 @@ ASSETS_JS = r"""
     }
 
     function renderFleetKPIs() {
-        var fleet = ASSETS && ASSETS.fleet;
         var row = document.getElementById('fleet-kpi-row');
-        if (!fleet) {
-            row.innerHTML = '<div style="color:var(--text-muted);padding:1rem">Ingen fleet-data.</div>';
+        var entries = filteredParkEntries();
+        if (entries.length === 0) {
+            row.innerHTML = '<div style="color:var(--text-muted);padding:1rem">Inga parker matchar filtret.</div>';
             return;
         }
+        var monthKey = activeMonthKey();
+        var totalCap = 0, totalActual = 0, totalBudget = 0, count = entries.length;
+        entries.forEach(function(e) {
+            var p = e[1];
+            totalCap += (p.capacity_mwp || 0);
+            var m = parkMonth(p, monthKey);
+            if (m) {
+                totalActual += (m.energy_mwh || 0);
+                totalBudget += (m.budget_mwh || 0);
+            }
+        });
+        var vsBudget = totalBudget > 0 ? 100 * (totalActual - totalBudget) / totalBudget : null;
         var tiles = [
-            kpiTile('Parker', fleet.park_count, ''),
-            kpiTile('Installerat', fmtNum(fleet.total_capacity_mwp, 1) + ' MWp', ''),
-            kpiTile(fleet.latest_month + ' Energi',
-                    fmtNum(fleet.total_energy_mwh, 0) + ' MWh', ''),
-            kpiTile('vs Budget', fmtPct(fleet.vs_budget_pct, 1), '',
-                    vsBudgetClass(fleet.vs_budget_pct)),
+            kpiTile('Parker', count, ''),
+            kpiTile('Installerat', fmtNum(totalCap, 1) + ' MWp', ''),
+            kpiTile((monthKey || '') + ' Energi',
+                    fmtNum(totalActual, 0) + ' MWh',
+                    'Budget: ' + fmtNum(totalBudget, 0) + ' MWh'),
+            kpiTile('vs Budget', fmtPct(vsBudget, 1), '', vsBudgetClass(vsBudget)),
         ];
         row.innerHTML = tiles.join('');
     }
 
     function renderParkCards() {
-        var monthKey = latestMonthKey();
+        var monthKey = activeMonthKey();
         var grid = document.getElementById('park-cards-grid');
-        if (!ASSETS || !ASSETS.parks) {
-            grid.innerHTML = '<div style="color:var(--text-muted)">Inga parker.</div>';
+        var entries = filteredParkEntries();
+        if (entries.length === 0) {
+            grid.innerHTML = '<div style="color:var(--text-muted)">Inga parker matchar filtret.</div>';
             return;
         }
-        var entries = Object.entries(ASSETS.parks);
         grid.innerHTML = entries.map(function(e) {
             var pk = e[0], p = e[1];
             var m = parkMonth(p, monthKey);
@@ -327,7 +377,7 @@ ASSETS_JS = r"""
         var pk = ASSETS_VIEW_STATE.selectedPark;
         var p = ASSETS.parks[pk];
         if (!p) return;
-        var monthKey = latestMonthKey();
+        var monthKey = activeMonthKey();
         var m = parkMonth(p, monthKey);
 
         document.getElementById('drilldown-park-name').textContent = p.name || pk;
@@ -411,7 +461,7 @@ ASSETS_JS = r"""
     }
 
     function tableRows(monthKey) {
-        return Object.entries((ASSETS && ASSETS.parks) || {}).map(function(e) {
+        return filteredParkEntries().map(function(e) {
             var pk = e[0], p = e[1];
             var m = parkMonth(p, monthKey);
             return {
@@ -429,7 +479,7 @@ ASSETS_JS = r"""
     }
 
     function renderParkTable() {
-        var monthKey = latestMonthKey();
+        var monthKey = activeMonthKey();
         var rows = tableRows(monthKey);
         var dir = TABLE_STATE.sortDir === 'asc' ? 1 : -1;
         var sk = TABLE_STATE.sortKey;
@@ -481,7 +531,7 @@ ASSETS_JS = r"""
     };
 
     window.exportParkTableCsv = function() {
-        var monthKey = latestMonthKey();
+        var monthKey = activeMonthKey();
         var rows = [['Park','Zon','Capacity_MWp','Energy_MWh_' + monthKey,'Budget_MWh','vs_Budget_pct','YTD_MWh','Yield_kWh_kWp']];
         tableRows(monthKey).forEach(function(r) {
             rows.push([r.name, r.zone, r.capacity_mwp, r.energy_mwh, r.budget_mwh, r.vs_budget_pct, r.ytd_mwh, r.yield_kwh_kwp]);
@@ -505,12 +555,30 @@ ASSETS_JS = r"""
         document.body.removeChild(a);
     };
 
-    window.renderAssets = function() {
-        if (!ASSETS) {
-            document.getElementById('assets-view').innerHTML =
-                '<div style="padding:2rem;color:var(--text-muted)">Ingen asset-data tillg&auml;nglig.</div>';
-            return;
+    function initFilters() {
+        var msel = document.getElementById('assets-month-select');
+        if (msel && !msel.dataset.bound) {
+            msel.innerHTML = '<option value="latest">Senaste m&aring;nad</option>' +
+                allMonthKeys().slice().reverse().map(function(k) {
+                    return '<option value="' + k + '">' + k + '</option>';
+                }).join('');
+            msel.addEventListener('change', function() {
+                FILTER_STATE.monthKey = msel.value;
+                renderAssetsAll();
+            });
+            msel.dataset.bound = '1';
         }
+        var zsel = document.getElementById('assets-zone-select');
+        if (zsel && !zsel.dataset.bound) {
+            zsel.addEventListener('change', function() {
+                FILTER_STATE.zone = zsel.value;
+                renderAssetsAll();
+            });
+            zsel.dataset.bound = '1';
+        }
+    }
+
+    function renderAssetsAll() {
         if (ASSETS_VIEW_STATE.mode === 'drilldown') {
             renderDrilldown();
             return;
@@ -518,6 +586,16 @@ ASSETS_JS = r"""
         renderFleetKPIs();
         renderParkCards();
         renderParkTable();
+    }
+
+    window.renderAssets = function() {
+        if (!ASSETS) {
+            document.getElementById('assets-view').innerHTML =
+                '<div style="padding:2rem;color:var(--text-muted)">Ingen asset-data tillg&auml;nglig.</div>';
+            return;
+        }
+        initFilters();
+        renderAssetsAll();
     };
 })();
 """.strip()
