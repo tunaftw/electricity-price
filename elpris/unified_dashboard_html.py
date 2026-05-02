@@ -27,6 +27,16 @@ ASSETS_VIEW_HTML = """
         <div class="card-title">Fleet Overview</div>
         <div id="fleet-kpi-row" style="display:flex;gap:1rem;margin-top:0.6rem;flex-wrap:wrap"></div>
     </div>
+    <div class="card">
+        <div class="card-title">Parker</div>
+        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:-0.4rem;margin-bottom:0.8rem;line-height:1.4">
+            Klicka p&aring; en park f&ouml;r drill-down. F&auml;rg:
+            <span style="color:#4ADE80">gr&ouml;n &ge; +5%</span>,
+            <span style="color:#fde68a">gul &plusmn;5%</span>,
+            <span style="color:#f87171">r&ouml;d &le; -5%</span> mot budget.
+        </div>
+        <div id="park-cards-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem"></div>
+    </div>
 </div>
 """.strip()
 
@@ -70,6 +80,53 @@ ASSETS_CSS = r"""
 .assets-kpi.vsb-green  { border-left: 3px solid #4ADE80; }
 .assets-kpi.vsb-yellow { border-left: 3px solid #fde68a; }
 .assets-kpi.vsb-red    { border-left: 3px solid #f87171; }
+
+.park-card {
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.9rem 1rem;
+    cursor: pointer;
+    transition: transform 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+.park-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+    border-color: var(--product);
+}
+.park-card.vsb-green  { border-left-color: #4ADE80; }
+.park-card.vsb-yellow { border-left-color: #fde68a; }
+.park-card.vsb-red    { border-left-color: #f87171; }
+.park-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.6rem;
+}
+.park-card-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-bright);
+}
+.park-card-zone {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: var(--bg-card);
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+}
+.park-card-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: var(--text);
+    padding: 2px 0;
+}
+.park-card-row span:first-child { color: var(--text-muted); }
+.park-card-spark { margin-top: 0.6rem; }
 """.strip()
 
 
@@ -111,6 +168,45 @@ ASSETS_JS = r"""
             '</div>';
     }
 
+    function vsBudgetColor(pct) {
+        if (pct === null || pct === undefined || isNaN(pct)) return '#8892a4';
+        if (pct >= 5) return '#4ADE80';
+        if (pct <= -5) return '#f87171';
+        return '#fde68a';
+    }
+
+    function latestMonthKey() {
+        if (!ASSETS || !ASSETS.parks) return null;
+        var maxKey = null;
+        Object.values(ASSETS.parks).forEach(function(p) {
+            (p.months || []).forEach(function(m) {
+                var k = m.year + '-' + String(m.month).padStart(2, '0');
+                if (maxKey === null || k > maxKey) maxKey = k;
+            });
+        });
+        return maxKey;
+    }
+
+    function parkMonth(park, monthKey) {
+        return (park.months || []).find(function(m) {
+            return (m.year + '-' + String(m.month).padStart(2, '0')) === monthKey;
+        });
+    }
+
+    function sparkline(months) {
+        if (!months || months.length === 0) return '';
+        var W = 96, H = 26;
+        var BARW = Math.max(2, Math.floor(W / months.length) - 1);
+        var max = Math.max.apply(null, months.map(function(m) { return m.energy_mwh || 0; })) || 1;
+        var bars = months.map(function(m, i) {
+            var v = (m.energy_mwh || 0) / max;
+            var h = Math.max(1, Math.round(H * v));
+            return '<rect x="' + (i * (BARW + 1)) + '" y="' + (H - h) +
+                '" width="' + BARW + '" height="' + h + '" fill="#67e8f9" opacity="0.85"/>';
+        }).join('');
+        return '<svg width="' + W + '" height="' + H + '" style="display:block">' + bars + '</svg>';
+    }
+
     function renderFleetKPIs() {
         var fleet = ASSETS && ASSETS.fleet;
         var row = document.getElementById('fleet-kpi-row');
@@ -129,6 +225,37 @@ ASSETS_JS = r"""
         row.innerHTML = tiles.join('');
     }
 
+    function renderParkCards() {
+        var monthKey = latestMonthKey();
+        var grid = document.getElementById('park-cards-grid');
+        if (!ASSETS || !ASSETS.parks) {
+            grid.innerHTML = '<div style="color:var(--text-muted)">Inga parker.</div>';
+            return;
+        }
+        var entries = Object.entries(ASSETS.parks);
+        grid.innerHTML = entries.map(function(e) {
+            var pk = e[0], p = e[1];
+            var m = parkMonth(p, monthKey);
+            var vs = m ? m.vs_budget_pct : null;
+            var spark = sparkline(p.months || []);
+            return '<div class="park-card ' + vsBudgetClass(vs) + '" data-park="' + pk + '" onclick="window.assetsOnPark && window.assetsOnPark(\'' + pk + '\')">' +
+                '<div class="park-card-head">' +
+                    '<div class="park-card-name">' + (p.name || pk) + '</div>' +
+                    '<div class="park-card-zone">' + (p.zone || '') + '</div>' +
+                '</div>' +
+                '<div class="park-card-row"><span>Kapacitet</span><span>' + fmtNum(p.capacity_mwp, 2) + ' MWp</span></div>' +
+                '<div class="park-card-row"><span>Energi (' + (monthKey || '-') + ')</span><span>' + (m ? fmtNum(m.energy_mwh, 0) + ' MWh' : '–') + '</span></div>' +
+                '<div class="park-card-row"><span>Budget</span><span>' + (m ? fmtNum(m.budget_mwh, 0) + ' MWh' : '–') + '</span></div>' +
+                '<div class="park-card-row" style="font-weight:700;color:' + vsBudgetColor(vs) + '"><span>vs Budget</span><span>' + (m ? fmtPct(vs) : '–') + '</span></div>' +
+                '<div class="park-card-row"><span>Yield</span><span>' + (m ? fmtNum(m.yield_kwh_kwp, 1) + ' kWh/kWp' : '–') + '</span></div>' +
+                '<div class="park-card-spark">' + spark + '</div>' +
+            '</div>';
+        }).join('');
+    }
+
+    // Default click handler — overridden when drill-down is wired in.
+    window.assetsOnPark = function(pk) { console.log('park click:', pk); };
+
     window.renderAssets = function() {
         if (!ASSETS) {
             document.getElementById('assets-view').innerHTML =
@@ -136,6 +263,7 @@ ASSETS_JS = r"""
             return;
         }
         renderFleetKPIs();
+        renderParkCards();
     };
 })();
 """.strip()
