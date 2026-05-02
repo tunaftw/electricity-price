@@ -222,10 +222,23 @@ ASSETS_JS = r"""
 (function() {
     var ASSETS = (typeof DATA !== 'undefined' && DATA.assets) ? DATA.assets : null;
 
+    // Defensive HTML escape for any park-name / weekday / date strings
+    // we splat into HTML attributes or text. Plotly text axes do their
+    // own escaping, so this only needs to wrap raw HTML interpolations.
+    function htmlEsc(s) {
+        if (s === null || s === undefined) return '';
+        return String(s).replace(/[&<>"']/g, function(c) {
+            return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+        });
+    }
+
+    var VSB_THRESHOLD = 5;
+    var VSB_COLORS = { green: '#4ADE80', yellow: '#fde68a', red: '#f87171', neutral: '#8892a4' };
+
     function vsBudgetClass(pct) {
         if (pct === null || pct === undefined || isNaN(pct)) return '';
-        if (pct >= 5) return 'vsb-green';
-        if (pct <= -5) return 'vsb-red';
+        if (pct >= VSB_THRESHOLD) return 'vsb-green';
+        if (pct <= -VSB_THRESHOLD) return 'vsb-red';
         return 'vsb-yellow';
     }
     function fmtNum(v, d) {
@@ -250,10 +263,10 @@ ASSETS_JS = r"""
     }
 
     function vsBudgetColor(pct) {
-        if (pct === null || pct === undefined || isNaN(pct)) return '#8892a4';
-        if (pct >= 5) return '#4ADE80';
-        if (pct <= -5) return '#f87171';
-        return '#fde68a';
+        if (pct === null || pct === undefined || isNaN(pct)) return VSB_COLORS.neutral;
+        if (pct >= VSB_THRESHOLD) return VSB_COLORS.green;
+        if (pct <= -VSB_THRESHOLD) return VSB_COLORS.red;
+        return VSB_COLORS.yellow;
     }
 
     var FILTER_STATE = { monthKey: 'latest', zone: 'ALL' };
@@ -297,9 +310,11 @@ ASSETS_JS = r"""
     }
 
     function sparkline(months) {
-        if (!months || months.length === 0) return '';
+        // Skip rendering for too-few-data — a single bar at full width
+        // looks awkward and adds no signal.
+        if (!months || months.length < 2) return '';
         var W = 96, H = 26;
-        var BARW = Math.max(2, Math.floor(W / months.length) - 1);
+        var BARW = Math.min(12, Math.max(2, Math.floor(W / months.length) - 1));
         var max = Math.max.apply(null, months.map(function(m) { return m.energy_mwh || 0; })) || 1;
         var bars = months.map(function(m, i) {
             var v = (m.energy_mwh || 0) / max;
@@ -332,7 +347,7 @@ ASSETS_JS = r"""
         var tiles = [
             kpiTile('Parker', count, ''),
             kpiTile('Installerat', fmtNum(totalCap, 1) + ' MWp', ''),
-            kpiTile((monthKey || '') + ' Energi',
+            kpiTile(htmlEsc(monthKey || '') + ' Energi',
                     fmtNum(totalActual, 0) + ' MWh',
                     'Budget: ' + fmtNum(totalBudget, 0) + ' MWh'),
             kpiTile('vs Budget', fmtPct(vsBudget, 1), '', vsBudgetClass(vsBudget)),
@@ -353,13 +368,15 @@ ASSETS_JS = r"""
             var m = parkMonth(p, monthKey);
             var vs = m ? m.vs_budget_pct : null;
             var spark = sparkline(p.months || []);
-            return '<div class="park-card ' + vsBudgetClass(vs) + '" data-park="' + pk + '" onclick="window.assetsOnPark && window.assetsOnPark(\'' + pk + '\')">' +
+            var pkEsc = htmlEsc(pk);
+            var mkEsc = htmlEsc(monthKey || '-');
+            return '<div class="park-card ' + vsBudgetClass(vs) + '" data-park="' + pkEsc + '" onclick="window.assetsOnPark && window.assetsOnPark(\'' + pkEsc + '\')">' +
                 '<div class="park-card-head">' +
-                    '<div class="park-card-name">' + (p.name || pk) + '</div>' +
-                    '<div class="park-card-zone">' + (p.zone || '') + '</div>' +
+                    '<div class="park-card-name">' + htmlEsc(p.name || pk) + '</div>' +
+                    '<div class="park-card-zone">' + htmlEsc(p.zone || '') + '</div>' +
                 '</div>' +
                 '<div class="park-card-row"><span>Kapacitet</span><span>' + fmtNum(p.capacity_mwp, 2) + ' MWp</span></div>' +
-                '<div class="park-card-row"><span>Energi (' + (monthKey || '-') + ')</span><span>' + (m ? fmtNum(m.energy_mwh, 0) + ' MWh' : '–') + '</span></div>' +
+                '<div class="park-card-row"><span>Energi (' + mkEsc + ')</span><span>' + (m ? fmtNum(m.energy_mwh, 0) + ' MWh' : '–') + '</span></div>' +
                 '<div class="park-card-row"><span>Budget</span><span>' + (m ? fmtNum(m.budget_mwh, 0) + ' MWh' : '–') + '</span></div>' +
                 '<div class="park-card-row" style="font-weight:700;color:' + vsBudgetColor(vs) + '"><span>vs Budget</span><span>' + (m ? fmtPct(vs) : '–') + '</span></div>' +
                 '<div class="park-card-row"><span>Yield</span><span>' + (m ? fmtNum(m.yield_kwh_kwp, 1) + ' kWh/kWp' : '–') + '</span></div>' +
@@ -423,7 +440,8 @@ ASSETS_JS = r"""
             }).sort();
         }
         var html = keys.slice().reverse().map(function(k) {
-            return '<option value="' + k + '"' + (k === currentMonthKey ? ' selected' : '') + '>' + k + '</option>';
+            var ke = htmlEsc(k);
+            return '<option value="' + ke + '"' + (k === currentMonthKey ? ' selected' : '') + '>' + ke + '</option>';
         }).join('');
         sel.innerHTML = html;
         if (!sel.dataset.bound) {
@@ -440,7 +458,7 @@ ASSETS_JS = r"""
         if (!container) return;
         var days = (p.daily_by_month && p.daily_by_month[monthKey]) || [];
         if (!days.length) {
-            container.innerHTML = '<div style="color:var(--text-muted);padding:0.5rem;grid-column:1/-1">Ingen daglig data f&ouml;r ' + monthKey + '.</div>';
+            container.innerHTML = '<div style="color:var(--text-muted);padding:0.5rem;grid-column:1/-1">Ingen daglig data f&ouml;r ' + htmlEsc(monthKey) + '.</div>';
             return;
         }
         var sorted = days.slice().sort(function(a, b) {
@@ -458,8 +476,8 @@ ASSETS_JS = r"""
                 '</tr></thead>';
             var body = '<tbody>' + rows.map(function(r) {
                 return '<tr>' +
-                    '<td style="padding:6px 8px;border-bottom:1px solid var(--border)">' + (r.date || '–') + '</td>' +
-                    '<td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text-muted)">' + (r.weekday || '') + '</td>' +
+                    '<td style="padding:6px 8px;border-bottom:1px solid var(--border)">' + htmlEsc(r.date || '–') + '</td>' +
+                    '<td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text-muted)">' + htmlEsc(r.weekday || '') + '</td>' +
                     '<td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:right;font-family:var(--font-mono);color:' + color + '">' + fmtNum(r.energy_mwh, 2) + '</td>' +
                     '<td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:right;font-family:var(--font-mono)">' + fmtNum(r.yield_kwh_kwp, 1) + '</td>' +
                     '</tr>';
@@ -495,6 +513,8 @@ ASSETS_JS = r"""
 
         ensureDrilldownMonthSelect(p, monthKey);
 
+        // textContent is auto-escaped, but use defensively in case anyone
+        // refactors to innerHTML later.
         document.getElementById('drilldown-park-name').textContent = p.name || pk;
         document.getElementById('drilldown-park-zone').textContent = (p.zone || '') + (p.capacity_mwp ? '  ·  ' + fmtNum(p.capacity_mwp, 2) + ' MWp' : '');
 
@@ -518,10 +538,10 @@ ASSETS_JS = r"""
         }
 
         var kpis = [
-            kpiTile('Energi (' + monthKey + ')', m ? fmtNum(m.energy_mwh, 0) + ' MWh' : '–'),
+            kpiTile('Energi (' + htmlEsc(monthKey) + ')', m ? fmtNum(m.energy_mwh, 0) + ' MWh' : '–'),
             kpiTile('vs Budget',                  m ? fmtPct(m.vs_budget_pct) : '–', '', vsBudgetClass(m && m.vs_budget_pct)),
             kpiTile('Yield',                      m ? fmtNum(m.yield_kwh_kwp, 1) + ' kWh/kWp' : '–'),
-            kpiTile('Capture (' + (p.zone || '') + ')',
+            kpiTile('Capture (' + htmlEsc(p.zone || '') + ')',
                     captureZone != null ? fmtNum(captureZone, 1) + ' EUR/MWh' : '–'),
             kpiTile('Negativa pris-timmar',
                     m && m.neg_price_hours != null ? fmtNum(m.neg_price_hours, 0) + ' h' : '–',
@@ -568,7 +588,7 @@ ASSETS_JS = r"""
         } else {
             Plotly.purge('drilldown-daily-chart');
             document.getElementById('drilldown-daily-chart').innerHTML =
-                '<div style="padding:1.5rem;color:var(--text-muted);text-align:center">Ingen daglig data tillg&auml;nglig f&ouml;r ' + monthKey + '.</div>';
+                '<div style="padding:1.5rem;color:var(--text-muted);text-align:center">Ingen daglig data tillg&auml;nglig f&ouml;r ' + htmlEsc(monthKey) + '.</div>';
         }
 
         // Capture price for zone (12mo line)
@@ -585,8 +605,9 @@ ASSETS_JS = r"""
         renderBestWorstDays(p, monthKey);
 
         var reportPath = 'performance_' + pk + '_' + (p.zone || '') + '_' + monthKey + '.html';
+        var reportPathEsc = htmlEsc(reportPath);
         document.getElementById('drilldown-links').innerHTML =
-            '&rarr; <a href="' + reportPath + '" target="_blank" style="color:var(--accent)">' + reportPath + '</a> (om genererad)';
+            '&rarr; <a href="' + reportPathEsc + '" target="_blank" style="color:var(--accent)">' + reportPathEsc + '</a> (om genererad)';
     }
 
     window.assetsOnPark = function(pk) {
@@ -645,7 +666,7 @@ ASSETS_JS = r"""
             { k: 'name',          label: 'Park' },
             { k: 'zone',          label: 'Zon' },
             { k: 'capacity_mwp',  label: 'Cap MWp', fmt: function(v) { return fmtNum(v, 2); } },
-            { k: 'energy_mwh',    label: 'MWh (' + (monthKey || '-') + ')', fmt: function(v) { return fmtNum(v, 0); } },
+            { k: 'energy_mwh',    label: 'MWh (' + htmlEsc(monthKey || '-') + ')', fmt: function(v) { return fmtNum(v, 0); } },
             { k: 'vs_budget_pct', label: 'vs Budget', fmt: fmtPct, color: true },
             { k: 'ytd_mwh',       label: 'YTD MWh', fmt: function(v) { return fmtNum(v, 0); } },
             { k: 'yield_kwh_kwp', label: 'Yield kWh/kWp', fmt: function(v) { return fmtNum(v, 1); } },
@@ -657,11 +678,21 @@ ASSETS_JS = r"""
         }).join('') + '</tr></thead>';
 
         var body = '<tbody>' + rows.map(function(r) {
-            return '<tr style="cursor:pointer" onclick="window.assetsOnPark && window.assetsOnPark(\'' + r.key + '\')">' +
+            return '<tr style="cursor:pointer" onclick="window.assetsOnPark && window.assetsOnPark(\'' + htmlEsc(r.key) + '\')">' +
                 cols.map(function(c) {
                     var color = (c.color) ? ('color:' + vsBudgetColor(r[c.k])) : '';
                     var v = r[c.k];
-                    var disp = c.fmt ? c.fmt(v) : (v == null ? '–' : v);
+                    var disp;
+                    if (c.fmt) {
+                        disp = c.fmt(v);
+                    } else if (v == null) {
+                        disp = '–';
+                    } else if (typeof v === 'string') {
+                        // String columns (name, zone) come from data — escape defensively.
+                        disp = htmlEsc(v);
+                    } else {
+                        disp = v;
+                    }
                     return '<td style="padding:8px;border-bottom:1px solid var(--border);' + color + '">' + disp + '</td>';
                 }).join('') +
             '</tr>';
@@ -710,7 +741,8 @@ ASSETS_JS = r"""
         if (msel && !msel.dataset.bound) {
             msel.innerHTML = '<option value="latest">Senaste m&aring;nad</option>' +
                 allMonthKeys().slice().reverse().map(function(k) {
-                    return '<option value="' + k + '">' + k + '</option>';
+                    var ke = htmlEsc(k);
+                    return '<option value="' + ke + '">' + ke + '</option>';
                 }).join('');
             msel.addEventListener('change', function() {
                 FILTER_STATE.monthKey = msel.value;
