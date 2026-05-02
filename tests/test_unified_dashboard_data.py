@@ -133,7 +133,7 @@ def test_assets_fleet_park_count_matches():
     # park_count räknar parker som bidragit till latest_month, så
     # det är ≤ parks_with_data
     assert fleet["park_count"] <= parks_with_data
-    assert fleet["park_count"] >= 0
+    assert 0 < fleet["park_count"] <= 8
 
 
 # ---------------------------------------------------------------------------

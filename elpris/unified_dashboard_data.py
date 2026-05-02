@@ -10,6 +10,7 @@ Library-modul: ingen CLI / ingen `__main__`-block.
 
 from __future__ import annotations
 
+import sys
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
@@ -27,6 +28,9 @@ PARK_KEYS: List[str] = [
     "horby", "fjallskar", "agerum", "hova",
     "skakelbacken", "stenstorp", "tangen", "bjorke",
 ]
+
+# Antal månader bakåt vi visar i assets-vyn (12 månader rullande + nuvarande)
+DEFAULT_HISTORY_MONTHS = 13
 
 
 def _build_market_section() -> Dict[str, Any]:
@@ -55,7 +59,7 @@ def _park_display_name(park_key: str) -> str:
     return park_key.capitalize()
 
 
-def _latest_complete_month(today: Optional[date] = None) -> tuple:
+def _latest_complete_month(today: Optional[date] = None) -> tuple[int, int]:
     """Returnera (year, month) för senaste fullständiga månad."""
     if today is None:
         today = date.today()
@@ -64,11 +68,11 @@ def _latest_complete_month(today: Optional[date] = None) -> tuple:
     return (today.year, today.month - 1)
 
 
-def _walk_months_back(num_months: int, today: Optional[date] = None) -> List[tuple]:
+def _walk_months_back(num_months: int, today: Optional[date] = None) -> List[tuple[int, int]]:
     """Returnera lista [(year, month), ...] med num_months bakåt från
     senaste fullständiga månad (äldst → nyast)."""
     year, month = _latest_complete_month(today)
-    result: List[tuple] = []
+    result: List[tuple[int, int]] = []
     for _ in range(num_months):
         result.append((year, month))
         if month == 1:
@@ -89,21 +93,21 @@ def _safe_round(value, decimals: int = 2):
         return None
 
 
-def _build_park_months(park_key: str, num_months: int = 13) -> List[Dict[str, Any]]:
+def _build_park_months(park_key: str, num_months: int = DEFAULT_HISTORY_MONTHS) -> List[Dict[str, Any]]:
     """Bygg lista med månadsvisa KPI:er för en park.
 
     Går bakåt från senaste fullständiga månad. Hoppar över månader där
     generate_report() kraschar (saknad data är normalt).
     """
-    capacity_kwp = PARK_CAPACITY_KWP.get(park_key, 0)
-    capacity_mw = capacity_kwp / 1000.0
-
     months_out: List[Dict[str, Any]] = []
     for year, month in _walk_months_back(num_months):
         try:
             report = generate_report(park_key, year, month)
-        except Exception:
-            # Saknad data eller okänd park — hoppa över tyst
+        except (FileNotFoundError, KeyError, ValueError) as exc:
+            print(
+                f"[unified_dashboard] {park_key} {year}-{month}: {exc}",
+                file=sys.stderr,
+            )
             continue
 
         actual = report.actual_energy_mwh or 0.0
@@ -130,7 +134,10 @@ def _safe_negative_price_exposure() -> Dict[str, List[Dict[str, Any]]]:
     try:
         return calculate_negative_price_exposure()
     except Exception as exc:
-        print(f"[unified_dashboard] negative_price beräkning misslyckades: {exc}")
+        print(
+            f"[unified_dashboard] negative_price beräkning misslyckades: {exc}",
+            file=sys.stderr,
+        )
         return {}
 
 
@@ -155,7 +162,7 @@ def _merge_operations_into_months(
                 m["neg_price_volume_mwh"] = rec.get("neg_volume_mwh", 0.0)
 
 
-def _build_assets_section(num_months: int = 13) -> Dict[str, Any]:
+def _build_assets_section(num_months: int = DEFAULT_HISTORY_MONTHS) -> Dict[str, Any]:
     """Bygg assets-sektionen med per-park månadsvisa KPI:er."""
     parks: Dict[str, Dict[str, Any]] = {}
     for park_key in PARK_KEYS:
@@ -188,8 +195,10 @@ def _build_tracker_gain() -> Dict[str, Any]:
     try:
         monthly = calculate_tracker_gain()
     except Exception as exc:
-        # TODO: gracefully degrade om underliggande data saknas
-        print(f"[unified_dashboard] tracker_gain beräkning misslyckades: {exc}")
+        print(
+            f"[unified_dashboard] tracker_gain beräkning misslyckades: {exc}",
+            file=sys.stderr,
+        )
         monthly = []
     return {"monthly": monthly}
 
