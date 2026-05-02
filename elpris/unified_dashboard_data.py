@@ -154,6 +154,12 @@ def _build_park_months(
         if budget > 0:
             vs_budget = round((actual / budget - 1.0) * 100.0, 1)
 
+        actual_irr = report.actual_irradiation_kwh_m2  # may be None
+        budget_irr = report.budget_irradiation_kwh_m2 or 0.0
+        vs_budget_irr = None
+        if budget_irr > 0 and actual_irr is not None:
+            vs_budget_irr = round((actual_irr / budget_irr - 1.0) * 100.0, 1)
+
         months_out.append({
             "year": year,
             "month": month,
@@ -162,6 +168,9 @@ def _build_park_months(
             "vs_budget_pct": vs_budget,
             "yield_kwh_kwp": _safe_round(report.yield_kwh_kwp, 1),
             "pr_pct": _safe_round(report.performance_ratio_pct, 2),
+            "actual_irr_kwh_m2": _safe_round(actual_irr, 1),
+            "budget_irr_kwh_m2": _safe_round(budget_irr, 1),
+            "vs_budget_irr_pct": vs_budget_irr,
         })
 
         if (year, month) in daily_keys:

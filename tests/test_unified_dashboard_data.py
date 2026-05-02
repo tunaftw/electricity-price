@@ -99,6 +99,40 @@ def test_park_month_record_fields():
 
 
 # ---------------------------------------------------------------------------
+# Irradiation fields per month
+# ---------------------------------------------------------------------------
+
+def test_park_month_record_has_irradiation_fields():
+    """Senaste månadsrecordet ska innehålla irradiation-fält."""
+    parks = _data()["assets"]["parks"]
+    parks_with_data = [p for p in parks.values() if p["months"]]
+    assert parks_with_data, "Ingen park hade några månadsdata"
+    for park in parks_with_data:
+        latest = park["months"][-1]
+        for field in ("actual_irr_kwh_m2", "budget_irr_kwh_m2", "vs_budget_irr_pct"):
+            assert field in latest, (
+                f"Saknat fält i månadsrecord ({park['name']}): {field}"
+            )
+
+
+def test_park_month_budget_irradiation_is_positive():
+    """För minst en park ska budget_irr_kwh_m2 vara > 0 i senaste månaden."""
+    parks = _data()["assets"]["parks"]
+    found_positive = False
+    for park in parks.values():
+        if not park["months"]:
+            continue
+        latest = park["months"][-1]
+        v = latest.get("budget_irr_kwh_m2")
+        if v is not None and v > 0:
+            found_positive = True
+            break
+    assert found_positive, (
+        "Förväntade att minst en park har budget_irr_kwh_m2 > 0 i senaste månaden"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Task 1.4 — fleet overview
 # ---------------------------------------------------------------------------
 
