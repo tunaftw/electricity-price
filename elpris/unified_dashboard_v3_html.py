@@ -437,6 +437,115 @@ select:focus, input:focus { outline: none; border-color: var(--accent-deep); box
 }
 .label-control select { padding: 5px 28px 5px 10px; font-size: var(--fs-sm); font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--ink-1); }
 
+/* page title suffix (period in title, e.g. "Asset Performance · April 2026") */
+.page-title-suffix {
+  font-style: normal;
+  font-weight: 400;
+  color: var(--ink-3);
+  font-size: 0.78em;
+  letter-spacing: -0.01em;
+  margin-left: 0.5ch;
+}
+.page-title-suffix::before {
+  content: " · ";
+  color: var(--ink-4);
+  margin-right: 0.25ch;
+}
+.page-title-suffix:empty { display: none; }
+.page-title-suffix:empty::before { content: ""; }
+
+/* sticky period bar (assets tab) */
+.period-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-5);
+  background: var(--surface-raised);
+  border: 1px solid var(--ink-5);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-rest);
+}
+.period-bar[hidden] { display: none; }
+.period-bar-left, .period-bar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+.period-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 3px 6px;
+  background: var(--surface-sunken);
+  border-radius: var(--radius-pill);
+}
+.period-stepper button {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--ink-3);
+  border-radius: 50%;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.period-stepper button:hover:not(:disabled) { background: var(--surface-raised); color: var(--ink-1); }
+.period-stepper button:disabled { opacity: 0.3; cursor: not-allowed; }
+.period-stepper-value {
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 500;
+  color: var(--ink-1);
+  min-width: 4ch;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.period-toast {
+  margin-bottom: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface-sunken);
+  border-left: 3px solid var(--warn);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+.period-toast[hidden] { display: none; }
+.partial-data-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--warn);
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.drill-period-hint {
+  margin: var(--sp-3) 0 var(--sp-4);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface-sunken);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  color: var(--ink-3);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.drill-period-hint[hidden] { display: none; }
+.drill-period-hint a {
+  color: var(--accent-deep);
+  font-weight: 600;
+  text-decoration: none;
+}
+.drill-period-hint a:hover { text-decoration: underline; }
+
 /* time-window range bar (above grid-2 charts) */
 .range-bar {
   display: flex;
@@ -2061,7 +2170,15 @@ function renderForwardTable(fwd) {
 //  ASSETS TAB
 // ============================================================
 var ASSETS = (DATA && DATA.assets) ? DATA.assets : null;
-var ASSETS_STATE = { mode: 'fleet', selectedPark: null, monthKey: 'latest', zone: 'ALL', drillMonth: null, tableParks: null };
+var ASSETS_STATE = {
+    mode: 'fleet',
+    selectedPark: null,
+    zone: 'ALL',
+    tableParks: null,
+    period: { granularity: 'month', year: null, month: null },
+    drillMonth: null,
+    cameFromPeriod: null  // snapshot of period when entering drilldown (for breadcrumb hint)
+};
 var TABLE_STATE = { sortKey: 'energy_mwh', sortDir: 'desc' };
 
 function allParkKeysSorted() {
@@ -2088,25 +2205,118 @@ function renderAssets() {
     }
 }
 
-function latestMonthKey() {
+function pad2(n) { return String(n).padStart(2, '0'); }
+function latestYM() {
     if (!ASSETS || !ASSETS.parks) return null;
-    var maxKey = null;
+    var maxYr = null, maxMo = null;
     Object.values(ASSETS.parks).forEach(function(p) {
         (p.months || []).forEach(function(m) {
-            var k = m.year + '-' + String(m.month).padStart(2, '0');
-            if (maxKey === null || k > maxKey) maxKey = k;
+            if (maxYr === null || m.year > maxYr || (m.year === maxYr && m.month > maxMo)) {
+                maxYr = m.year; maxMo = m.month;
+            }
         });
     });
-    return maxKey;
+    return maxYr === null ? null : { year: maxYr, month: maxMo };
 }
-function activeMonthKey() { return ASSETS_STATE.monthKey === 'latest' ? latestMonthKey() : ASSETS_STATE.monthKey; }
-function allMonthKeys() {
+function latestMonthKey() {
+    var ym = latestYM();
+    return ym ? (ym.year + '-' + pad2(ym.month)) : null;
+}
+function currentMonthOfYear() {
+    var ym = latestYM();
+    return ym ? ym.month : 12;
+}
+function availableYears() {
     if (!ASSETS || !ASSETS.parks) return [];
     var s = {};
     Object.values(ASSETS.parks).forEach(function(p) {
-        (p.months || []).forEach(function(m) { s[m.year + '-' + String(m.month).padStart(2, '0')] = true; });
+        (p.months || []).forEach(function(m) { s[m.year] = true; });
     });
-    return Object.keys(s).sort();
+    return Object.keys(s).map(function(y) { return parseInt(y, 10); }).sort(function(a, b) { return a - b; });
+}
+function availableMonthsInYear(yr) {
+    if (!ASSETS || !ASSETS.parks) return [];
+    var s = {};
+    Object.values(ASSETS.parks).forEach(function(p) {
+        (p.months || []).forEach(function(m) { if (m.year === yr) s[m.month] = true; });
+    });
+    return Object.keys(s).map(function(n) { return parseInt(n, 10); }).sort(function(a, b) { return a - b; });
+}
+function monthsInYearKeys(yr) {
+    return availableMonthsInYear(yr).map(function(mo) { return yr + '-' + pad2(mo); });
+}
+function ensurePeriodInit() {
+    var p = ASSETS_STATE.period;
+    if (p.year !== null && p.month !== null) return;
+    var ym = latestYM();
+    if (!ym) return;
+    p.granularity = p.granularity || 'month';
+    p.year = ym.year;
+    p.month = ym.month;
+}
+function periodKeys(p) {
+    p = p || ASSETS_STATE.period;
+    if (!p || p.year == null) return [];
+    if (p.granularity === 'month') {
+        return p.month != null ? [p.year + '-' + pad2(p.month)] : [];
+    }
+    if (p.granularity === 'year') {
+        return monthsInYearKeys(p.year);
+    }
+    if (p.granularity === 'ytd') {
+        var endMonth = currentMonthOfYear();
+        return monthsInYearKeys(p.year).filter(function(k) {
+            return parseInt(k.split('-')[1], 10) <= endMonth;
+        });
+    }
+    return [];
+}
+function expectedMonthsForPeriod(p) {
+    p = p || ASSETS_STATE.period;
+    if (!p || p.year == null) return 0;
+    if (p.granularity === 'month') return 1;
+    if (p.granularity === 'year') {
+        // expected = months in calendar year that are <= today's reference (closed years = 12)
+        var ymRef = latestYM();
+        if (!ymRef) return 12;
+        if (p.year < ymRef.year) return 12;
+        if (p.year === ymRef.year) return ymRef.month;
+        return 0;
+    }
+    if (p.granularity === 'ytd') return currentMonthOfYear();
+    return 0;
+}
+function formatPeriodSuffix(p) {
+    p = p || ASSETS_STATE.period;
+    if (!p || p.year == null) return '';
+    var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    if (p.granularity === 'month') {
+        return p.month != null ? monthNames[p.month - 1] + ' ' + p.year : String(p.year);
+    }
+    if (p.granularity === 'year') {
+        return 'Full year ' + p.year;
+    }
+    if (p.granularity === 'ytd') {
+        var keys = periodKeys(p);
+        if (!keys.length) return 'YTD ' + p.year + ' (no data)';
+        var firstMo = parseInt(keys[0].split('-')[1], 10);
+        var lastMo  = parseInt(keys[keys.length - 1].split('-')[1], 10);
+        if (firstMo === lastMo) return 'YTD ' + p.year + ' (' + monthNames[firstMo - 1] + ')';
+        return 'YTD ' + p.year + ' (' + monthNames[firstMo - 1] + '–' + monthNames[lastMo - 1] + ')';
+    }
+    return '';
+}
+function showPeriodToast(msg) {
+    var t = el('assets-period-toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.hidden = false;
+    if (t._timer) clearTimeout(t._timer);
+    t._timer = setTimeout(function() {
+        t.hidden = true;
+        t.textContent = '';
+        t._timer = null;
+    }, 4500);
 }
 function filteredEntries() {
     var entries = Object.entries((ASSETS && ASSETS.parks) || {});
@@ -2116,28 +2326,132 @@ function filteredEntries() {
 function parkMonth(park, key) {
     return (park.months || []).find(function(m) { return (m.year + '-' + String(m.month).padStart(2, '0')) === key; });
 }
+function parkLatestMonthKey(park) {
+    var keys = (park.months || []).map(function(m) { return m.year + '-' + pad2(m.month); }).sort();
+    return keys.length ? keys[keys.length - 1] : null;
+}
+function aggregatePark(park, keys) {
+    if (!keys || !keys.length) return null;
+    var rows = (park.months || []).filter(function(m) {
+        return keys.indexOf(m.year + '-' + pad2(m.month)) !== -1;
+    });
+    if (!rows.length) return null;
+
+    var sum = function(field) {
+        var s = 0, has = false;
+        rows.forEach(function(r) { if (r[field] != null) { s += r[field]; has = true; } });
+        return has ? s : null;
+    };
+    var weightedAvg = function(field, weightField) {
+        var num = 0, den = 0;
+        rows.forEach(function(r) {
+            if (r[field] != null && r[weightField] != null) {
+                num += r[field] * r[weightField];
+                den += r[weightField];
+            }
+        });
+        return den > 0 ? (num / den) : null;
+    };
+
+    var energy = sum('energy_mwh');
+    var budget = sum('budget_mwh');
+    var vsBudget = (budget != null && budget > 0 && energy != null)
+        ? 100 * (energy - budget) / budget
+        : null;
+
+    var irrActual = sum('actual_irr_kwh_m2');
+    var irrBudget = sum('budget_irr_kwh_m2');
+    var vsBudgetIrr = (irrBudget != null && irrBudget > 0 && irrActual != null)
+        ? 100 * (irrActual - irrBudget) / irrBudget
+        : null;
+
+    var capacity = park.capacity_mwp || 0;
+    var yieldKwhKwp = (capacity > 0 && energy != null) ? (energy * 1000 / capacity) : null;
+
+    return {
+        period_keys: keys,
+        months_present: rows.length,
+        rows: rows,
+        energy_mwh: energy,
+        budget_mwh: budget,
+        vs_budget_pct: vsBudget,
+        neg_price_hours: sum('neg_price_hours'),
+        neg_price_volume_mwh: sum('neg_price_volume_mwh'),
+        actual_irr_kwh_m2: irrActual,
+        budget_irr_kwh_m2: irrBudget,
+        vs_budget_irr_pct: vsBudgetIrr,
+        yield_kwh_kwp: yieldKwhKwp,
+        pr_pct: weightedAvg('pr_pct', 'energy_mwh')
+    };
+}
+function partialDataDot(agg, expected) {
+    if (!agg) return '';
+    if (expected <= 1) return '';
+    if (agg.months_present >= expected) return '';
+    return '<span class="partial-data-dot" title="' + agg.months_present + ' of ' + expected + ' months present"></span>';
+}
 
 function renderFleetMode() {
     el('fleet-mode').hidden = false;
     el('drill-mode').hidden = true;
+    var bar = el('assets-period-bar');
+    if (bar) bar.hidden = false;
 
-    // Filter controls
+    ensurePeriodInit();
+    bindPeriodControls();
+    refreshPeriodControls();
+
+    var keys = periodKeys();
+    var expected = expectedMonthsForPeriod();
+    el('assets-period-suffix').textContent = formatPeriodSuffix();
+    updatePartialDataBanner(keys, expected);
+
+    renderFleetKPIs(keys, expected);
+    renderParkGrid(keys, expected);
+    renderParkChips();
+    renderParkTable(keys, expected);
+}
+
+function bindPeriodControls() {
+    var gran = el('assets-granularity');
+    if (gran && !gran.dataset.bound) {
+        gran.querySelectorAll('button').forEach(function(b) {
+            b.addEventListener('click', function() {
+                var newGran = b.dataset.gran;
+                if (newGran === ASSETS_STATE.period.granularity) return;
+                ASSETS_STATE.period.granularity = newGran;
+                if (newGran === 'month') {
+                    var avail = availableMonthsInYear(ASSETS_STATE.period.year);
+                    if (avail.length && avail.indexOf(ASSETS_STATE.period.month) === -1) {
+                        ASSETS_STATE.period.month = avail[avail.length - 1];
+                    }
+                }
+                renderFleetMode();
+            });
+        });
+        gran.dataset.bound = '1';
+    }
+    var prev = el('assets-year-prev');
+    var next = el('assets-year-next');
+    if (prev && !prev.dataset.bound) {
+        prev.addEventListener('click', function() { stepYear(-1); });
+        prev.dataset.bound = '1';
+    }
+    if (next && !next.dataset.bound) {
+        next.addEventListener('click', function() { stepYear(1); });
+        next.dataset.bound = '1';
+    }
     var monthSel = el('assets-month-sel');
-    if (!monthSel.dataset.bound) {
-        var keys = allMonthKeys();
-        monthSel.innerHTML = '<option value="latest">Latest</option>' +
-            keys.slice().reverse().map(function(k) {
-                return '<option value="' + htmlEsc(k) + '">' + htmlEsc(k) + '</option>';
-            }).join('');
-        monthSel.value = ASSETS_STATE.monthKey;
+    if (monthSel && !monthSel.dataset.bound) {
         monthSel.addEventListener('change', function() {
-            ASSETS_STATE.monthKey = monthSel.value;
+            var v = parseInt(monthSel.value, 10);
+            if (!isNaN(v)) ASSETS_STATE.period.month = v;
             renderFleetMode();
         });
         monthSel.dataset.bound = '1';
     }
     var zoneSel = el('assets-zone-sel');
-    if (!zoneSel.dataset.bound) {
+    if (zoneSel && !zoneSel.dataset.bound) {
         zoneSel.value = ASSETS_STATE.zone;
         zoneSel.addEventListener('change', function() {
             ASSETS_STATE.zone = zoneSel.value;
@@ -2145,14 +2459,84 @@ function renderFleetMode() {
         });
         zoneSel.dataset.bound = '1';
     }
-
-    var monthKey = activeMonthKey();
-    el('assets-month-label').textContent = monthKey || '—';
-
-    renderFleetKPIs(monthKey);
-    renderParkGrid(monthKey);
-    renderParkChips();
-    renderParkTable(monthKey);
+}
+function stepYear(direction) {
+    var years = availableYears();
+    if (!years.length) return;
+    var idx = years.indexOf(ASSETS_STATE.period.year);
+    if (idx === -1) idx = years.length - 1;
+    var newIdx = idx + direction;
+    if (newIdx < 0 || newIdx >= years.length) return;
+    var newYear = years[newIdx];
+    var oldMonth = ASSETS_STATE.period.month;
+    ASSETS_STATE.period.year = newYear;
+    if (ASSETS_STATE.period.granularity === 'month') {
+        var avail = availableMonthsInYear(newYear);
+        if (!avail.length) {
+            renderFleetMode();
+            return;
+        }
+        if (avail.indexOf(oldMonth) === -1) {
+            // snap to latest available month in new year
+            var snapped = avail[avail.length - 1];
+            ASSETS_STATE.period.month = snapped;
+            var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            showPeriodToast('Snapped to ' + newYear + '-' + pad2(snapped) +
+                ' — ' + monthNames[oldMonth - 1] + ' ' + newYear + ' missing.');
+        }
+    }
+    renderFleetMode();
+}
+function refreshPeriodControls() {
+    var p = ASSETS_STATE.period;
+    el('assets-granularity').querySelectorAll('button').forEach(function(b) {
+        b.setAttribute('aria-selected', b.dataset.gran === p.granularity ? 'true' : 'false');
+        b.setAttribute('aria-pressed', b.dataset.gran === p.granularity ? 'true' : 'false');
+    });
+    el('assets-year-value').textContent = p.year != null ? String(p.year) : '—';
+    var years = availableYears();
+    var yIdx = years.indexOf(p.year);
+    el('assets-year-prev').disabled = (yIdx <= 0);
+    el('assets-year-next').disabled = (yIdx === -1 || yIdx >= years.length - 1);
+    var monthWrap = el('assets-month-wrap');
+    var monthSel = el('assets-month-sel');
+    if (p.granularity === 'month') {
+        monthWrap.style.display = '';
+        var avail = availableMonthsInYear(p.year);
+        var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        monthSel.innerHTML = avail.map(function(mo) {
+            return '<option value="' + mo + '"' + (mo === p.month ? ' selected' : '') + '>' +
+                monthNames[mo - 1] + ' (' + p.year + '-' + pad2(mo) + ')</option>';
+        }).join('');
+    } else {
+        monthWrap.style.display = 'none';
+    }
+    var zoneSel = el('assets-zone-sel');
+    if (zoneSel) zoneSel.value = ASSETS_STATE.zone;
+}
+function updatePartialDataBanner(keys, expected) {
+    var t = el('assets-period-toast');
+    if (!t) return;
+    // Don't override an active snap-toast (it has its own timeout)
+    if (t._timer) return;
+    var gran = ASSETS_STATE.period.granularity;
+    if (gran === 'month' || !keys || keys.length === 0 || keys.length >= expected) {
+        t.hidden = true;
+        t.textContent = '';
+        return;
+    }
+    var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var have = keys.map(function(k) { return parseInt(k.split('-')[1], 10); });
+    var missing = [];
+    for (var mo = 1; mo <= expected; mo++) { if (have.indexOf(mo) === -1) missing.push(monthNames[mo - 1]); }
+    if (!missing.length) {
+        t.hidden = true;
+        t.textContent = '';
+        return;
+    }
+    t.textContent = formatPeriodSuffix() + ' · ' + keys.length + ' of ' + expected +
+        ' months (missing: ' + missing.join(', ') + ').';
+    t.hidden = false;
 }
 
 function renderParkChips() {
@@ -2185,7 +2569,7 @@ function renderParkChips() {
             }
             ASSETS_STATE.tableParks = current;
             renderParkChips();
-            renderParkTable(activeMonthKey());
+            renderParkTable(periodKeys(), expectedMonthsForPeriod());
         });
     });
     var resetBtn = el('park-chips-reset');
@@ -2193,38 +2577,45 @@ function renderParkChips() {
         resetBtn.addEventListener('click', function() {
             ASSETS_STATE.tableParks = null;
             renderParkChips();
-            renderParkTable(activeMonthKey());
+            renderParkTable(periodKeys(), expectedMonthsForPeriod());
         });
     }
 }
 
-function renderFleetKPIs(monthKey) {
+function renderFleetKPIs(keys, expected) {
     var entries = filteredEntries();
     if (!entries.length) {
         el('fleet-kpis').innerHTML = '<div class="kpi"><div class="kpi-label">No parks</div><div class="kpi-value">—</div></div>';
         return;
     }
     var totalCap = 0, totalActual = 0, totalBudget = 0, totalNeg = 0;
+    var anyData = false;
     entries.forEach(function(e) {
         var p = e[1];
         totalCap += (p.capacity_mwp || 0);
-        var m = parkMonth(p, monthKey);
-        if (m) {
-            totalActual += (m.energy_mwh || 0);
-            totalBudget += (m.budget_mwh || 0);
-            totalNeg += (m.neg_price_hours || 0);
+        var agg = aggregatePark(p, keys);
+        if (agg) {
+            anyData = true;
+            if (agg.energy_mwh != null) totalActual += agg.energy_mwh;
+            if (agg.budget_mwh != null) totalBudget += agg.budget_mwh;
+            if (agg.neg_price_hours != null) totalNeg += agg.neg_price_hours;
         }
     });
     var vsBudget = totalBudget > 0 ? 100 * (totalActual - totalBudget) / totalBudget : null;
     var vsCls = vsClass(vsBudget);
     var pillHtml = vsBudget != null ? '<span class="pill ' + vsCls + '">' + fmtPct(vsBudget) + '</span>' : '<span class="pill neutral">–</span>';
 
+    var suffix = formatPeriodSuffix();
+    var energyLabel = 'Energy · ' + suffix;
+    var negLabel = 'Negative-price hours · ' + suffix;
+    var energySub = anyData ? ('Budget: ' + fmtNum(totalBudget, 0) + ' MWh') : 'No data for period';
+
     var tiles = [
         kpiTile('Parks', String(entries.length), '', 'Active in fleet view'),
         kpiTile('Installed capacity', fmtNum(totalCap, 1), 'MWp', 'DC, sum across selection'),
-        kpiTile('Energy ' + (monthKey || ''), fmtNum(totalActual, 0), 'MWh', 'Budget: ' + fmtNum(totalBudget, 0) + ' MWh'),
+        kpiTile(energyLabel, anyData ? fmtNum(totalActual, 0) : '–', 'MWh', energySub),
         '<div class="kpi"><div class="kpi-label">vs Budget</div><div class="kpi-value">' + (vsBudget != null ? fmtPct(vsBudget) : '–') + '</div><div class="kpi-sub">' + pillHtml + '</div></div>',
-        kpiTile('Negative-price hours', fmtNum(totalNeg, 0), 'h', 'Sum across selection'),
+        kpiTile(negLabel, anyData ? fmtNum(totalNeg, 0) : '–', 'h', 'Sum across selection'),
     ];
     el('fleet-kpis').innerHTML = tiles.join('');
 }
@@ -2248,7 +2639,7 @@ function sparkline(months) {
     return '<svg width="' + W + '" height="' + H + '" aria-hidden="true">' + bars + '</svg>';
 }
 
-function renderParkGrid(monthKey) {
+function renderParkGrid(keys, expected) {
     var entries = filteredEntries();
     if (!entries.length) {
         el('park-grid').innerHTML = '<div class="empty-note">No parks match this filter.</div>';
@@ -2256,18 +2647,19 @@ function renderParkGrid(monthKey) {
     }
     el('park-grid').innerHTML = entries.map(function(e) {
         var pk = e[0], p = e[1];
-        var m = parkMonth(p, monthKey);
-        var vs = m ? m.vs_budget_pct : null;
+        var agg = aggregatePark(p, keys);
+        var vs = agg ? agg.vs_budget_pct : null;
         var cls = vsClass(vs);
         var pillHtml = vs != null ? '<span class="pill ' + cls + '">' + fmtPct(vs) + '</span>' : '<span class="pill neutral">–</span>';
+        var dot = partialDataDot(agg, expected);
         return '<div class="park-tile ' + cls + '" data-park="' + htmlEsc(pk) + '" tabindex="0" role="button">' +
             '<div class="park-tile-head">' +
-                '<div class="park-tile-name">' + htmlEsc(p.name || pk) + '</div>' +
+                '<div class="park-tile-name">' + htmlEsc(p.name || pk) + dot + '</div>' +
                 '<div class="park-tile-zone">' + htmlEsc(p.zone || '') + '</div>' +
             '</div>' +
             '<div class="park-tile-stat"><span class="park-tile-stat-k">Capacity</span><span class="park-tile-stat-v">' + fmtNum(p.capacity_mwp, 2) + ' MWp</span></div>' +
-            '<div class="park-tile-stat"><span class="park-tile-stat-k">Energy</span><span class="park-tile-stat-v">' + (m ? fmtNum(m.energy_mwh, 0) + ' MWh' : '–') + '</span></div>' +
-            '<div class="park-tile-stat"><span class="park-tile-stat-k">Budget</span><span class="park-tile-stat-v">' + (m ? fmtNum(m.budget_mwh, 0) + ' MWh' : '–') + '</span></div>' +
+            '<div class="park-tile-stat"><span class="park-tile-stat-k">Energy</span><span class="park-tile-stat-v">' + (agg && agg.energy_mwh != null ? fmtNum(agg.energy_mwh, 0) + ' MWh' : '–') + '</span></div>' +
+            '<div class="park-tile-stat"><span class="park-tile-stat-k">Budget</span><span class="park-tile-stat-v">' + (agg && agg.budget_mwh != null ? fmtNum(agg.budget_mwh, 0) + ' MWh' : '–') + '</span></div>' +
             '<div class="park-tile-stat"><span class="park-tile-stat-k">vs Budget</span>' + pillHtml + '</div>' +
             '<div class="park-tile-spark"><span class="park-tile-stat-k">12-month energy</span>' + sparkline(p.months || []) + '</div>' +
         '</div>';
@@ -2280,40 +2672,30 @@ function renderParkGrid(monthKey) {
     });
 }
 
-function ytdSum(park, monthKey) {
-    if (!monthKey) return 0;
-    var yr = parseInt(monthKey.split('-')[0]);
-    var mo = parseInt(monthKey.split('-')[1]);
-    var sum = 0;
-    (park.months || []).forEach(function(m) {
-        if (m.year === yr && m.month <= mo && m.energy_mwh) sum += m.energy_mwh;
-    });
-    return sum;
-}
-
-function tableRows(monthKey) {
+function tableRows(keys, expected) {
     var sel = tableParkSet();
     return filteredEntries().filter(function(e) {
         return sel === null || sel.indexOf(e[0]) !== -1;
     }).map(function(e) {
         var pk = e[0], p = e[1];
-        var m = parkMonth(p, monthKey);
+        var agg = aggregatePark(p, keys);
         return {
             key: pk, name: p.name || pk, zone: p.zone || '',
             capacity_mwp: p.capacity_mwp || 0,
-            energy_mwh: m ? m.energy_mwh : null,
-            budget_mwh: m ? m.budget_mwh : null,
-            vs_budget_pct: m ? m.vs_budget_pct : null,
-            ytd_mwh: ytdSum(p, monthKey),
-            yield_kwh_kwp: m ? m.yield_kwh_kwp : null,
-            actual_irr_kwh_m2: m ? m.actual_irr_kwh_m2 : null,
-            vs_budget_irr_pct: m ? m.vs_budget_irr_pct : null,
+            energy_mwh: agg ? agg.energy_mwh : null,
+            budget_mwh: agg ? agg.budget_mwh : null,
+            vs_budget_pct: agg ? agg.vs_budget_pct : null,
+            yield_kwh_kwp: agg ? agg.yield_kwh_kwp : null,
+            actual_irr_kwh_m2: agg ? agg.actual_irr_kwh_m2 : null,
+            vs_budget_irr_pct: agg ? agg.vs_budget_irr_pct : null,
+            months_present: agg ? agg.months_present : 0,
+            months_expected: expected || 1
         };
     });
 }
 
-function renderParkTable(monthKey) {
-    var rows = tableRows(monthKey);
+function renderParkTable(keys, expected) {
+    var rows = tableRows(keys, expected);
     var dir = TABLE_STATE.sortDir === 'asc' ? 1 : -1;
     var sk = TABLE_STATE.sortKey;
     rows.sort(function(a, b) {
@@ -2323,13 +2705,18 @@ function renderParkTable(monthKey) {
         if (typeof av === 'string') return dir * av.localeCompare(bv);
         return dir * (av - bv);
     });
+    var suffix = formatPeriodSuffix();
+    var energyLabel = 'MWh · ' + suffix;
+    var nameFormatter = function(v) {
+        // we render the partial-data dot via separate column-data on the row
+        return htmlEsc(v);
+    };
     var cols = [
-        { k: 'name',          label: 'Park',            fmt: htmlEsc },
+        { k: 'name',          label: 'Park',            fmt: nameFormatter, cls: '', html: true, withDot: true },
         { k: 'zone',          label: 'Zone',            fmt: htmlEsc, cls: '' },
         { k: 'capacity_mwp',  label: 'Cap MWp',         fmt: function(v) { return fmtNum(v, 2); }, cls: 'num' },
-        { k: 'energy_mwh',    label: 'MWh (latest)',    fmt: function(v) { return fmtNum(v, 0); }, cls: 'num' },
+        { k: 'energy_mwh',    label: energyLabel,       fmt: function(v) { return fmtNum(v, 0); }, cls: 'num' },
         { k: 'vs_budget_pct', label: 'vs Budget',       fmt: function(v) { if (v == null) return '–'; var c = vsClass(v); return '<span class="pill ' + c + '">' + fmtPct(v) + '</span>'; }, cls: 'num', html: true },
-        { k: 'ytd_mwh',          label: 'YTD MWh',         fmt: function(v) { return fmtNum(v, 0); }, cls: 'num' },
         { k: 'actual_irr_kwh_m2', label: 'Irr (kWh/m²)',   fmt: function(v) { return fmtNum(v, 1); }, cls: 'num' },
         { k: 'vs_budget_irr_pct', label: 'vs Bdg',         fmt: function(v) { if (v == null) return '–'; var c = vsClass(v); return '<span class="pill ' + c + '">' + fmtPct(v) + '</span>'; }, cls: 'num', html: true },
         { k: 'yield_kwh_kwp',    label: 'Yield kWh/kWp',   fmt: function(v) { return fmtNum(v, 1); }, cls: 'num' },
@@ -2340,13 +2727,14 @@ function renderParkTable(monthKey) {
         return '<th class="' + (c.cls || '') + '" data-key="' + htmlEsc(c.k) + '" aria-sort="' + sortAttr + '">' + htmlEsc(c.label) + ' <span class="arrow">' + arrow + '</span></th>';
     }).join('') + '</tr></thead>';
     var body = '<tbody>' + rows.map(function(r) {
+        var dot = (r.months_expected > 1 && r.months_present < r.months_expected && r.months_present > 0)
+            ? '<span class="partial-data-dot" title="' + r.months_present + ' of ' + r.months_expected + ' months present"></span>'
+            : '';
         return '<tr data-park="' + htmlEsc(r.key) + '">' +
             cols.map(function(c) {
                 var v = r[c.k];
                 var disp = c.fmt ? c.fmt(v) : (v == null ? '–' : v);
-                if (!c.html && typeof disp === 'string' && c.fmt !== htmlEsc && c.cls !== 'num') {
-                    // numeric formatters return digit strings — safe
-                }
+                if (c.withDot) disp = disp + dot;
                 return '<td class="' + (c.cls || '') + '">' + disp + '</td>';
             }).join('') +
         '</tr>';
@@ -2358,7 +2746,7 @@ function renderParkTable(monthKey) {
             var k = th.dataset.key;
             if (TABLE_STATE.sortKey === k) TABLE_STATE.sortDir = TABLE_STATE.sortDir === 'asc' ? 'desc' : 'asc';
             else { TABLE_STATE.sortKey = k; TABLE_STATE.sortDir = 'desc'; }
-            renderParkTable(monthKey);
+            renderParkTable(keys, expected);
         });
     });
     t.querySelectorAll('tbody tr').forEach(function(tr) {
@@ -2367,11 +2755,19 @@ function renderParkTable(monthKey) {
 }
 
 function exportParkCsv() {
-    var monthKey = activeMonthKey();
-    var header = ['Park','Zone','Capacity_MWp','Energy_MWh_' + monthKey,'vs_Budget_pct','YTD_MWh','Irr_kWh_m2','vs_Budget_Irr_pct','Yield_kWh_kWp'];
+    var keys = periodKeys();
+    var expected = expectedMonthsForPeriod();
+    var periodSlug = (function() {
+        var p = ASSETS_STATE.period;
+        if (p.granularity === 'month') return p.year + '-' + pad2(p.month);
+        if (p.granularity === 'year') return p.year + '-FY';
+        if (p.granularity === 'ytd') return p.year + '-YTD';
+        return 'period';
+    })();
+    var header = ['Park','Zone','Capacity_MWp','Energy_MWh_' + periodSlug,'vs_Budget_pct','Irr_kWh_m2','vs_Budget_Irr_pct','Yield_kWh_kWp','Months_present','Months_expected'];
     var rows = [header];
-    tableRows(monthKey).forEach(function(r) {
-        rows.push([r.name, r.zone, r.capacity_mwp, r.energy_mwh, r.vs_budget_pct, r.ytd_mwh, r.actual_irr_kwh_m2, r.vs_budget_irr_pct, r.yield_kwh_kwp]);
+    tableRows(keys, expected).forEach(function(r) {
+        rows.push([r.name, r.zone, r.capacity_mwp, r.energy_mwh, r.vs_budget_pct, r.actual_irr_kwh_m2, r.vs_budget_irr_pct, r.yield_kwh_kwp, r.months_present, r.months_expected]);
     });
     var csv = rows.map(function(r) {
         return r.map(function(c) {
@@ -2386,7 +2782,7 @@ function exportParkCsv() {
     var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'park_comparison_' + monthKey + '.csv';
+    a.download = 'park_comparison_' + periodSlug + '.csv';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
 }
 window.exportParkCsv = exportParkCsv;
@@ -2396,12 +2792,23 @@ function openDrilldown(pk) {
     if (!pk || !ASSETS.parks[pk]) return;
     ASSETS_STATE.mode = 'drilldown';
     ASSETS_STATE.selectedPark = pk;
-    ASSETS_STATE.drillMonth = null;
+
+    var p = ASSETS_STATE.period;
+    if (p && p.granularity === 'month' && p.year != null && p.month != null) {
+        // smooth handoff — drill-down opens on the same month
+        ASSETS_STATE.drillMonth = p.year + '-' + pad2(p.month);
+        ASSETS_STATE.cameFromPeriod = null;
+    } else {
+        // YTD/Year — jump to the park's latest available month, remember origin
+        ASSETS_STATE.drillMonth = parkLatestMonthKey(ASSETS.parks[pk]);
+        ASSETS_STATE.cameFromPeriod = p ? { granularity: p.granularity, year: p.year, month: p.month } : null;
+    }
     renderDrilldown();
 }
 window.exitDrilldown = function() {
     ASSETS_STATE.mode = 'fleet';
     ASSETS_STATE.selectedPark = null;
+    ASSETS_STATE.cameFromPeriod = null;
     renderAssets();
 };
 
@@ -2430,13 +2837,27 @@ function renderDrilldown() {
     el('fleet-mode').hidden = true;
     el('drill-mode').hidden = false;
 
-    var monthKey = ASSETS_STATE.drillMonth || activeMonthKey();
+    var monthKey = ASSETS_STATE.drillMonth || latestMonthKey();
     if (!parkMonth(p, monthKey)) {
         var available = (p.months || []).map(function(mm) { return mm.year + '-' + String(mm.month).padStart(2, '0'); }).sort();
         if (available.length) monthKey = available[available.length - 1];
     }
     ASSETS_STATE.drillMonth = monthKey;
     var m = parkMonth(p, monthKey);
+
+    // Period hint when arrived from YTD/Year
+    var hint = el('drill-period-hint');
+    if (hint) {
+        var came = ASSETS_STATE.cameFromPeriod;
+        if (came && came.granularity !== 'month') {
+            var label = formatPeriodSuffix(came);
+            hint.innerHTML = 'Showing single month. Came from <strong>' + htmlEsc(label) + '</strong>. ' +
+                '<a href="#assets" onclick="event.preventDefault(); exitDrilldown();">← Back to ' + htmlEsc(label) + '</a>';
+            hint.hidden = false;
+        } else {
+            hint.hidden = true;
+        }
+    }
 
     el('drill-name').textContent = p.name || pk;
     el('drill-meta').innerHTML =
@@ -2874,14 +3295,29 @@ _SHELL = r"""<!DOCTYPE html>
       <div id="fleet-mode">
         <header class="page-head">
           <div class="page-head-left">
-            <div class="page-eyebrow">Fleet · <span id="assets-month-label">—</span></div>
-            <h1 class="page-title">Asset Performance</h1>
-            <p class="page-sub">Per-park monthly energy, yield and budget variance across the SveaSolar utility-scale fleet. Click any park to drill down.</p>
+            <div class="page-eyebrow">Fleet</div>
+            <h1 class="page-title">Asset Performance<span id="assets-period-suffix" class="page-title-suffix"></span></h1>
+            <p class="page-sub">Per-park energy, yield and budget variance across the SveaSolar utility-scale fleet. Click any park to drill down.</p>
           </div>
-          <div class="page-controls">
-            <span class="label-control">Month
+        </header>
+
+        <div class="period-bar" id="assets-period-bar" role="group" aria-label="Period filter">
+          <div class="period-bar-left">
+            <div class="seg" id="assets-granularity" role="tablist" aria-label="Granularity">
+              <button type="button" data-gran="month" role="tab" aria-selected="false">Month</button>
+              <button type="button" data-gran="ytd" role="tab" aria-selected="false">YTD</button>
+              <button type="button" data-gran="year" role="tab" aria-selected="false">Year</button>
+            </div>
+            <div class="period-stepper" id="assets-year-stepper" aria-label="Year">
+              <button type="button" id="assets-year-prev" aria-label="Previous year">◀</button>
+              <span class="period-stepper-value" id="assets-year-value">—</span>
+              <button type="button" id="assets-year-next" aria-label="Next year">▶</button>
+            </div>
+            <span class="label-control" id="assets-month-wrap">Month
               <select id="assets-month-sel"></select>
             </span>
+          </div>
+          <div class="period-bar-right">
             <span class="label-control">Zone
               <select id="assets-zone-sel">
                 <option value="ALL">All zones</option>
@@ -2892,7 +3328,9 @@ _SHELL = r"""<!DOCTYPE html>
               </select>
             </span>
           </div>
-        </header>
+        </div>
+
+        <div class="period-toast" id="assets-period-toast" hidden></div>
 
         <div id="assets-content">
           <div class="kpi-strip" id="fleet-kpis"></div>
@@ -2936,6 +3374,7 @@ _SHELL = r"""<!DOCTYPE html>
           <span class="crumb-sep">/</span>
           <span id="drill-name-crumb"></span>
         </div>
+        <div class="drill-period-hint" id="drill-period-hint" hidden></div>
         <div class="drill-hero">
           <div>
             <h1 class="drill-name" id="drill-name"></h1>
