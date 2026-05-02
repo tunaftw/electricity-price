@@ -2,16 +2,17 @@
 """Master update script - download all data and generate reports.
 
 This script runs the entire update pipeline:
-1. Update spot prices (elprisetjustnu.se)
-2. Sync Bazefield solar park data (if API key available)
-3. Update ENTSO-E generation data (if token available)
-4. Update Mimer regulation prices (SVK)
-5. Update eSett imbalance prices
-6. Process raw data to quarterly format
-7. Calculate capture prices
-8. Generate Excel reports
-9. Generate HTML dashboard
-10. Show status
+ 1. Update spot prices (elprisetjustnu.se)
+ 2. Sync Bazefield solar park data (if API key available)
+ 3. Update ENTSO-E generation data (if token available)
+ 4. Update Mimer regulation prices (SVK)
+ 5. Update Nasdaq Nordic futures
+ 6. Update eSett imbalance prices
+ 7. Process raw data to quarterly format
+ 8. Calculate capture prices
+ 9. Generate Excel reports
+10. Generate HTML dashboard
+11. Show status
 """
 
 from __future__ import annotations
@@ -132,7 +133,7 @@ def main():
     print(f"Bazefield key: {'Found' if BAZEFIELD_API_KEY else 'Not found'}")
     print("=" * 60)
 
-    total_steps = 11
+    total_steps = 12
     current_step = 0
     success_count = 0
 
@@ -179,7 +180,7 @@ def main():
         else:
             print("  Failed or no updates needed")
 
-    # Step 3: Update Mimer regulation prices
+    # Step 4: Update Mimer regulation prices
     current_step += 1
     if args.skip_mimer:
         step(current_step, total_steps, "Mimer regulation prices (SKIPPED)")
@@ -191,7 +192,7 @@ def main():
         else:
             print("  Failed or no updates needed")
 
-    # Step 4: Update Nasdaq futures
+    # Step 5: Update Nasdaq futures
     current_step += 1
     if args.skip_nasdaq:
         step(current_step, total_steps, "Nasdaq futures (SKIPPED)")
@@ -203,7 +204,7 @@ def main():
         else:
             print("  Failed or no updates needed")
 
-    # Step 5: Update eSett imbalance prices
+    # Step 6: Update eSett imbalance prices
     current_step += 1
     if args.skip_esett:
         step(current_step, total_steps, "eSett imbalance prices (SKIPPED)")
@@ -216,7 +217,7 @@ def main():
         else:
             print("  Failed or no updates needed")
 
-    # Step 5: Process to quarterly format
+    # Step 7: Process to quarterly format
     current_step += 1
     step(current_step, total_steps, "Processing data to quarterly format")
     process_args = ["--zones"] + args.zones
@@ -226,7 +227,7 @@ def main():
     else:
         print("  Failed")
 
-    # Step 6: Calculate capture prices
+    # Step 8: Calculate capture prices
     current_step += 1
     step(current_step, total_steps, "Calculating capture prices")
     # Run capture for each zone and print summary
@@ -236,7 +237,7 @@ def main():
     success_count += 1
     print("  Done!")
 
-    # Step 7: Generate Excel reports
+    # Step 9: Generate Excel reports
     current_step += 1
     if args.skip_excel:
         step(current_step, total_steps, "Excel reports (SKIPPED)")
@@ -261,7 +262,7 @@ def main():
         except Exception as e:
             print(f"  Error generating Excel: {e}")
 
-    # Step 8: Generate HTML dashboard
+    # Step 10: Generate HTML dashboard
     current_step += 1
     step(current_step, total_steps, "Generating HTML dashboard")
     try:
@@ -272,7 +273,7 @@ def main():
     except Exception as e:
         print(f"  Error generating dashboard: {e}")
 
-    # Step 9: Show status
+    # Step 11: Show status
     current_step += 1
     step(current_step, total_steps, "Data status")
     run_script("status.py", quiet=False)
