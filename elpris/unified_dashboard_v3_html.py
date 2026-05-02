@@ -671,6 +671,62 @@ table.editorial tbody tr:last-child td { border-bottom: 0; }
 }
 .park-tile-spark svg { display: block; }
 
+/* park chip filter (Comparison table) */
+.park-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: var(--sp-3) 0 var(--sp-4) 0;
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px dashed var(--ink-5);
+}
+.park-chips-label {
+  font-size: var(--fs-xs);
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  margin-right: 4px;
+}
+.park-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--ink-5);
+  background: transparent;
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--ink-3);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+.park-chip:hover { border-color: var(--accent-deep); color: var(--ink-1); }
+.park-chip[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--ink-1);
+  border-color: var(--accent-deep);
+}
+.park-chip-reset {
+  margin-left: auto;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--ink-5);
+  background: var(--surface-sunken);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--ink-2);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+.park-chip-reset:hover { color: var(--ink-1); border-color: var(--accent-deep); }
+
 /* drilldown */
 .crumb {
   display: flex;
@@ -1556,8 +1612,20 @@ function renderForwardTable(fwd) {
 //  ASSETS TAB
 // ============================================================
 var ASSETS = (DATA && DATA.assets) ? DATA.assets : null;
-var ASSETS_STATE = { mode: 'fleet', selectedPark: null, monthKey: 'latest', zone: 'ALL', drillMonth: null };
+var ASSETS_STATE = { mode: 'fleet', selectedPark: null, monthKey: 'latest', zone: 'ALL', drillMonth: null, tableParks: null };
 var TABLE_STATE = { sortKey: 'energy_mwh', sortDir: 'desc' };
+
+function allParkKeysSorted() {
+    if (!ASSETS || !ASSETS.parks) return [];
+    return Object.entries(ASSETS.parks)
+        .sort(function(a, b) { return (a[1].name || a[0]).localeCompare(b[1].name || b[0]); })
+        .map(function(e) { return e[0]; });
+}
+function tableParkSet() {
+    // null = all selected (default)
+    if (ASSETS_STATE.tableParks === null) return null;
+    return ASSETS_STATE.tableParks;
+}
 
 function renderAssets() {
     if (!ASSETS) {
@@ -1634,7 +1702,51 @@ function renderFleetMode() {
 
     renderFleetKPIs(monthKey);
     renderParkGrid(monthKey);
+    renderParkChips();
     renderParkTable(monthKey);
+}
+
+function renderParkChips() {
+    var host = el('park-chips');
+    if (!host) return;
+    var keys = allParkKeysSorted();
+    if (!keys.length) { host.innerHTML = ''; return; }
+    var sel = tableParkSet();
+    var html = '<span class="park-chips-label">Parks in table</span>' +
+        keys.map(function(k) {
+            var p = ASSETS.parks[k];
+            var isOn = (sel === null) || (sel.indexOf(k) !== -1);
+            return '<button type="button" class="park-chip" data-key="' + htmlEsc(k) + '" aria-pressed="' + isOn + '">' +
+                htmlEsc(p.name || k) +
+            '</button>';
+        }).join('') +
+        '<button type="button" class="park-chip-reset" id="park-chips-reset">All</button>';
+    host.innerHTML = html;
+    host.querySelectorAll('.park-chip').forEach(function(b) {
+        b.addEventListener('click', function() {
+            var k = b.dataset.key;
+            var current = ASSETS_STATE.tableParks;
+            if (current === null) {
+                // start from "all", then drop this one
+                current = allParkKeysSorted().filter(function(x) { return x !== k; });
+            } else {
+                var idx = current.indexOf(k);
+                if (idx === -1) current = current.concat([k]);
+                else { current = current.slice(); current.splice(idx, 1); }
+            }
+            ASSETS_STATE.tableParks = current;
+            renderParkChips();
+            renderParkTable(activeMonthKey());
+        });
+    });
+    var resetBtn = el('park-chips-reset');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', function() {
+            ASSETS_STATE.tableParks = null;
+            renderParkChips();
+            renderParkTable(activeMonthKey());
+        });
+    }
 }
 
 function renderFleetKPIs(monthKey) {
@@ -1731,7 +1843,10 @@ function ytdSum(park, monthKey) {
 }
 
 function tableRows(monthKey) {
-    return filteredEntries().map(function(e) {
+    var sel = tableParkSet();
+    return filteredEntries().filter(function(e) {
+        return sel === null || sel.indexOf(e[0]) !== -1;
+    }).map(function(e) {
         var pk = e[0], p = e[1];
         var m = parkMonth(p, monthKey);
         return {
@@ -1761,8 +1876,7 @@ function renderParkTable(monthKey) {
         { k: 'name',          label: 'Park',            fmt: htmlEsc },
         { k: 'zone',          label: 'Zone',            fmt: htmlEsc, cls: '' },
         { k: 'capacity_mwp',  label: 'Cap MWp',         fmt: function(v) { return fmtNum(v, 2); }, cls: 'num' },
-        { k: 'energy_mwh',    label: 'Energy MWh',      fmt: function(v) { return fmtNum(v, 0); }, cls: 'num' },
-        { k: 'budget_mwh',    label: 'Budget MWh',      fmt: function(v) { return fmtNum(v, 0); }, cls: 'num' },
+        { k: 'energy_mwh',    label: 'MWh (latest)',    fmt: function(v) { return fmtNum(v, 0); }, cls: 'num' },
         { k: 'vs_budget_pct', label: 'vs Budget',       fmt: function(v) { if (v == null) return '–'; var c = vsClass(v); return '<span class="pill ' + c + '">' + fmtPct(v) + '</span>'; }, cls: 'num', html: true },
         { k: 'ytd_mwh',       label: 'YTD MWh',         fmt: function(v) { return fmtNum(v, 0); }, cls: 'num' },
         { k: 'yield_kwh_kwp', label: 'Yield kWh/kWp',   fmt: function(v) { return fmtNum(v, 1); }, cls: 'num' },
@@ -1801,10 +1915,10 @@ function renderParkTable(monthKey) {
 
 function exportParkCsv() {
     var monthKey = activeMonthKey();
-    var header = ['Park','Zone','Capacity_MWp','Energy_MWh_' + monthKey,'Budget_MWh','vs_Budget_pct','YTD_MWh','Yield_kWh_kWp'];
+    var header = ['Park','Zone','Capacity_MWp','Energy_MWh_' + monthKey,'vs_Budget_pct','YTD_MWh','Yield_kWh_kWp'];
     var rows = [header];
     tableRows(monthKey).forEach(function(r) {
-        rows.push([r.name, r.zone, r.capacity_mwp, r.energy_mwh, r.budget_mwh, r.vs_budget_pct, r.ytd_mwh, r.yield_kwh_kwp]);
+        rows.push([r.name, r.zone, r.capacity_mwp, r.energy_mwh, r.vs_budget_pct, r.ytd_mwh, r.yield_kwh_kwp]);
     });
     var csv = rows.map(function(r) {
         return r.map(function(c) {
@@ -2270,6 +2384,7 @@ _SHELL = r"""<!DOCTYPE html>
                 <button type="button" class="seg" style="padding:6px 14px;background:var(--accent);color:var(--ink-1);border-radius:var(--radius-pill);font-size:var(--fs-xs);font-weight:600;text-transform:uppercase;letter-spacing:0.06em" onclick="exportParkCsv()">Export CSV</button>
               </div>
             </div>
+            <div class="park-chips" id="park-chips" role="group" aria-label="Filter parks shown in table"></div>
             <div style="overflow-x:auto">
               <table class="editorial" id="park-table"></table>
             </div>
