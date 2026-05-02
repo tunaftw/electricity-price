@@ -1152,23 +1152,14 @@ function renderHeatmap() {
         el('capture-heatmap').innerHTML = '<div class="empty-note">No heatmap data.</div>';
         return;
     }
-    // hm is list of dicts with hour, month, baseload (or similar). Inspect first.
-    // Standard shape from dashboard_v2_data: list of {hour, month, baseload (avg), n_obs}
-    var z = {};
-    hm.forEach(function(r) {
-        if (!z[r.month]) z[r.month] = {};
-        z[r.month][r.hour] = r.baseload;
-    });
-    var months = Object.keys(z).map(Number).sort(function(a,b){return a-b;});
+    // hm is a 12 x 24 matrix: hm[month-1][hour] = mean EUR/MWh, or null.
     var hours = []; for (var h = 0; h < 24; h++) hours.push(h);
     var monthLabels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    var matrix = months.map(function(m) {
-        return hours.map(function(h) { return z[m][h] != null ? z[m][h] : null; });
-    });
+    var matrix = hm; // already a list of rows
     Plotly.react('capture-heatmap', [{
         type: 'heatmap',
         x: hours,
-        y: months.map(function(m) { return monthLabels[m-1] || m; }),
+        y: monthLabels,
         z: matrix,
         colorscale: [
             [0,    '#F7F5F0'],
@@ -1454,10 +1445,12 @@ function renderFutures() {
 
 function renderFuturesKPIs(fwd) {
     var zone = FUTURES_STATE.zone;
-    var sysContracts = (fwd.contracts || []).filter(function(c) { return c.type === 'YR'; });
+    var sysContracts = (fwd.contracts || []).filter(function(c) { return c.type === 'year'; });
     var nextYr = sysContracts[0];
-    var sysPrice = nextYr ? (fwd.sys[nextYr.label] && fwd.sys[nextYr.label].price) : null;
-    var epadPrice = (nextYr && fwd.epad && fwd.epad[zone] && fwd.epad[zone][nextYr.label]) ? fwd.epad[zone][nextYr.label].price : null;
+    var sysPrice = nextYr ? (fwd.sys && fwd.sys[nextYr.label]) : null;
+    var epadPrice = (nextYr && fwd.epad && fwd.epad[zone]) ? fwd.epad[zone][nextYr.label] : null;
+    if (sysPrice === undefined) sysPrice = null;
+    if (epadPrice === undefined) epadPrice = null;
     var zonePrice = (sysPrice != null && epadPrice != null) ? (sysPrice + epadPrice) : null;
 
     // realised spot for current year
@@ -1485,8 +1478,8 @@ function renderForwardChart(fwd) {
     var contracts = (fwd.contracts || []).slice();
     var labels = contracts.map(function(c) { return c.label; });
 
-    var sysSeries  = labels.map(function(l) { return (fwd.sys[l] && fwd.sys[l].price) != null ? fwd.sys[l].price : null; });
-    var epadSeries = labels.map(function(l) { return (fwd.epad[zone] && fwd.epad[zone][l] && fwd.epad[zone][l].price) != null ? fwd.epad[zone][l].price : null; });
+    var sysSeries  = labels.map(function(l) { return (fwd.sys && fwd.sys[l] != null) ? fwd.sys[l] : null; });
+    var epadSeries = labels.map(function(l) { return (fwd.epad && fwd.epad[zone] && fwd.epad[zone][l] != null) ? fwd.epad[zone][l] : null; });
     var zoneSeries = labels.map(function(l, i) { return (sysSeries[i] != null && epadSeries[i] != null) ? sysSeries[i] + epadSeries[i] : null; });
 
     var realLabels = (fwd.expired_contracts || []).map(function(c) { return c.label; });
@@ -1510,7 +1503,7 @@ function renderEpadChart(fwd) {
     var contracts = (fwd.contracts || []).slice();
     var labels = contracts.map(function(c) { return c.label; });
     var traces = ['SE1','SE2','SE3','SE4'].map(function(z, i) {
-        var ys = labels.map(function(l) { return (fwd.epad[z] && fwd.epad[z][l] && fwd.epad[z][l].price) != null ? fwd.epad[z][l].price : null; });
+        var ys = labels.map(function(l) { return (fwd.epad && fwd.epad[z] && fwd.epad[z][l] != null) ? fwd.epad[z][l] : null; });
         var palette = ['#5B6BA8', '#4A8C7B', '#C9A53C', '#B14F75'];
         return {
             x: labels, y: ys, name: z, type: 'bar',
@@ -1530,8 +1523,8 @@ function renderForwardTable(fwd) {
     var zone = FUTURES_STATE.zone;
     var contracts = (fwd.contracts || []).slice();
     var rows = contracts.map(function(c) {
-        var sys = (fwd.sys[c.label] && fwd.sys[c.label].price) != null ? fwd.sys[c.label].price : null;
-        var epad = (fwd.epad[zone] && fwd.epad[zone][c.label] && fwd.epad[zone][c.label].price) != null ? fwd.epad[zone][c.label].price : null;
+        var sys = (fwd.sys && fwd.sys[c.label] != null) ? fwd.sys[c.label] : null;
+        var epad = (fwd.epad && fwd.epad[zone] && fwd.epad[zone][c.label] != null) ? fwd.epad[zone][c.label] : null;
         var z = (sys != null && epad != null) ? sys + epad : null;
         return { label: c.label, type: c.type, start: c.start, end: c.end, sys: sys, epad: epad, zone: z };
     });
