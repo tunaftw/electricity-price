@@ -136,3 +136,15 @@ def test_park_months_have_neg_price_fields():
                 f"{m['year']}-{m['month']}"
             )
             assert "neg_price_volume_mwh" in m
+
+
+# ---------------------------------------------------------------------------
+# Task 1.6 — tracker-gain summary
+# ---------------------------------------------------------------------------
+
+def test_assets_tracker_gain_exists():
+    """data['assets']['tracker_gain'] ska finnas med monthly-lista."""
+    tg = _data()["assets"]["tracker_gain"]
+    assert isinstance(tg, dict)
+    assert "monthly" in tg
+    assert isinstance(tg["monthly"], list)

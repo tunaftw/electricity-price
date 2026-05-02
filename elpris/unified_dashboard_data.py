@@ -193,7 +193,24 @@ def _build_assets_section(num_months: int = 13) -> Dict[str, Any]:
     return {
         "parks": parks,
         "fleet": _build_fleet_overview(parks),
+        "tracker_gain": _build_tracker_gain(),
     }
+
+
+def _build_tracker_gain() -> Dict[str, Any]:
+    """Returnera tracker-gain summary (Hova vs fixed-tilt SE3-parker).
+
+    calculate_tracker_gain() returnerar en list[dict] med
+    {year, month, sy_hova, sy_fixed_avg, gain_pct}. Vi paketerar den i
+    en dict för att kunna utöka senare utan att ändra contract.
+    """
+    try:
+        monthly = calculate_tracker_gain()
+    except Exception as exc:
+        # TODO: gracefully degrade om underliggande data saknas
+        print(f"[unified_dashboard] tracker_gain beräkning misslyckades: {exc}")
+        monthly = []
+    return {"monthly": monthly}
 
 
 def _build_fleet_overview(parks: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
