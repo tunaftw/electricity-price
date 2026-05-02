@@ -545,6 +545,10 @@ select:focus, input:focus { outline: none; border-color: var(--accent-deep); box
 .chart-tall { height: 460px; }
 .chart-short { height: 240px; }
 .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: var(--sp-5); }
+.drill-chart-grid { display: grid; grid-template-columns: 1fr; gap: var(--sp-5); }
+@media (min-width: 900px) {
+  .drill-chart-grid { grid-template-columns: 1fr 1fr; }
+}
 
 /* tables — editorial */
 table.editorial {
@@ -997,6 +1001,15 @@ function switchTab(name) {
 // ============================================================
 //  CAPTURE TAB
 // ============================================================
+// Track C runs on a cream/light surface. Override profile colors that were
+// picked for the dark Track A background (notably baseload which is white).
+var V3_COLOR_OVERRIDES = {
+    baseload: '#1A1814',
+};
+function profileColor(k) {
+    if (V3_COLOR_OVERRIDES[k]) return V3_COLOR_OVERRIDES[k];
+    return (DATA.colors && DATA.colors[k]) || null;
+}
 var CAPTURE_STATE = {
     zone: null,
     period: 'monthly',     // 'yearly' | 'monthly' | 'daily'
@@ -1045,7 +1058,7 @@ function renderCapture() {
         var btns = present.map(function(k) {
             var label = (DATA.profiles && DATA.profiles[k]) || k;
             var sel = CAPTURE_STATE.profiles.indexOf(k) !== -1;
-            var color = (DATA.colors && DATA.colors[k]) || '#999';
+            var color = profileColor(k) || '#999';
             return '<button type="button" class="profile-chip" data-key="' + htmlEsc(k) + '" aria-pressed="' + sel + '" ' +
                 'style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;border:1px solid var(--ink-5);background:' + (sel ? 'var(--surface-sunken)' : 'transparent') + ';font-size:var(--fs-xs);font-weight:600;color:var(--ink-1);letter-spacing:0.04em;margin:0 4px 4px 0">' +
                 '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + htmlEsc(color) + '"></span>' +
@@ -1136,7 +1149,7 @@ function renderCaptureChart() {
         });
         var ys = rows.map(function(r) { return k === 'baseload' ? r.baseload : (r.capture != null ? r.capture : null); });
         var meta = (DATA.profile_meta && DATA.profile_meta[k]) || {};
-        var color = (DATA.colors && DATA.colors[k]) || null;
+        var color = profileColor(k);
         var label = (DATA.profiles && DATA.profiles[k]) || k;
         traces.push({
             x: xs,
@@ -1177,7 +1190,7 @@ function renderCaptureRatioChart() {
             return r.date;
         });
         var ys = rows.map(function(r) { return r.ratio != null ? r.ratio * 100 : null; });
-        var color = (DATA.colors && DATA.colors[k]) || null;
+        var color = profileColor(k);
         var label = (DATA.profiles && DATA.profiles[k]) || k;
         traces.push({
             x: xs, y: ys, name: label, mode: 'lines+markers', type: 'scatter',
@@ -1276,6 +1289,9 @@ function renderBess() {
     renderBessKPIs();
     renderArbitrageChart();
     renderSolBessChart();
+    renderBessDimReturnsChart();
+    renderBessIncrementalChart();
+    renderBessUpliftPctChart();
     renderAncillaryChart();
     renderInvestPanel();
 }
@@ -1314,7 +1330,7 @@ function renderArbitrageChart() {
     ['arb_1h', 'arb_2h', 'arb_3h', 'arb_4h'].forEach(function(k) {
         var p = z[k];
         if (!p || !p.monthly) return;
-        var color = (DATA.colors && DATA.colors[k]) || null;
+        var color = profileColor(k);
         var label = (DATA.profiles && DATA.profiles[k]) || k;
         var xs = p.monthly.map(function(r) { return r.year + '-' + String(r.month).padStart(2, '0'); });
         var ys = p.monthly.map(function(r) { return r.capture != null ? r.capture : r.baseload; });
@@ -1353,7 +1369,7 @@ function renderSolBessChart() {
     ['sol_bess_1h', 'sol_bess_2h', 'sol_bess_3h', 'sol_bess_4h'].forEach(function(k) {
         var p = z[k];
         if (!p || !p.monthly) return;
-        var color = (DATA.colors && DATA.colors[k]) || null;
+        var color = profileColor(k);
         var label = (DATA.profiles && DATA.profiles[k]) || k;
         var xs = p.monthly.map(function(r) { return r.year + '-' + String(r.month).padStart(2, '0'); });
         var ys = p.monthly.map(function(r) { return r.capture; });
@@ -1374,6 +1390,209 @@ function renderSolBessChart() {
     }), PLOTLY_CFG);
 }
 
+// ----- Sol+BESS · Diminishing returns (chart A) ---------------------------
+function renderBessDimReturnsChart() {
+    var zone = BESS_STATE.zone;
+    var z = (DATA.data && DATA.data[zone]) || {};
+    var solOnly = z['sol_only'] && z['sol_only'].yearly;
+    var h1 = z['sol_bess_1h'] && z['sol_bess_1h'].yearly;
+    var h2 = z['sol_bess_2h'] && z['sol_bess_2h'].yearly;
+    var h3 = z['sol_bess_3h'] && z['sol_bess_3h'].yearly;
+    var h4 = z['sol_bess_4h'] && z['sol_bess_4h'].yearly;
+    if (!solOnly || !h1 || !h2 || !h3 || !h4) {
+        Plotly.purge('bess-dimret-chart');
+        el('bess-dimret-chart').innerHTML = '<div class="empty-note">No sol+BESS data.</div>';
+        return;
+    }
+    // Build {year: {sol_only, h1..h4}}
+    var byYear = {};
+    function add(arr, key) { arr.forEach(function(r) {
+        byYear[r.year] = byYear[r.year] || { year: r.year };
+        byYear[r.year][key] = r.capture;
+    }); }
+    add(solOnly, 'sol_only'); add(h1, 'h1'); add(h2, 'h2'); add(h3, 'h3'); add(h4, 'h4');
+
+    // Determine partial years: yearly aggregate from monthly; assume current year is partial
+    var nowYear = new Date().getFullYear();
+    var years = Object.keys(byYear).map(Number).sort(function(a,b){return a-b;});
+    // Skip pure-partial first year if it has zero capture (e.g. 2021 only Oct-Dec — already shown)
+    // We render every year; partial years use dotted line.
+
+    // Sequential teal palette (oldest = darkest, newest = lightest), current year accent.
+    var palette = ['#0d9488', '#14b8a6', '#2dd4bf', '#5eead4', '#7BD7C8', '#A8E6DA'];
+    var xs = [0, 1, 2, 3, 4];
+    var xLabels = ['Sol only', '+1h', '+2h', '+3h', '+4h'];
+
+    var traces = [];
+    years.forEach(function(year, i) {
+        var row = byYear[year];
+        if (row.sol_only == null || row.h1 == null) return;
+        var ys = [row.sol_only, row.h1, row.h2, row.h3, row.h4];
+        var partial = (year === nowYear);
+        var color = (year === nowYear) ? '#92B53D' : palette[Math.min(i, palette.length - 1)];
+        traces.push({
+            x: xs, y: ys,
+            name: partial ? (year + ' YTD') : String(year),
+            mode: 'lines+markers',
+            type: 'scatter',
+            line: { color: color, width: 2.4, shape: 'spline', dash: partial ? 'dot' : 'solid' },
+            marker: { size: 8, color: color, line: { color: '#FFFFFF', width: 1.5 }, symbol: partial ? 'diamond' : 'circle' },
+            hovertemplate: '<b>' + year + (partial ? ' YTD' : '') + '</b><br>%{text}: <b>%{y:.1f}</b> EUR/MWh<extra></extra>',
+            text: xLabels,
+        });
+    });
+
+    Plotly.react('bess-dimret-chart', traces, makeLayout({
+        xaxis: Object.assign({}, PLOTLY_BASE.xaxis, {
+            tickmode: 'array', tickvals: xs, ticktext: xLabels,
+            gridcolor: 'transparent',
+        }),
+        yaxis: Object.assign({}, PLOTLY_BASE.yaxis, { title: { text: 'Capture EUR/MWh', font: PLOTLY_BASE.yaxis.title.font } }),
+        margin: { t: 12, b: 70, l: 64, r: 24 },
+    }), PLOTLY_CFG);
+}
+
+// ----- Sol+BESS · Incremental stacked bars (chart B) ----------------------
+function renderBessIncrementalChart() {
+    var zone = BESS_STATE.zone;
+    var z = (DATA.data && DATA.data[zone]) || {};
+    var solOnly = z['sol_only'] && z['sol_only'].yearly;
+    var h1 = z['sol_bess_1h'] && z['sol_bess_1h'].yearly;
+    var h2 = z['sol_bess_2h'] && z['sol_bess_2h'].yearly;
+    var h3 = z['sol_bess_3h'] && z['sol_bess_3h'].yearly;
+    var h4 = z['sol_bess_4h'] && z['sol_bess_4h'].yearly;
+    if (!solOnly || !h1 || !h2 || !h3 || !h4) {
+        Plotly.purge('bess-incr-chart');
+        el('bess-incr-chart').innerHTML = '<div class="empty-note">No sol+BESS data.</div>';
+        return;
+    }
+    var byYear = {};
+    function add(arr, key) { arr.forEach(function(r) {
+        byYear[r.year] = byYear[r.year] || { year: r.year, baseload: r.baseload };
+        byYear[r.year][key] = r.capture;
+    }); }
+    add(solOnly, 'sol_only'); add(h1, 'h1'); add(h2, 'h2'); add(h3, 'h3'); add(h4, 'h4');
+
+    var nowYear = new Date().getFullYear();
+    var years = Object.keys(byYear).map(Number).sort(function(a,b){return a-b;});
+    var labels = years.map(function(y) { return y === nowYear ? (y + ' YTD') : String(y); });
+
+    var seg_sol = years.map(function(y) { return byYear[y].sol_only || 0; });
+    var seg_1h  = years.map(function(y) { return Math.max(0, (byYear[y].h1 || 0) - (byYear[y].sol_only || 0)); });
+    var seg_2h  = years.map(function(y) { return Math.max(0, (byYear[y].h2 || 0) - (byYear[y].h1 || 0)); });
+    var seg_3h  = years.map(function(y) { return Math.max(0, (byYear[y].h3 || 0) - (byYear[y].h2 || 0)); });
+    var seg_4h  = years.map(function(y) { return Math.max(0, (byYear[y].h4 || 0) - (byYear[y].h3 || 0)); });
+    var baseload = years.map(function(y) { return byYear[y].baseload != null ? byYear[y].baseload : null; });
+
+    var traces = [
+        { x: labels, y: seg_sol, type: 'bar', name: 'Sol only',
+          marker: { color: '#9A958C' },
+          hovertemplate: '<b>%{x}</b><br>Sol only: <b>%{y:.1f}</b> EUR/MWh<extra></extra>' },
+        { x: labels, y: seg_1h, type: 'bar', name: '+1st hour',
+          marker: { color: '#5eead4' },
+          hovertemplate: '<b>%{x}</b><br>1st hour adds: <b>+%{y:.1f}</b><extra></extra>' },
+        { x: labels, y: seg_2h, type: 'bar', name: '+2nd hour',
+          marker: { color: '#2dd4bf' },
+          hovertemplate: '<b>%{x}</b><br>2nd hour adds: <b>+%{y:.1f}</b><extra></extra>' },
+        { x: labels, y: seg_3h, type: 'bar', name: '+3rd hour',
+          marker: { color: '#14b8a6' },
+          hovertemplate: '<b>%{x}</b><br>3rd hour adds: <b>+%{y:.1f}</b><extra></extra>' },
+        { x: labels, y: seg_4h, type: 'bar', name: '+4th hour',
+          marker: { color: '#0d9488' },
+          hovertemplate: '<b>%{x}</b><br>4th hour adds: <b>+%{y:.1f}</b><extra></extra>' },
+        { x: labels, y: baseload, type: 'scatter', mode: 'markers', name: 'Baseload',
+          marker: { color: '#1A1814', symbol: 'line-ew-open', size: 28, line: { width: 2.4 } },
+          hovertemplate: '<b>%{x}</b><br>Baseload: <b>%{y:.1f}</b> EUR/MWh<extra></extra>' },
+    ];
+
+    Plotly.react('bess-incr-chart', traces, makeLayout({
+        barmode: 'stack',
+        bargap: 0.35,
+        xaxis: Object.assign({}, PLOTLY_BASE.xaxis, { gridcolor: 'transparent' }),
+        yaxis: Object.assign({}, PLOTLY_BASE.yaxis, { title: { text: 'Capture EUR/MWh', font: PLOTLY_BASE.yaxis.title.font } }),
+        margin: { t: 12, b: 70, l: 64, r: 24 },
+    }), PLOTLY_CFG);
+}
+
+// ----- Sol+BESS · Uplift % over time (chart C) ----------------------------
+function renderBessUpliftPctChart() {
+    var zone = BESS_STATE.zone;
+    var z = (DATA.data && DATA.data[zone]) || {};
+    var solOnly = z['sol_only'] && z['sol_only'].monthly;
+    if (!solOnly || !solOnly.length) {
+        Plotly.purge('bess-uplift-chart');
+        el('bess-uplift-chart').innerHTML = '<div class="empty-note">No sol+BESS data.</div>';
+        return;
+    }
+    // Index sol-only by year-month for uplift calc
+    function key(r) { return r.year + '-' + String(r.month).padStart(2, '0'); }
+    var solMap = {};
+    solOnly.forEach(function(r) { solMap[key(r)] = r.capture; });
+
+    // Mask months with sol_only <= 5 EUR/MWh — division becomes unstable.
+    var validKeys = Object.keys(solMap).filter(function(k) { return solMap[k] > 5; }).sort();
+    if (!validKeys.length) {
+        Plotly.purge('bess-uplift-chart');
+        el('bess-uplift-chart').innerHTML = '<div class="empty-note">No sol+BESS data above noise floor.</div>';
+        return;
+    }
+
+    function rolling(arr, w) {
+        w = w || 3;
+        var half = Math.floor(w / 2);
+        return arr.map(function(_, i) {
+            var start = Math.max(0, i - half);
+            var end = Math.min(arr.length, i + half + 1);
+            var slice = arr.slice(start, end).filter(function(v) { return v != null; });
+            if (!slice.length) return null;
+            return slice.reduce(function(a,b){return a+b;}, 0) / slice.length;
+        });
+    }
+
+    function buildSeries(profKey) {
+        var prof = z[profKey] && z[profKey].monthly;
+        if (!prof) return null;
+        var profMap = {};
+        prof.forEach(function(r) { profMap[key(r)] = r.capture; });
+        var raw = validKeys.map(function(k) {
+            var sol = solMap[k]; var bat = profMap[k];
+            if (sol == null || bat == null || sol <= 0) return null;
+            return ((bat - sol) / sol) * 100;
+        });
+        return rolling(raw, 3);
+    }
+
+    var traces = [];
+    [['sol_bess_1h', 'Sol+BESS 1h', '#5eead4', 1.8],
+     ['sol_bess_2h', 'Sol+BESS 2h', '#2dd4bf', 2.0],
+     ['sol_bess_3h', 'Sol+BESS 3h', '#14b8a6', 2.0],
+     ['sol_bess_4h', 'Sol+BESS 4h', '#0d9488', 2.4]].forEach(function(spec) {
+        var ys = buildSeries(spec[0]);
+        if (!ys) return;
+        traces.push({
+            x: validKeys, y: ys, name: spec[1],
+            type: 'scatter', mode: 'lines',
+            line: { color: spec[2], width: spec[3], shape: 'spline' },
+            hovertemplate: '%{x}<br>' + spec[1] + ': <b>+%{y:.1f}%</b> vs sol-only<extra></extra>',
+        });
+    });
+    // Reference line at 0 % (sol-only baseline)
+    traces.push({
+        x: validKeys, y: validKeys.map(function() { return 0; }),
+        name: 'Sol only', type: 'scatter', mode: 'lines',
+        line: { color: '#9A958C', width: 1.4, dash: 'dash' },
+        hoverinfo: 'skip',
+    });
+
+    Plotly.react('bess-uplift-chart', traces, makeLayout({
+        yaxis: Object.assign({}, PLOTLY_BASE.yaxis, {
+            title: { text: 'Uplift over sol-only', font: PLOTLY_BASE.yaxis.title.font },
+            ticksuffix: ' %',
+        }),
+        margin: { t: 12, b: 70, l: 64, r: 24 },
+    }), PLOTLY_CFG);
+}
+
 function renderAncillaryChart() {
     var zone = BESS_STATE.zone;
     var z = (DATA.data && DATA.data[zone]) || {};
@@ -1381,7 +1600,7 @@ function renderAncillaryChart() {
     ['anc_fcr_n','anc_fcr_d_up','anc_fcr_d_down','anc_afrr_up','anc_afrr_down','anc_mfrr_cm_up','anc_mfrr_cm_down'].forEach(function(k) {
         var p = z[k];
         if (!p || !p.monthly) return;
-        var color = (DATA.colors && DATA.colors[k]) || null;
+        var color = profileColor(k);
         var label = (DATA.profiles && DATA.profiles[k]) || k;
         var xs = p.monthly.map(function(r) { return r.year + '-' + String(r.month).padStart(2, '0'); });
         var ys = p.monthly.map(function(r) { return r.baseload != null ? r.baseload : r.capture; });
@@ -1488,9 +1707,11 @@ function renderFutures() {
     var zoneOpts = zones.map(function(z) {
         return '<button type="button" data-zone="' + z + '" aria-pressed="' + (z === FUTURES_STATE.zone) + '">' + z + '</button>';
     }).join('');
-    el('futures-zones').innerHTML = zoneOpts;
-    el('futures-zones').querySelectorAll('button').forEach(function(b) {
-        b.onclick = function() { FUTURES_STATE.zone = b.dataset.zone; renderFutures(); };
+    document.querySelectorAll('.futures-zone-seg').forEach(function(seg) {
+        seg.innerHTML = zoneOpts;
+        seg.querySelectorAll('button').forEach(function(b) {
+            b.onclick = function() { FUTURES_STATE.zone = b.dataset.zone; renderFutures(); };
+        });
     });
 
     renderFuturesKPIs(fwd);
@@ -1541,6 +1762,17 @@ function renderForwardChart(fwd) {
     var realLabels = (fwd.expired_contracts || []).map(function(c) { return c.label; });
     var realSeries = realLabels.map(function(l) { return (fwd.spot_realized[zone] && fwd.spot_realized[zone][l]) ? fwd.spot_realized[zone][l].spot_avg : null; });
 
+    // Build chronological x-axis order so expired contracts (e.g. Q1-26) precede active ones.
+    var allContracts = (fwd.expired_contracts || []).concat(contracts);
+    allContracts.sort(function(a, b) {
+        var s = (a.start || '').localeCompare(b.start || '');
+        if (s !== 0) return s;
+        var ra = a.type === 'quarter' ? 0 : 1;
+        var rb = b.type === 'quarter' ? 0 : 1;
+        return ra - rb;
+    });
+    var categoryArray = allContracts.map(function(c) { return c.label; });
+
     var traces = [
         { x: labels, y: sysSeries,  name: 'SYS baseload',     mode: 'lines+markers', type: 'scatter', line: { color: '#2E5C4D', width: 2, shape: 'spline' }, marker: { size: 6 }, hovertemplate: '%{x}<br>SYS: <b>%{y:.2f}</b> EUR/MWh<extra></extra>' },
         { x: labels, y: zoneSeries, name: zone + ' implied',  mode: 'lines+markers', type: 'scatter', line: { color: '#C16E40', width: 2, shape: 'spline' }, marker: { size: 6 }, hovertemplate: '%{x}<br>' + zone + ': <b>%{y:.2f}</b> EUR/MWh<extra></extra>' },
@@ -1551,7 +1783,7 @@ function renderForwardChart(fwd) {
     Plotly.react('futures-forward-chart', traces, makeLayout({
         yaxis: Object.assign({}, PLOTLY_BASE.yaxis, { title: { text: 'EUR / MWh', font: PLOTLY_BASE.yaxis.title.font } }),
         margin: { t: 12, b: 86, l: 64, r: 24 },
-        xaxis: Object.assign({}, PLOTLY_BASE.xaxis, { tickangle: -45 }),
+        xaxis: Object.assign({}, PLOTLY_BASE.xaxis, { tickangle: -45, type: 'category', categoryorder: 'array', categoryarray: categoryArray }),
     }), PLOTLY_CFG);
 }
 
@@ -2304,19 +2536,40 @@ _SHELL = r"""<!DOCTYPE html>
           <div class="chart chart-tall" id="bess-arb-chart"></div>
         </div>
 
+        <div class="card">
+          <div class="card-head">
+            <div><div class="card-title">Sol + storage capture</div><div class="card-sub">Capture uplift from co-located battery vs. sol-only — monthly time series, all durations.</div></div>
+          </div>
+          <div class="chart" id="bess-solbess-chart"></div>
+        </div>
+
         <div class="grid-2">
           <div class="card">
             <div class="card-head">
-              <div><div class="card-title">Sol + storage capture</div><div class="card-sub">Capture uplift from co-located battery vs. sol-only.</div></div>
+              <div><div class="card-title">Diminishing returns per year</div><div class="card-sub">Capture price as a function of battery duration. Shows where the marginal value flattens.</div></div>
             </div>
-            <div class="chart" id="bess-solbess-chart"></div>
+            <div class="chart" id="bess-dimret-chart"></div>
           </div>
           <div class="card">
             <div class="card-head">
-              <div><div class="card-title">Ancillary services</div><div class="card-sub">FCR / aFRR / mFRR-CM clearing prices.</div></div>
+              <div><div class="card-title">Incremental battery value</div><div class="card-sub">Sol-only baseline plus the contribution of each additional battery hour, stacked per year.</div></div>
             </div>
-            <div class="chart" id="bess-anc-chart"></div>
+            <div class="chart" id="bess-incr-chart"></div>
           </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div><div class="card-title">Battery uplift over time</div><div class="card-sub">Monthly uplift in % over sol-only — separates 1h / 2h / 3h / 4h clearly without absolute price noise.</div></div>
+          </div>
+          <div class="chart" id="bess-uplift-chart"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div><div class="card-title">Ancillary services</div><div class="card-sub">FCR / aFRR / mFRR-CM clearing prices.</div></div>
+          </div>
+          <div class="chart" id="bess-anc-chart"></div>
         </div>
 
         <div class="card">
@@ -2344,9 +2597,6 @@ _SHELL = r"""<!DOCTYPE html>
           <h1 class="page-title">Forward Curve</h1>
           <p class="page-sub">Nasdaq Nordic settlement prices for the SYS baseload future, EPAD differentials per Swedish zone, and realised spot for delivered contracts.</p>
         </div>
-        <div class="page-controls">
-          <span class="label-control">Zone focus <div class="seg" id="futures-zones"></div></span>
-        </div>
       </header>
       <div id="futures-content">
         <div class="kpi-strip" id="futures-kpis"></div>
@@ -2354,6 +2604,9 @@ _SHELL = r"""<!DOCTYPE html>
         <div class="card">
           <div class="card-head">
             <div><div class="card-title">Forward vs realised</div><div class="card-sub">SYS, zone-implied (SYS + EPAD) and realised YTD spot for delivered contracts.</div></div>
+            <div class="card-actions">
+              <span class="label-control">Zone <div class="seg futures-zone-seg" data-target="forward"></div></span>
+            </div>
           </div>
           <div class="chart chart-tall" id="futures-forward-chart"></div>
         </div>
@@ -2369,6 +2622,9 @@ _SHELL = r"""<!DOCTYPE html>
           <div class="card">
             <div class="card-head">
               <div><div class="card-title">Quarterly forwards</div><div class="card-sub">Active quarter contracts and their components.</div></div>
+              <div class="card-actions">
+                <span class="label-control">Zone <div class="seg futures-zone-seg" data-target="quarter"></div></span>
+              </div>
             </div>
             <div style="overflow-x:auto">
               <table class="editorial" id="futures-table-quarter"></table>
@@ -2377,6 +2633,9 @@ _SHELL = r"""<!DOCTYPE html>
           <div class="card">
             <div class="card-head">
               <div><div class="card-title">Yearly forwards</div><div class="card-sub">Active year contracts and their components.</div></div>
+              <div class="card-actions">
+                <span class="label-control">Zone <div class="seg futures-zone-seg" data-target="year"></div></span>
+              </div>
             </div>
             <div style="overflow-x:auto">
               <table class="editorial" id="futures-table-year"></table>
@@ -2465,7 +2724,7 @@ _SHELL = r"""<!DOCTYPE html>
 
         <div class="kpi-strip" id="drill-kpis"></div>
 
-        <div class="grid-2">
+        <div class="drill-chart-grid">
           <div class="card">
             <div class="card-head"><div><div class="card-title">Energy vs Budget</div><div class="card-sub">Last 13 months.</div></div></div>
             <div class="chart" id="drill-energy-chart"></div>
