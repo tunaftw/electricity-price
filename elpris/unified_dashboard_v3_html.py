@@ -2105,10 +2105,10 @@ function renderDrilldown() {
     }
 
     Plotly.react('drill-capture-chart', [
-        { x: xs, y: captureSeriesForZone(p.zone, xs), type: 'scatter', mode: 'lines+markers', line: { color: '#5B6BA8', width: 2.4, shape: 'spline' }, marker: { size: 6 }, name: 'Capture ' + (p.zone || ''), hovertemplate: '%{x}<br>Capture: <b>%{y:.1f}</b> EUR/MWh<extra></extra>' },
+        { x: xs, y: months.map(function(mm) { return mm.actual_irr_kwh_m2; }), type: 'scatter', mode: 'lines+markers', line: { color: '#C16E40', width: 2.4, shape: 'spline' }, marker: { size: 6 }, name: 'Actual', hovertemplate: '%{x}<br>Actual: <b>%{y:.1f}</b> kWh/m²<extra></extra>', connectgaps: false },
+        { x: xs, y: months.map(function(mm) { return mm.budget_irr_kwh_m2; }), type: 'scatter', mode: 'lines+markers', line: { color: '#5B6BA8', width: 2, dash: 'dash', shape: 'spline' }, marker: { size: 5, symbol: 'square-open' }, name: 'Budget', hovertemplate: '%{x}<br>Budget: <b>%{y:.1f}</b> kWh/m²<extra></extra>' },
     ], makeLayout({
-        yaxis: Object.assign({}, PLOTLY_BASE.yaxis, { title: { text: 'EUR / MWh', font: PLOTLY_BASE.yaxis.title.font } }),
-        showlegend: false,
+        yaxis: Object.assign({}, PLOTLY_BASE.yaxis, { title: { text: 'kWh / m²', font: PLOTLY_BASE.yaxis.title.font } }),
         margin: { t: 12, b: 70, l: 64, r: 24 },
     }), PLOTLY_CFG);
 
@@ -2470,7 +2470,7 @@ _SHELL = r"""<!DOCTYPE html>
             <div class="chart" id="drill-daily-chart"></div>
           </div>
           <div class="card">
-            <div class="card-head"><div><div class="card-title">Capture price · zone</div><div class="card-sub">Zone-level solar capture, last 13 months.</div></div></div>
+            <div class="card-head"><div><div class="card-title">POA Irradiation: Actual vs Budget</div><div class="card-sub">kWh / m² · month, last 13 months.</div></div></div>
             <div class="chart" id="drill-capture-chart"></div>
           </div>
         </div>
