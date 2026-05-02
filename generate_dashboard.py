@@ -890,6 +890,10 @@ document.addEventListener('DOMContentLoaded', function() {{
 
 def main() -> None:
     """Huvudfunktion: beräkna data, generera HTML, skriv fil."""
+    print(
+        "[DEPRECATED] dashboard v1 will be removed. Use generate_unified_dashboard.py",
+        file=sys.stderr,
+    )
     print("Beräknar dashboard-data...")
     data = calculate_dashboard_data()
 

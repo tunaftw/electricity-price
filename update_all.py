@@ -11,7 +11,7 @@ This script runs the entire update pipeline:
  7. Process raw data to quarterly format
  8. Calculate capture prices
  9. Generate Excel reports
-10. Generate HTML dashboard
+10. Generate Unified Dashboard (Track A + Track C)
 11. Show status
 """
 
@@ -262,16 +262,14 @@ def main():
         except Exception as e:
             print(f"  Error generating Excel: {e}")
 
-    # Step 10: Generate HTML dashboard
+    # Step 10: Generate Unified Dashboard (Track A + Track C)
     current_step += 1
-    step(current_step, total_steps, "Generating HTML dashboard")
-    try:
-        from generate_dashboard import main as generate_dashboard
-        generate_dashboard()
+    step(current_step, total_steps, "Generating Unified Dashboard (Track A + C)")
+    if run_script("generate_unified_dashboard.py", quiet=args.quiet):
         success_count += 1
         print("  Done!")
-    except Exception as e:
-        print(f"  Error generating dashboard: {e}")
+    else:
+        print("  Failed")
 
     # Step 11: Show status
     current_step += 1
