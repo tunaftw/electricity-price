@@ -1413,7 +1413,7 @@ function renderInvestPanel() {
         var elx = el(id);
         if (!elx.dataset.bound) {
             elx.addEventListener('input', function() {
-                BESS_STATE.invest[key] = parse(elx.value) || 0;
+                BESS_STATE.invest[key] = Math.max(0, parse(elx.value) || 0);
                 computeInvest();
             });
             elx.dataset.bound = '1';
@@ -1436,12 +1436,12 @@ function computeInvest() {
     var revPerMw = arbY ? (arbY.capture != null ? arbY.capture : arbY.baseload) : null;
 
     // Battery sized 1 MW power × Nh capacity. Capex input is EUR/MWh storage.
-    var dur = parseInt(BESS_STATE.duration);
+    var dur = parseInt(BESS_STATE.duration) || 2;
     var capacity = dur; // MWh
-    var capex = s.capex * capacity;
-    var opex  = s.opex  * 1; // per MW
-    var disc  = (s.discount || 0) / 100;
-    var n     = s.lifetime;
+    var capex = Math.max(0, s.capex || 0) * capacity;
+    var opex  = Math.max(0, s.opex  || 0); // per MW
+    var disc  = Math.max(0, s.discount || 0) / 100;
+    var n     = Math.max(0, s.lifetime || 0);
 
     var html = '';
     if (revPerMw == null) {
