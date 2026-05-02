@@ -23,6 +23,7 @@ from generate_dashboard_v2 import _build_html as _build_v2_html  # noqa: E402
 
 ASSETS_VIEW_HTML = """
 <div id="assets-view" style="display:none">
+  <div id="assets-fleet-mode">
     <div class="card">
         <div class="card-title">Fleet Overview</div>
         <div id="fleet-kpi-row" style="display:flex;gap:1rem;margin-top:0.6rem;flex-wrap:wrap"></div>
@@ -49,6 +50,43 @@ ASSETS_VIEW_HTML = """
             <table id="park-comparison-table" style="width:100%;border-collapse:collapse;font-size:0.85rem"></table>
         </div>
     </div>
+  </div>
+
+  <div id="assets-drilldown-mode" style="display:none">
+    <div class="card" style="padding:0.8rem 1rem">
+        <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+            <button onclick="exitDrilldown()" style="padding:6px 14px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:0.8rem;font-weight:600;cursor:pointer;border-radius:6px;font-family:var(--font)">&larr; Tillbaka till fleet</button>
+            <div id="drilldown-park-name" style="font-size:1.2rem;font-weight:700;color:var(--text-bright)"></div>
+            <div id="drilldown-park-zone" style="font-size:0.85rem;color:var(--text-muted)"></div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-title">KPI</div>
+        <div id="drilldown-kpi-row" style="display:flex;gap:1rem;margin-top:0.6rem;flex-wrap:wrap"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:1rem">
+        <div class="card">
+            <div class="card-title">Energi vs Budget (12 mn)</div>
+            <div id="drilldown-energy-chart" class="chart-container chart-secondary"></div>
+        </div>
+        <div class="card">
+            <div class="card-title">Yield (kWh/kWp) (12 mn)</div>
+            <div id="drilldown-yield-chart" class="chart-container chart-secondary"></div>
+        </div>
+        <div class="card">
+            <div class="card-title">Negativ pris-exponering (12 mn)</div>
+            <div id="drilldown-neg-chart" class="chart-container chart-secondary"></div>
+        </div>
+        <div class="card">
+            <div class="card-title">vs Budget (%)</div>
+            <div id="drilldown-vsbudget-chart" class="chart-container chart-secondary"></div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-title">L&auml;nkar</div>
+        <div id="drilldown-links" style="font-size:0.85rem;color:var(--text-muted);line-height:1.8"></div>
+    </div>
+  </div>
 </div>
 """.strip()
 
@@ -265,8 +303,98 @@ ASSETS_JS = r"""
         }).join('');
     }
 
-    // Default click handler — overridden when drill-down is wired in.
-    window.assetsOnPark = function(pk) { console.log('park click:', pk); };
+    // ----------------- Drill-down --------------------
+    var ASSETS_VIEW_STATE = { mode: 'fleet', selectedPark: null };
+
+    function showFleetMode() {
+        ASSETS_VIEW_STATE.mode = 'fleet';
+        ASSETS_VIEW_STATE.selectedPark = null;
+        document.getElementById('assets-fleet-mode').style.display = '';
+        document.getElementById('assets-drilldown-mode').style.display = 'none';
+    }
+    function showDrilldownMode() {
+        ASSETS_VIEW_STATE.mode = 'drilldown';
+        document.getElementById('assets-fleet-mode').style.display = 'none';
+        document.getElementById('assets-drilldown-mode').style.display = '';
+    }
+
+    window.exitDrilldown = function() {
+        showFleetMode();
+    };
+
+    function renderDrilldown() {
+        if (!ASSETS) return;
+        var pk = ASSETS_VIEW_STATE.selectedPark;
+        var p = ASSETS.parks[pk];
+        if (!p) return;
+        var monthKey = latestMonthKey();
+        var m = parkMonth(p, monthKey);
+
+        document.getElementById('drilldown-park-name').textContent = p.name || pk;
+        document.getElementById('drilldown-park-zone').textContent = (p.zone || '') + (p.capacity_mwp ? '  ·  ' + fmtNum(p.capacity_mwp, 2) + ' MWp' : '');
+
+        var kpis = [
+            kpiTile('Energi (' + monthKey + ')', m ? fmtNum(m.energy_mwh, 0) + ' MWh' : '–'),
+            kpiTile('Budget',                     m ? fmtNum(m.budget_mwh, 0) + ' MWh' : '–'),
+            kpiTile('vs Budget',                  m ? fmtPct(m.vs_budget_pct) : '–', '', vsBudgetClass(m && m.vs_budget_pct)),
+            kpiTile('Yield',                      m ? fmtNum(m.yield_kwh_kwp, 1) + ' kWh/kWp' : '–'),
+            kpiTile('PR',                         m && m.pr_pct != null ? fmtNum(m.pr_pct, 1) + '%' : '–'),
+            kpiTile('Negativ exp.',
+                    m && m.neg_price_volume_mwh != null ? fmtNum(m.neg_price_volume_mwh, 0) + ' MWh' : '–',
+                    m && m.neg_price_hours != null ? fmtNum(m.neg_price_hours, 0) + ' h' : ''),
+        ];
+        document.getElementById('drilldown-kpi-row').innerHTML = kpis.join('');
+
+        var months = (p.months || []).slice();
+        var xs = months.map(function(mm) { return mm.year + '-' + String(mm.month).padStart(2, '0'); });
+
+        // Energy vs budget — grouped bars
+        Plotly.react('drilldown-energy-chart', [
+            { x: xs, y: months.map(function(mm) { return mm.energy_mwh; }), name: 'Faktisk', type: 'bar', marker: { color: '#67e8f9' } },
+            { x: xs, y: months.map(function(mm) { return mm.budget_mwh; }), name: 'Budget',  type: 'bar', marker: { color: '#a78bfa', opacity: 0.5 } },
+        ], Object.assign({}, PLOTLY_DARK, {
+            barmode: 'group',
+            yaxis: Object.assign({}, PLOTLY_DARK.yaxis, { title: 'MWh' }),
+            margin: { t: 20, b: 60, l: 60, r: 20 },
+        }), { responsive: true, displayModeBar: false });
+
+        // Yield 12 mo
+        Plotly.react('drilldown-yield-chart', [
+            { x: xs, y: months.map(function(mm) { return mm.yield_kwh_kwp; }), type: 'scatter', mode: 'lines+markers', line: { color: '#fde68a' }, name: 'Yield' },
+        ], Object.assign({}, PLOTLY_DARK, {
+            yaxis: Object.assign({}, PLOTLY_DARK.yaxis, { title: 'kWh/kWp' }),
+            margin: { t: 20, b: 60, l: 60, r: 20 },
+        }), { responsive: true, displayModeBar: false });
+
+        // Negative price exposure
+        Plotly.react('drilldown-neg-chart', [
+            { x: xs, y: months.map(function(mm) { return mm.neg_price_volume_mwh || 0; }), type: 'bar', marker: { color: '#f87171' }, name: 'MWh @ neg' },
+        ], Object.assign({}, PLOTLY_DARK, {
+            yaxis: Object.assign({}, PLOTLY_DARK.yaxis, { title: 'MWh @ negativa priser' }),
+            margin: { t: 20, b: 60, l: 60, r: 20 },
+        }), { responsive: true, displayModeBar: false });
+
+        // vs Budget %
+        Plotly.react('drilldown-vsbudget-chart', [
+            { x: xs, y: months.map(function(mm) { return mm.vs_budget_pct; }), type: 'bar',
+              marker: { color: months.map(function(mm) { return vsBudgetColor(mm.vs_budget_pct); }) },
+              name: 'vs Budget %' },
+        ], Object.assign({}, PLOTLY_DARK, {
+            yaxis: Object.assign({}, PLOTLY_DARK.yaxis, { title: '%', zeroline: true }),
+            shapes: [{ type: 'line', y0: 0, y1: 0, x0: 0, x1: 1, xref: 'paper', line: { color: '#fff', width: 1, dash: 'dash' } }],
+            margin: { t: 20, b: 60, l: 60, r: 20 },
+        }), { responsive: true, displayModeBar: false });
+
+        var reportPath = 'performance_' + pk + '_' + (p.zone || '') + '_' + monthKey + '.html';
+        document.getElementById('drilldown-links').innerHTML =
+            '&rarr; <a href="' + reportPath + '" target="_blank" style="color:var(--accent)">' + reportPath + '</a> (om genererad)';
+    }
+
+    window.assetsOnPark = function(pk) {
+        ASSETS_VIEW_STATE.selectedPark = pk;
+        showDrilldownMode();
+        renderDrilldown();
+    };
 
     // ----------------- Comparison Table ---------------
     var TABLE_STATE = { sortKey: 'energy_mwh', sortDir: 'desc' };
@@ -381,6 +509,10 @@ ASSETS_JS = r"""
         if (!ASSETS) {
             document.getElementById('assets-view').innerHTML =
                 '<div style="padding:2rem;color:var(--text-muted)">Ingen asset-data tillg&auml;nglig.</div>';
+            return;
+        }
+        if (ASSETS_VIEW_STATE.mode === 'drilldown') {
+            renderDrilldown();
             return;
         }
         renderFleetKPIs();
