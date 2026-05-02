@@ -23,6 +23,18 @@ node_modules/
 # Large Excel reports (>100MB)
 Resultat/rapporter/capture_prices_*.xlsx
 
+# Generated dashboard artefacts (regenerated daily by update_all.py)
+Resultat/rapporter/dashboard_*.html
+Resultat/rapporter/dashboard_*.xlsx
+data/reports/battery_arbitrage_*.xlsx
+data/reports/capture_prices_*.xlsx
+
+# Browser-automation debug output
+.playwright-mcp/
+
+# Ad-hoc screenshots from interactive sessions
+/*.png
+
 # OS
 .DS_Store
 Thumbs.db
