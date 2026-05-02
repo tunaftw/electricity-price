@@ -2095,9 +2095,17 @@ function renderDrilldown() {
         Plotly.react('drill-daily-chart', [
             { x: dxs, y: days.map(function(d) { return d.energy_mwh; }), name: 'Actual', type: 'bar', marker: { color: '#2E5C4D' }, hovertemplate: '%{x}<br>Actual: <b>%{y:.2f}</b> MWh<extra></extra>' },
             { x: dxs, y: days.map(function(d) { return d.expected_mwh; }), name: 'Expected', type: 'scatter', mode: 'lines', line: { color: '#C16E40', dash: 'dash', width: 2 }, hovertemplate: '%{x}<br>Expected: <b>%{y:.2f}</b> MWh<extra></extra>' },
+            { x: dxs, y: days.map(function(d) { return d.irradiation_kwh_m2; }), name: 'POA Irr', type: 'scatter', mode: 'lines', line: { color: '#C9A53C', width: 1.6, shape: 'spline' }, yaxis: 'y2', connectgaps: false, hovertemplate: '%{x}<br>POA Irr: <b>%{y:.2f}</b> kWh/m²<extra></extra>' },
         ], makeLayout({
             yaxis: Object.assign({}, PLOTLY_BASE.yaxis, { title: { text: 'MWh', font: PLOTLY_BASE.yaxis.title.font } }),
-            margin: { t: 12, b: 70, l: 64, r: 24 },
+            yaxis2: Object.assign({}, PLOTLY_BASE.yaxis, {
+                title: { text: 'kWh / m²', font: PLOTLY_BASE.yaxis.title.font },
+                overlaying: 'y',
+                side: 'right',
+                gridcolor: 'transparent',
+                showgrid: false,
+            }),
+            margin: { t: 12, b: 70, l: 64, r: 64 },
         }), PLOTLY_CFG);
     } else {
         Plotly.purge('drill-daily-chart');
@@ -2131,13 +2139,14 @@ function renderBestWorst(p, monthKey) {
     var bottom = sorted.slice(-5).reverse();
     function tableHtml(title, rows, cls) {
         var head = '<thead><tr>' +
-            '<th>Date</th><th>Day</th><th class="num">MWh</th><th class="num">kWh/kWp</th>' +
+            '<th>Date</th><th>Day</th><th class="num">MWh</th><th class="num">Irr (kWh/m²)</th><th class="num">kWh/kWp</th>' +
             '</tr></thead>';
         var body = '<tbody>' + rows.map(function(r) {
             return '<tr>' +
                 '<td>' + htmlEsc(r.date || '–') + '</td>' +
                 '<td class="muted">' + htmlEsc(r.weekday || '') + '</td>' +
                 '<td class="num">' + fmtNum(r.energy_mwh, 2) + '</td>' +
+                '<td class="num">' + fmtNum(r.irradiation_kwh_m2, 1) + '</td>' +
                 '<td class="num">' + fmtNum(r.yield_kwh_kwp, 1) + '</td>' +
                 '</tr>';
         }).join('') + '</tbody>';
