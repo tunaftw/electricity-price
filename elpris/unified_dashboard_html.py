@@ -74,6 +74,11 @@ ASSETS_VIEW_HTML = """
             <button onclick="exitDrilldown()" style="padding:6px 14px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:0.8rem;font-weight:600;cursor:pointer;border-radius:6px;font-family:var(--font)">&larr; Tillbaka till fleet</button>
             <div id="drilldown-park-name" style="font-size:1.2rem;font-weight:700;color:var(--text-bright)"></div>
             <div id="drilldown-park-zone" style="font-size:0.85rem;color:var(--text-muted)"></div>
+            <div style="flex:1"></div>
+            <div style="display:flex;gap:6px;align-items:center">
+                <span style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);font-weight:600">M&aring;nad:</span>
+                <select id="drilldown-month-select" class="invest-input" style="width:auto;padding:4px 8px"></select>
+            </div>
         </div>
     </div>
     <div class="card">
@@ -90,13 +95,17 @@ ASSETS_VIEW_HTML = """
             <div id="drilldown-yield-chart" class="chart-container chart-secondary"></div>
         </div>
         <div class="card">
-            <div class="card-title">Negativ pris-exponering (12 mn)</div>
-            <div id="drilldown-neg-chart" class="chart-container chart-secondary"></div>
+            <div class="card-title">Daglig produktion (vald m&aring;nad)</div>
+            <div id="drilldown-daily-chart" class="chart-container chart-secondary"></div>
         </div>
         <div class="card">
-            <div class="card-title">vs Budget (%)</div>
-            <div id="drilldown-vsbudget-chart" class="chart-container chart-secondary"></div>
+            <div class="card-title">Capture Price (zon, 12 mn)</div>
+            <div id="drilldown-capture-chart" class="chart-container chart-secondary"></div>
         </div>
+    </div>
+    <div class="card">
+        <div class="card-title">B&auml;sta &amp; s&auml;msta dagar (vald m&aring;nad)</div>
+        <div id="drilldown-bestworst" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:0.6rem"></div>
     </div>
     <div class="card">
         <div class="card-title">L&auml;nkar</div>
@@ -378,26 +387,146 @@ ASSETS_JS = r"""
         showFleetMode();
     };
 
+    function trackerGainForMonth(monthKey) {
+        if (!ASSETS || !ASSETS.tracker_gain || !ASSETS.tracker_gain.monthly) return null;
+        if (!monthKey) return null;
+        var yr = parseInt(monthKey.split('-')[0]);
+        var mo = parseInt(monthKey.split('-')[1]);
+        var rec = ASSETS.tracker_gain.monthly.find(function(r) {
+            return r.year === yr && r.month === mo;
+        });
+        if (!rec) return null;
+        return rec.gain_pct != null ? rec.gain_pct : null;
+    }
+
+    function captureForZoneMonth(zone, monthKey) {
+        if (!ASSETS || !ASSETS.capture_by_zone || !zone || !monthKey) return null;
+        var arr = ASSETS.capture_by_zone[zone];
+        if (!arr) return null;
+        var rec = arr.find(function(r) { return r.month === monthKey; });
+        return rec ? rec.capture_eur_mwh : null;
+    }
+
+    function captureSeriesForZone(zone, monthKeys) {
+        return monthKeys.map(function(k) { return captureForZoneMonth(zone, k); });
+    }
+
+    function ensureDrilldownMonthSelect(p, currentMonthKey) {
+        var sel = document.getElementById('drilldown-month-select');
+        if (!sel) return;
+        // Bygg lista över månader som har dagsdata för denna park
+        var keys = Object.keys(p.daily_by_month || {}).sort();
+        // Fall tillbaka på alla månader om det inte finns dagsdata
+        if (keys.length === 0) {
+            keys = (p.months || []).map(function(mm) {
+                return mm.year + '-' + String(mm.month).padStart(2, '0');
+            }).sort();
+        }
+        var html = keys.slice().reverse().map(function(k) {
+            return '<option value="' + k + '"' + (k === currentMonthKey ? ' selected' : '') + '>' + k + '</option>';
+        }).join('');
+        sel.innerHTML = html;
+        if (!sel.dataset.bound) {
+            sel.addEventListener('change', function() {
+                ASSETS_VIEW_STATE.drilldownMonthKey = sel.value;
+                renderDrilldown();
+            });
+            sel.dataset.bound = '1';
+        }
+    }
+
+    function renderBestWorstDays(p, monthKey) {
+        var container = document.getElementById('drilldown-bestworst');
+        if (!container) return;
+        var days = (p.daily_by_month && p.daily_by_month[monthKey]) || [];
+        if (!days.length) {
+            container.innerHTML = '<div style="color:var(--text-muted);padding:0.5rem;grid-column:1/-1">Ingen daglig data f&ouml;r ' + monthKey + '.</div>';
+            return;
+        }
+        var sorted = days.slice().sort(function(a, b) {
+            return (b.energy_mwh || 0) - (a.energy_mwh || 0);
+        });
+        var top = sorted.slice(0, 5);
+        var bottom = sorted.slice(-5).reverse();
+
+        function tableHtml(title, rows, color) {
+            var head = '<thead><tr>' +
+                '<th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text-muted);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em">Datum</th>' +
+                '<th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text-muted);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em">Veckodag</th>' +
+                '<th style="text-align:right;padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text-muted);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em">MWh</th>' +
+                '<th style="text-align:right;padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text-muted);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em">kWh/kWp</th>' +
+                '</tr></thead>';
+            var body = '<tbody>' + rows.map(function(r) {
+                return '<tr>' +
+                    '<td style="padding:6px 8px;border-bottom:1px solid var(--border)">' + (r.date || '–') + '</td>' +
+                    '<td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text-muted)">' + (r.weekday || '') + '</td>' +
+                    '<td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:right;font-family:var(--font-mono);color:' + color + '">' + fmtNum(r.energy_mwh, 2) + '</td>' +
+                    '<td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:right;font-family:var(--font-mono)">' + fmtNum(r.yield_kwh_kwp, 1) + '</td>' +
+                    '</tr>';
+            }).join('') + '</tbody>';
+            return '<div>' +
+                '<div style="font-size:0.78rem;font-weight:700;color:' + color + ';margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.06em">' + title + '</div>' +
+                '<table style="width:100%;border-collapse:collapse;font-size:0.85rem">' + head + body + '</table>' +
+                '</div>';
+        }
+
+        container.innerHTML =
+            tableHtml('Topp 5', top, '#4ADE80') +
+            tableHtml('Botten 5', bottom, '#f87171');
+    }
+
     function renderDrilldown() {
         if (!ASSETS) return;
         var pk = ASSETS_VIEW_STATE.selectedPark;
         var p = ASSETS.parks[pk];
         if (!p) return;
-        var monthKey = activeMonthKey();
+
+        // Pick month: drilldown-local override → activeMonthKey from filterbar
+        var monthKey = ASSETS_VIEW_STATE.drilldownMonthKey || activeMonthKey();
+        // If selected month has no data record, drop back to latest available
+        if (!parkMonth(p, monthKey)) {
+            var available = (p.months || []).map(function(mm) {
+                return mm.year + '-' + String(mm.month).padStart(2, '0');
+            }).sort();
+            if (available.length) monthKey = available[available.length - 1];
+        }
+        ASSETS_VIEW_STATE.drilldownMonthKey = monthKey;
         var m = parkMonth(p, monthKey);
+
+        ensureDrilldownMonthSelect(p, monthKey);
 
         document.getElementById('drilldown-park-name').textContent = p.name || pk;
         document.getElementById('drilldown-park-zone').textContent = (p.zone || '') + (p.capacity_mwp ? '  ·  ' + fmtNum(p.capacity_mwp, 2) + ' MWp' : '');
 
+        // ---- KPI tiles per design: Energy, vs Budget %, Yield, Capture (zone),
+        //      Negative-price hours, Tracker gain (Hova only) ----
+        var captureZone = captureForZoneMonth(p.zone, monthKey);
+        var trackerPct = trackerGainForMonth(monthKey);
+        var isHova = (pk === 'hova');
+
+        var trackerTile;
+        if (isHova) {
+            trackerTile = kpiTile('Tracker gain',
+                trackerPct != null ? fmtPct(trackerPct, 1) : '—',
+                'vs SE3 fixed-tilt');
+        } else {
+            trackerTile = '<div class="assets-kpi" style="opacity:0.5">' +
+                '<div class="assets-kpi-label">Tracker gain</div>' +
+                '<div class="assets-kpi-value" style="font-size:1.1rem">—</div>' +
+                '<div class="assets-kpi-sub">endast Hova</div>' +
+                '</div>';
+        }
+
         var kpis = [
             kpiTile('Energi (' + monthKey + ')', m ? fmtNum(m.energy_mwh, 0) + ' MWh' : '–'),
-            kpiTile('Budget',                     m ? fmtNum(m.budget_mwh, 0) + ' MWh' : '–'),
             kpiTile('vs Budget',                  m ? fmtPct(m.vs_budget_pct) : '–', '', vsBudgetClass(m && m.vs_budget_pct)),
             kpiTile('Yield',                      m ? fmtNum(m.yield_kwh_kwp, 1) + ' kWh/kWp' : '–'),
-            kpiTile('PR',                         m && m.pr_pct != null ? fmtNum(m.pr_pct, 1) + '%' : '–'),
-            kpiTile('Negativ exp.',
-                    m && m.neg_price_volume_mwh != null ? fmtNum(m.neg_price_volume_mwh, 0) + ' MWh' : '–',
-                    m && m.neg_price_hours != null ? fmtNum(m.neg_price_hours, 0) + ' h' : ''),
+            kpiTile('Capture (' + (p.zone || '') + ')',
+                    captureZone != null ? fmtNum(captureZone, 1) + ' EUR/MWh' : '–'),
+            kpiTile('Negativa pris-timmar',
+                    m && m.neg_price_hours != null ? fmtNum(m.neg_price_hours, 0) + ' h' : '–',
+                    m && m.neg_price_volume_mwh != null ? fmtNum(m.neg_price_volume_mwh, 0) + ' MWh f&ouml;rlust' : ''),
+            trackerTile,
         ];
         document.getElementById('drilldown-kpi-row').innerHTML = kpis.join('');
 
@@ -422,24 +551,38 @@ ASSETS_JS = r"""
             margin: { t: 20, b: 60, l: 60, r: 20 },
         }), { responsive: true, displayModeBar: false });
 
-        // Negative price exposure
-        Plotly.react('drilldown-neg-chart', [
-            { x: xs, y: months.map(function(mm) { return mm.neg_price_volume_mwh || 0; }), type: 'bar', marker: { color: '#f87171' }, name: 'MWh @ neg' },
+        // Daily Generation — selected month
+        var days = (p.daily_by_month && p.daily_by_month[monthKey]) || [];
+        if (days.length) {
+            var dxs = days.map(function(d) { return d.date; });
+            var dys = days.map(function(d) { return d.energy_mwh; });
+            var dexp = days.map(function(d) { return d.expected_mwh; });
+            Plotly.react('drilldown-daily-chart', [
+                { x: dxs, y: dys, name: 'Faktisk', type: 'bar', marker: { color: '#67e8f9' } },
+                { x: dxs, y: dexp, name: 'F&ouml;rv&auml;ntad', type: 'scatter', mode: 'lines',
+                  line: { color: '#a78bfa', dash: 'dash', width: 2 } },
+            ], Object.assign({}, PLOTLY_DARK, {
+                yaxis: Object.assign({}, PLOTLY_DARK.yaxis, { title: 'MWh' }),
+                margin: { t: 20, b: 60, l: 60, r: 20 },
+            }), { responsive: true, displayModeBar: false });
+        } else {
+            Plotly.purge('drilldown-daily-chart');
+            document.getElementById('drilldown-daily-chart').innerHTML =
+                '<div style="padding:1.5rem;color:var(--text-muted);text-align:center">Ingen daglig data tillg&auml;nglig f&ouml;r ' + monthKey + '.</div>';
+        }
+
+        // Capture price for zone (12mo line)
+        var capYs = captureSeriesForZone(p.zone, xs);
+        Plotly.react('drilldown-capture-chart', [
+            { x: xs, y: capYs, type: 'scatter', mode: 'lines+markers',
+              line: { color: '#86efac' }, name: 'Capture ' + (p.zone || '') },
         ], Object.assign({}, PLOTLY_DARK, {
-            yaxis: Object.assign({}, PLOTLY_DARK.yaxis, { title: 'MWh @ negativa priser' }),
+            yaxis: Object.assign({}, PLOTLY_DARK.yaxis, { title: 'EUR/MWh' }),
             margin: { t: 20, b: 60, l: 60, r: 20 },
         }), { responsive: true, displayModeBar: false });
 
-        // vs Budget %
-        Plotly.react('drilldown-vsbudget-chart', [
-            { x: xs, y: months.map(function(mm) { return mm.vs_budget_pct; }), type: 'bar',
-              marker: { color: months.map(function(mm) { return vsBudgetColor(mm.vs_budget_pct); }) },
-              name: 'vs Budget %' },
-        ], Object.assign({}, PLOTLY_DARK, {
-            yaxis: Object.assign({}, PLOTLY_DARK.yaxis, { title: '%', zeroline: true }),
-            shapes: [{ type: 'line', y0: 0, y1: 0, x0: 0, x1: 1, xref: 'paper', line: { color: '#fff', width: 1, dash: 'dash' } }],
-            margin: { t: 20, b: 60, l: 60, r: 20 },
-        }), { responsive: true, displayModeBar: false });
+        // Best/Worst days table
+        renderBestWorstDays(p, monthKey);
 
         var reportPath = 'performance_' + pk + '_' + (p.zone || '') + '_' + monthKey + '.html';
         document.getElementById('drilldown-links').innerHTML =
@@ -448,6 +591,7 @@ ASSETS_JS = r"""
 
     window.assetsOnPark = function(pk) {
         ASSETS_VIEW_STATE.selectedPark = pk;
+        ASSETS_VIEW_STATE.drilldownMonthKey = null; // återställ vid nytt drill-down
         showDrilldownMode();
         renderDrilldown();
     };
