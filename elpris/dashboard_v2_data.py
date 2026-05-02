@@ -18,6 +18,7 @@ from datetime import datetime, date
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from .bazefield import parse_bazefield_ts
 from .config import QUARTERLY_DIR, ENTSOE_DATA_DIR, NASDAQ_DATA_DIR, ZONES, RESULTAT_DIR
 from .bess_dashboard_data import calculate_bess_data, BESS_PROFILE_META
 from .ancillary_dashboard_data import (
@@ -168,7 +169,7 @@ def load_park_actual_data(
     with open(filepath, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            ts = datetime.fromisoformat(row["timestamp"])
+            ts = parse_bazefield_ts(row["timestamp"])
             # Convert to UTC for consistency with spot prices
             ts_utc = ts.astimezone(UTC_TZ)
             date_key = ts_utc.strftime("%Y-%m-%d")

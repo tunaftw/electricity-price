@@ -24,6 +24,18 @@ from .config import PARKS_PROFILE_DIR, PROJECT_ROOT, REQUEST_DELAY
 BAZEFIELD_BASE_URL = "https://sveasolar.bazefield.com/BazeField.Services/api"
 
 
+def parse_bazefield_ts(ts_str: str) -> datetime:
+    """Parse Bazefield timestamp, handling 7-digit fractional seconds.
+
+    Bazefield returns timestamps like '2026-05-01T23:45:00.0000000+02:00'
+    with 7-digit fractional seconds, which Python 3.9 fromisoformat
+    cannot handle. Truncate to 6 digits before parsing.
+    """
+    import re
+    normalized = re.sub(r"(\.\d{6})\d+", r"\1", ts_str)
+    return datetime.fromisoformat(normalized)
+
+
 def _load_env_file() -> dict[str, str]:
     """Load environment variables from .env file if it exists."""
     env_path = PROJECT_ROOT / ".env"
@@ -172,12 +184,7 @@ def get_latest_synced_date(park_key: str) -> date | None:
             last_ts = row["timestamp"]
 
     if last_ts:
-        # Truncate fractional seconds to 6 digits (Python 3.9 fromisoformat
-        # doesn't support more — Bazefield returns 7 digits like .0000000)
-        import re
-        normalized = re.sub(r"(\.\d{6})\d+", r"\1", last_ts)
-        dt = datetime.fromisoformat(normalized)
-        return dt.date()
+        return parse_bazefield_ts(last_ts).date()
 
     return None
 

@@ -15,6 +15,7 @@ from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from .bazefield import parse_bazefield_ts
 from .config import (
     PARK_CAPACITY_KWP,
     PARK_EXPORT_LIMIT,
@@ -64,7 +65,7 @@ def load_park_15min(park_key: str) -> list[dict]:
     with open(csv_path, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            ts = datetime.fromisoformat(row["timestamp"])
+            ts = parse_bazefield_ts(row["timestamp"])
             ts_utc = ts.astimezone(UTC_TZ)
             power = float(row.get("power_mw") or 0)
             if power > max_mw:

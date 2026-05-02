@@ -20,6 +20,7 @@ from .performance_report_data import (
 # ---------------------------------------------------------------------------
 
 PLOTLY_CDN = "https://cdn.plot.ly/plotly-2.35.2.min.js"
+EM_DASH = "—"  # Used inside f-string conditionals (Py 3.9 disallows backslashes)
 
 # Svea Solar Professional Light Theme
 _C = {
@@ -62,7 +63,7 @@ def _fmt(value, decimals: int = 1, suffix: str = "") -> str:
     """Formatera tal eller returnera '—' vid None."""
     if value is None:
         return "—"
-    return f"{value:,.{decimals}f}{suffix}".replace(",", "\u202f")
+    return f"{value:,.{decimals}f}{suffix}".replace(",", " ")
 
 
 def _fmt_pct(value, decimals: int = 1) -> str:
@@ -75,7 +76,7 @@ def _fmt_delta(value, decimals: int = 1) -> str:
     if value is None:
         return "—"
     sign = "+" if value > 0 else ""
-    return f"{sign}{value:,.{decimals}f}".replace(",", "\u202f")
+    return f"{sign}{value:,.{decimals}f}".replace(",", " ")
 
 
 def _color_cell(value, positive_is_good: bool = True) -> str:
@@ -376,7 +377,7 @@ def _render_monthly_summary(report: MonthlyReport) -> str:
     if r.efficiency_pct is not None:
         kpi_entries.append((r.efficiency_pct, "Efficiency (%)"))
     if r.avg_module_temp_c is not None:
-        kpi_entries.append((r.avg_module_temp_c, "Avg Module Temp (\u00b0C)"))
+        kpi_entries.append((r.avg_module_temp_c, "Avg Module Temp (°C)"))
 
     kpi_cards_html = '<div class="kpi-row">'
     for value, label in kpi_entries:
@@ -422,7 +423,7 @@ def _render_monthly_summary(report: MonthlyReport) -> str:
         "value": gauge_irr_value,
         "delta": {"reference": round(r.budget_irradiation_kwh_m2, 1), "relative": False,
                   "increasing": {"color": _C["green"]}, "decreasing": {"color": _C["red"]}},
-        "title": {"text": "Irradiation (kWh/m\u00b2)"},
+        "title": {"text": "Irradiation (kWh/m²)"},
         "gauge": {
             "axis": {"range": [0, round(r.budget_irradiation_kwh_m2 * 1.3, 0)]},
             "bar": {"color": _C["chart_amber"]},
@@ -463,38 +464,38 @@ Plotly.newPlot('gauge-irr', [{_safe_json(gauge_irr)}], {_safe_json(gauge_layout)
 
     # Format helpers for new fields
     def _fmt_int(v):
-        return _fmt(v, 0) if v is not None else "\u2014"
+        return _fmt(v, 0) if v is not None else "—"
 
     def _fmt_tracking(meta):
         if not meta.get("tracking"):
             return "No (fixed tilt)"
         ttype = meta.get("tracking_type", "")
         if "single_axis" in ttype:
-            return "Yes \u2014 single-axis tracker"
+            return "Yes — single-axis tracker"
         if "dual_axis" in ttype:
-            return "Yes \u2014 dual-axis tracker"
+            return "Yes — dual-axis tracker"
         return "Yes"
 
     def _fmt_tilt(meta):
         if meta.get("tracking"):
             return "N/A (tracker)"
         ta = meta.get("tilt_angle")
-        return f"{ta}\u00b0" if ta is not None else "\u2014"
+        return f"{ta}°" if ta is not None else "—"
 
     def _fmt_azimuth(meta):
         if meta.get("tracking"):
             return "N/A (tracker)"
         az = meta.get("azimuth")
         if az is None:
-            return "\u2014"
-        return f"{az}\u00b0 ({'south' if abs(az) < 5 else 'south' + ('-west' if az > 0 else '-east')})"
+            return "—"
+        return f"{az}° ({'south' if abs(az) < 5 else 'south' + ('-west' if az > 0 else '-east')})"
 
     def _fmt_transformer(meta):
         cap = meta.get("transformer_capacity_kva")
         cnt = meta.get("transformer_count")
         if cap is None or cnt is None:
-            return "\u2014"
-        return f"{cnt} \u00d7 {cap:,} kVA".replace(",", " ")
+            return "—"
+        return f"{cnt} × {cap:,} kVA".replace(",", " ")
 
     annual_yield = meta.get("expected_annual_yield_kwh_kwp")
     annual_energy_mwh = (annual_yield * r.capacity_kwp / 1000) if annual_yield else None
@@ -504,19 +505,19 @@ Plotly.newPlot('gauge-irr', [{_safe_json(gauge_irr)}], {_safe_json(gauge_layout)
         ("Park", r.park_display_name),
         ("Location", r.park_location),
         ("Bidding Zone", r.zone),
-        ("Commissioning (COD)", meta.get("commissioning_date", "\u2014")),
+        ("Commissioning (COD)", meta.get("commissioning_date", "—")),
         # --- Kapacitet ---
         ("DC Capacity", f"{_fmt(r.capacity_kwp, 0)} kWp ({_fmt(r.capacity_mwp, 2)} MWp)"),
-        ("AC Capacity", f"{_fmt(meta.get('ac_capacity_mwac'), 2)} MWac" if meta.get("ac_capacity_mwac") else "\u2014"),
-        ("Grid Connection", f"{_fmt(meta.get('grid_limit_mwac'), 2)} MWac" if meta.get("grid_limit_mwac") else "\u2014"),
-        ("Export Limit", _fmt((meta.get("export_limit") or 0) * 100, 0) + "% of DC" if meta.get("export_limit") else "\u2014"),
+        ("AC Capacity", f"{_fmt(meta.get('ac_capacity_mwac'), 2)} MWac" if meta.get("ac_capacity_mwac") else "—"),
+        ("Grid Connection", f"{_fmt(meta.get('grid_limit_mwac'), 2)} MWac" if meta.get("grid_limit_mwac") else "—"),
+        ("Export Limit", _fmt((meta.get("export_limit") or 0) * 100, 0) + "% of DC" if meta.get("export_limit") else "—"),
         # --- Moduler ---
-        ("Module Type", meta.get("module_type", "\u2014")),
+        ("Module Type", meta.get("module_type", "—")),
         ("Module Wp", f"{_fmt_int(meta.get('module_wp'))} Wp"),
         ("Number of Modules", _fmt_int(meta.get("num_modules"))),
         # --- Invertrar ---
-        ("Inverter Manufacturer", meta.get("inverter_manufacturer", "\u2014")),
-        ("Inverter Model", meta.get("inverter_model", "\u2014")),
+        ("Inverter Manufacturer", meta.get("inverter_manufacturer", "—")),
+        ("Inverter Model", meta.get("inverter_model", "—")),
         ("Number of Inverters", _fmt_int(meta.get("num_inverters"))),
         # --- Geometri ---
         ("Tracking", _fmt_tracking(meta)),
@@ -525,7 +526,7 @@ Plotly.newPlot('gauge-irr', [{_safe_json(gauge_irr)}], {_safe_json(gauge_layout)
         # --- Transformator ---
         ("Transformer", _fmt_transformer(meta)),
         # --- Performance baseline ---
-        ("Expected Annual Yield", f"{_fmt(annual_yield, 0)} kWh/kWp ({_fmt(annual_energy_mwh, 0)} MWh)" if annual_yield else "\u2014"),
+        ("Expected Annual Yield", f"{_fmt(annual_yield, 0)} kWh/kWp ({_fmt(annual_energy_mwh, 0)} MWh)" if annual_yield else "—"),
         ("Budget PR (PVsyst)", _fmt_pct(r.budget_pr_pct)),
     ]
     params_html = '<table class="params-table">'
@@ -541,7 +542,7 @@ Plotly.newPlot('gauge-irr', [{_safe_json(gauge_irr)}], {_safe_json(gauge_layout)
     if r.actual_irradiation_kwh_m2 is not None and r.budget_irradiation_kwh_m2 > 0:
         irr_delta = ((r.actual_irradiation_kwh_m2 / r.budget_irradiation_kwh_m2 - 1) * 100)
         irr_word = "lower" if irr_delta < 0 else "higher"
-        irr_insight = f" Irradiation was {abs(irr_delta):.1f}% {irr_word} than budgeted ({_fmt(r.actual_irradiation_kwh_m2)} vs {_fmt(r.budget_irradiation_kwh_m2)} kWh/m\u00b2)."
+        irr_insight = f" Irradiation was {abs(irr_delta):.1f}% {irr_word} than budgeted ({_fmt(r.actual_irradiation_kwh_m2)} vs {_fmt(r.budget_irradiation_kwh_m2)} kWh/m²)."
 
     insight = (
         f"The park produced <strong>{_fmt(r.actual_energy_mwh)} MWh</strong>, "
@@ -578,7 +579,7 @@ def _render_ytd(report: MonthlyReport) -> str:
     for ms in ytd:
         vs_energy_style = _color_cell(-ms.vs_budget_energy_mwh, positive_is_good=True)
         vs_irr_style = ""
-        vs_irr_val = "\u2014"
+        vs_irr_val = "—"
         if ms.vs_budget_irr is not None:
             vs_irr_style = _color_cell(-ms.vs_budget_irr, positive_is_good=True)
             vs_irr_val = _fmt(ms.vs_budget_irr)
@@ -594,10 +595,10 @@ def _render_ytd(report: MonthlyReport) -> str:
     <td>{_fmt(ms.wc_budget_mwh)}</td>
     <td>{_fmt(ms.losses_mwh)}</td>
     <td>{_fmt(ms.budget_irr_kwh_m2)}</td>
-    <td>{_fmt(ms.actual_irr_kwh_m2) if ms.actual_irr_kwh_m2 is not None else "\u2014"}</td>
+    <td>{_fmt(ms.actual_irr_kwh_m2) if ms.actual_irr_kwh_m2 is not None else EM_DASH}</td>
     <td style="{vs_irr_style}">{vs_irr_val}</td>
     <td>{_fmt_pct(ms.budget_pr_pct)}</td>
-    <td>{_fmt_pct(ms.actual_pr_pct) if ms.actual_pr_pct is not None else "\u2014"}</td>
+    <td>{_fmt_pct(ms.actual_pr_pct) if ms.actual_pr_pct is not None else EM_DASH}</td>
     <td>{_fmt(ms.availability_loss_mwh)}</td>
 </tr>"""
 
@@ -637,13 +638,13 @@ def _render_ytd(report: MonthlyReport) -> str:
          "marker": {"color": _C["chart_light"]}, "yaxis": "y"},
         {"x": months, "y": actual_vals, "name": "Actual (MWh)", "type": "bar",
          "marker": {"color": _C["chart_dark"]}, "yaxis": "y"},
-        {"x": months, "y": budget_irr, "name": "Budget Irr (kWh/m\u00b2)", "type": "scatter",
+        {"x": months, "y": budget_irr, "name": "Budget Irr (kWh/m²)", "type": "scatter",
          "mode": "lines+markers", "line": {"color": _C["chart_amber"], "dash": "dash"},
          "marker": {"size": 6}, "yaxis": "y2"},
     ]
     if any(v is not None for v in actual_irr):
         traces.append(
-            {"x": months, "y": actual_irr, "name": "Actual Irr (kWh/m\u00b2)", "type": "scatter",
+            {"x": months, "y": actual_irr, "name": "Actual Irr (kWh/m²)", "type": "scatter",
              "mode": "lines+markers", "line": {"color": _C["amber"]},
              "marker": {"size": 6}, "yaxis": "y2"}
         )
@@ -656,7 +657,7 @@ def _render_ytd(report: MonthlyReport) -> str:
         "font": {"family": "'Segoe UI', system-ui, sans-serif", "size": 12, "color": _C["text"]},
         "legend": {"orientation": "h", "y": -0.15},
         "yaxis": {"title": "Energy (MWh)", "gridcolor": "#e2e8f0"},
-        "yaxis2": {"title": "Irradiation (kWh/m\u00b2)", "overlaying": "y", "side": "right", "gridcolor": "transparent"},
+        "yaxis2": {"title": "Irradiation (kWh/m²)", "overlaying": "y", "side": "right", "gridcolor": "transparent"},
     }
 
     script = f"""Plotly.newPlot('chart-ytd', {_safe_json(traces)}, {_safe_json(layout)}, {_plotly_config()});"""
@@ -684,7 +685,7 @@ def _render_daily_generation(report: MonthlyReport) -> str:
         rows += f"""<tr>
     <td>{d.day} ({d.weekday})</td>
     <td>{_fmt(d.actual_energy_mwh)}</td>
-    <td>{_fmt(d.actual_irradiation_kwh_m2) if d.actual_irradiation_kwh_m2 is not None else "\u2014"}</td>
+    <td>{_fmt(d.actual_irradiation_kwh_m2) if d.actual_irradiation_kwh_m2 is not None else "—"}</td>
     <td>{_fmt(d.norm_yield_kwh_kwp, 2)}</td>
 </tr>"""
 
@@ -695,12 +696,12 @@ def _render_daily_generation(report: MonthlyReport) -> str:
     tot_yield = sum(d.norm_yield_kwh_kwp for d in daily)
     rows += f"""<tr class="total-row">
     <td>Total</td><td>{_fmt(tot_energy)}</td>
-    <td>{_fmt(tot_irr) if tot_irr is not None else "\u2014"}</td>
+    <td>{_fmt(tot_irr) if tot_irr is not None else "—"}</td>
     <td>{_fmt(tot_yield, 2)}</td>
 </tr>"""
 
     table = f"""<div class="table-scroll"><table class="data-table">
-<thead><tr><th>Day</th><th>Energy (MWh)</th><th>Irr (kWh/m\u00b2)</th><th>Norm Yield (kWh/kWp)</th></tr></thead>
+<thead><tr><th>Day</th><th>Energy (MWh)</th><th>Irr (kWh/m²)</th><th>Norm Yield (kWh/kWp)</th></tr></thead>
 <tbody>{rows}</tbody></table></div>"""
 
     # Chart
@@ -714,7 +715,7 @@ def _render_daily_generation(report: MonthlyReport) -> str:
     ]
     if any(v is not None for v in irr):
         traces.append(
-            {"x": days, "y": irr, "name": "Irradiation (kWh/m\u00b2)", "type": "scatter",
+            {"x": days, "y": irr, "name": "Irradiation (kWh/m²)", "type": "scatter",
              "mode": "lines+markers", "line": {"color": _C["chart_amber"], "width": 2},
              "marker": {"size": 5}, "yaxis": "y2"}
         )
@@ -727,7 +728,7 @@ def _render_daily_generation(report: MonthlyReport) -> str:
         "legend": {"orientation": "h", "y": -0.15},
         "xaxis": {"title": "Day", "dtick": 1},
         "yaxis": {"title": "Energy (MWh)", "gridcolor": "#e2e8f0"},
-        "yaxis2": {"title": "Irradiation (kWh/m\u00b2)", "overlaying": "y", "side": "right", "gridcolor": "transparent"},
+        "yaxis2": {"title": "Irradiation (kWh/m²)", "overlaying": "y", "side": "right", "gridcolor": "transparent"},
     }
 
     # Insight
@@ -765,13 +766,13 @@ def _render_pr_temp(report: MonthlyReport) -> str:
     for d in daily:
         rows += f"""<tr>
     <td>{d.day} ({d.weekday})</td>
-    <td>{_fmt(d.performance_ratio_pct) if d.performance_ratio_pct is not None else "\u2014"}</td>
-    <td>{_fmt(d.avg_ambient_temp_c) if d.avg_ambient_temp_c is not None else "\u2014"}</td>
-    <td>{_fmt(d.avg_module_temp_c) if d.avg_module_temp_c is not None else "\u2014"}</td>
+    <td>{_fmt(d.performance_ratio_pct) if d.performance_ratio_pct is not None else "—"}</td>
+    <td>{_fmt(d.avg_ambient_temp_c) if d.avg_ambient_temp_c is not None else "—"}</td>
+    <td>{_fmt(d.avg_module_temp_c) if d.avg_module_temp_c is not None else "—"}</td>
 </tr>"""
 
     table = f"""<div class="table-scroll"><table class="data-table">
-<thead><tr><th>Day</th><th>PR (%)</th><th>Ambient Temp (\u00b0C)</th><th>Module Temp (\u00b0C)</th></tr></thead>
+<thead><tr><th>Day</th><th>PR (%)</th><th>Ambient Temp (°C)</th><th>Module Temp (°C)</th></tr></thead>
 <tbody>{rows}</tbody></table></div>"""
 
     days = [d.day for d in daily]
@@ -784,7 +785,7 @@ def _render_pr_temp(report: MonthlyReport) -> str:
     ]
     if any(v is not None for v in mod_temp):
         traces.append(
-            {"x": days, "y": mod_temp, "name": "Module Temp (\u00b0C)", "type": "scatter",
+            {"x": days, "y": mod_temp, "name": "Module Temp (°C)", "type": "scatter",
              "mode": "lines+markers", "line": {"color": _C["chart_amber"], "width": 2},
              "marker": {"size": 5}, "yaxis": "y2"}
         )
@@ -797,7 +798,7 @@ def _render_pr_temp(report: MonthlyReport) -> str:
         "legend": {"orientation": "h", "y": -0.15},
         "xaxis": {"title": "Day", "dtick": 1},
         "yaxis": {"title": "PR (%)", "gridcolor": "#e2e8f0"},
-        "yaxis2": {"title": "Module Temp (\u00b0C)", "overlaying": "y", "side": "right", "gridcolor": "transparent"},
+        "yaxis2": {"title": "Module Temp (°C)", "overlaying": "y", "side": "right", "gridcolor": "transparent"},
     }
 
     script = f"""Plotly.newPlot('chart-pr-temp', {_safe_json(traces)}, {_safe_json(layout)}, {_plotly_config()});"""
@@ -824,7 +825,7 @@ def _render_expected_vs_actual(report: MonthlyReport) -> str:
     for d in daily:
         rows += f"""<tr>
     <td>{d.day} ({d.weekday})</td>
-    <td>{_fmt(d.expected_gen_mwh) if d.expected_gen_mwh is not None else "\u2014"}</td>
+    <td>{_fmt(d.expected_gen_mwh) if d.expected_gen_mwh is not None else "—"}</td>
     <td>{_fmt(d.actual_energy_mwh)}</td>
 </tr>"""
 
@@ -855,7 +856,7 @@ def _render_expected_vs_actual(report: MonthlyReport) -> str:
         "yaxis": {"title": "Energy (MWh)", "gridcolor": "#e2e8f0"},
     }
 
-    formula = "Expected Gen = Irradiation \u00d7 DC Capacity \u00d7 Standard PR"
+    formula = "Expected Gen = Irradiation × DC Capacity × Standard PR"
 
     script = f"""Plotly.newPlot('chart-exp-act', {_safe_json(traces)}, {_safe_json(layout)}, {_plotly_config()});"""
 
@@ -883,17 +884,17 @@ def _render_performance_index(report: MonthlyReport) -> str:
         pi = d.performance_index_pct
         if pi is not None:
             if pi >= 80:
-                icon = "\U0001f7e2"  # green circle
+                icon = "🟢"  # green circle
             elif pi >= 60:
-                icon = "\U0001f7e1"  # yellow circle
+                icon = "🟡"  # yellow circle
             else:
-                icon = "\U0001f534"  # red circle
+                icon = "🔴"  # red circle
         else:
-            icon = "\u2014"
+            icon = "—"
         rows += f"""<tr>
     <td>{d.day} ({d.weekday})</td>
     <td>{icon}</td>
-    <td>{_fmt(pi) if pi is not None else "\u2014"}</td>
+    <td>{_fmt(pi) if pi is not None else "—"}</td>
 </tr>"""
 
     table = f"""<div class="table-scroll"><table class="data-table">
@@ -946,7 +947,7 @@ def _render_performance_index(report: MonthlyReport) -> str:
         good_days = sum(1 for v in valid_pi if v >= 80)
         insight = (
             f"Average PI: <strong>{avg_pi:.1f}%</strong>. "
-            f"<strong>{good_days}</strong> of {len(valid_pi)} days reached \u2265 80% PI."
+            f"<strong>{good_days}</strong> of {len(valid_pi)} days reached ≥ 80% PI."
         )
     else:
         insight = "No PI values calculated (missing irradiation data)."
@@ -993,7 +994,7 @@ def _render_efficiency(report: MonthlyReport) -> str:
         )
     if has_temp:
         traces_a.append(
-            {"x": days, "y": mod_temp, "name": "Module Temp (\u00b0C)", "type": "scatter",
+            {"x": days, "y": mod_temp, "name": "Module Temp (°C)", "type": "scatter",
              "mode": "lines", "fill": "tozeroy",
              "fillcolor": "rgba(245,158,11,0.15)", "line": {"color": _C["chart_amber"], "width": 2}, "yaxis": "y2"}
         )
@@ -1007,7 +1008,7 @@ def _render_efficiency(report: MonthlyReport) -> str:
         "title": {"text": "Efficiency vs Module Temperature", "font": {"size": 14}},
         "xaxis": {"title": "Day", "dtick": 1},
         "yaxis": {"title": "Efficiency (%)", "gridcolor": "#e2e8f0"},
-        "yaxis2": {"title": "Module Temp (\u00b0C)", "overlaying": "y", "side": "right", "gridcolor": "transparent"},
+        "yaxis2": {"title": "Module Temp (°C)", "overlaying": "y", "side": "right", "gridcolor": "transparent"},
     }
 
     # Chart b) Efficiency vs Irradiation
@@ -1020,14 +1021,14 @@ def _render_efficiency(report: MonthlyReport) -> str:
         )
     if has_irr:
         traces_b.append(
-            {"x": days, "y": irr, "name": "Irradiation (kWh/m\u00b2)", "type": "scatter",
+            {"x": days, "y": irr, "name": "Irradiation (kWh/m²)", "type": "scatter",
              "mode": "lines", "fill": "tozeroy",
              "fillcolor": "rgba(245,158,11,0.15)", "line": {"color": _C["chart_amber"], "width": 2}, "yaxis": "y2"}
         )
 
     layout_b = dict(layout_a)
     layout_b["title"] = {"text": "Efficiency vs Irradiation", "font": {"size": 14}}
-    layout_b["yaxis2"] = {"title": "Irradiation (kWh/m\u00b2)", "overlaying": "y", "side": "right", "gridcolor": "transparent"}
+    layout_b["yaxis2"] = {"title": "Irradiation (kWh/m²)", "overlaying": "y", "side": "right", "gridcolor": "transparent"}
 
     scripts = f"""
 Plotly.newPlot('chart-eff-temp', {_safe_json(traces_a)}, {_safe_json(layout_a)}, {_plotly_config()});
@@ -1097,7 +1098,7 @@ def _render_power_irr_trend(report: MonthlyReport) -> str:
         irr_clean = [v for v in detail.irradiance_wm2 if v is not None]
         if irr_clean:
             traces.append(
-                {"x": detail.timestamps, "y": detail.irradiance_wm2, "name": "Irradiance (W/m\u00b2)",
+                {"x": detail.timestamps, "y": detail.irradiance_wm2, "name": "Irradiance (W/m²)",
                  "type": "scatter", "mode": "lines", "fill": "tozeroy",
                  "fillcolor": "rgba(245,158,11,0.15)", "line": {"color": _C["chart_amber"], "width": 1.5},
                  "yaxis": "y2"}
@@ -1112,7 +1113,7 @@ def _render_power_irr_trend(report: MonthlyReport) -> str:
             "legend": {"orientation": "h", "y": -0.25, "font": {"size": 10}},
             "xaxis": {"title": ""},
             "yaxis": {"title": "MW", "gridcolor": "#e2e8f0"},
-            "yaxis2": {"title": "W/m\u00b2", "overlaying": "y", "side": "right", "gridcolor": "transparent"},
+            "yaxis2": {"title": "W/m²", "overlaying": "y", "side": "right", "gridcolor": "transparent"},
         }
 
         charts_html += f'<div class="card"><div id="{chart_id}" class="chart-container" style="min-height:250px;"></div></div>'
@@ -1319,11 +1320,11 @@ def _render_curtailment_irr_trend(report: MonthlyReport) -> str:
     layout_curt_pct["title"] = {"text": "Curtailment (% of Budget)", "font": {"size": 13}}
 
     traces_irr = [
-        {"x": months, "y": irr_shortfall_kwh, "type": "bar", "name": "kWh/m\u00b2",
+        {"x": months, "y": irr_shortfall_kwh, "type": "bar", "name": "kWh/m²",
          "marker": {"color": _C["chart_amber"]}},
     ]
     layout_irr = dict(layout_curt)
-    layout_irr["title"] = {"text": "Irradiance Shortfall (kWh/m\u00b2)", "font": {"size": 13}}
+    layout_irr["title"] = {"text": "Irradiance Shortfall (kWh/m²)", "font": {"size": 13}}
 
     traces_irr_pct = [
         {"x": months, "y": irr_shortfall_pct, "type": "bar", "name": "%",
@@ -1370,7 +1371,7 @@ def _render_day_detail_card(label: str, detail: Optional[DayDetail], day_data: O
         return card, ""
 
     energy_str = _fmt(day_data.actual_energy_mwh)
-    pr_str = _fmt(day_data.performance_ratio_pct) if day_data.performance_ratio_pct is not None else "\u2014"
+    pr_str = _fmt(day_data.performance_ratio_pct) if day_data.performance_ratio_pct is not None else "—"
 
     traces = [
         {"x": detail.timestamps, "y": detail.power_mw, "name": "Power (MW)",
@@ -1380,7 +1381,7 @@ def _render_day_detail_card(label: str, detail: Optional[DayDetail], day_data: O
     ]
     if any(v is not None for v in detail.irradiance_wm2):
         traces.append(
-            {"x": detail.timestamps, "y": detail.irradiance_wm2, "name": "Irradiance (W/m\u00b2)",
+            {"x": detail.timestamps, "y": detail.irradiance_wm2, "name": "Irradiance (W/m²)",
              "type": "scatter", "mode": "lines",
              "line": {"color": _C["chart_amber"], "width": 1.5}, "yaxis": "y2"}
         )
@@ -1393,7 +1394,7 @@ def _render_day_detail_card(label: str, detail: Optional[DayDetail], day_data: O
         "legend": {"orientation": "h", "y": -0.3, "font": {"size": 10}},
         "xaxis": {},
         "yaxis": {"title": "MW", "gridcolor": "#e2e8f0"},
-        "yaxis2": {"title": "W/m\u00b2", "overlaying": "y", "side": "right", "gridcolor": "transparent"},
+        "yaxis2": {"title": "W/m²", "overlaying": "y", "side": "right", "gridcolor": "transparent"},
     }
 
     card = f"""<div class="card">
@@ -1443,14 +1444,14 @@ def _render_top5_table(days: list, label: str) -> str:
     <td>{i}</td>
     <td>{d.date_str}</td>
     <td>{_fmt(d.actual_energy_mwh)}</td>
-    <td>{_fmt(d.actual_irradiation_kwh_m2) if d.actual_irradiation_kwh_m2 is not None else "\u2014"}</td>
-    <td>{_fmt(d.avg_module_temp_c) if d.avg_module_temp_c is not None else "\u2014"}</td>
-    <td>{_fmt(d.performance_ratio_pct) if d.performance_ratio_pct is not None else "\u2014"}</td>
+    <td>{_fmt(d.actual_irradiation_kwh_m2) if d.actual_irradiation_kwh_m2 is not None else "—"}</td>
+    <td>{_fmt(d.avg_module_temp_c) if d.avg_module_temp_c is not None else "—"}</td>
+    <td>{_fmt(d.performance_ratio_pct) if d.performance_ratio_pct is not None else "—"}</td>
     <td>{d.weekday}</td>
 </tr>"""
 
     return f"""<table class="data-table">
-<thead><tr><th>#</th><th>Date</th><th>Energy (MWh)</th><th>Irr (kWh/m\u00b2)</th><th>Mod. Temp (\u00b0C)</th><th>PR (%)</th><th>Weekday</th></tr></thead>
+<thead><tr><th>#</th><th>Date</th><th>Energy (MWh)</th><th>Irr (kWh/m²)</th><th>Mod. Temp (°C)</th><th>PR (%)</th><th>Weekday</th></tr></thead>
 <tbody>{rows}</tbody></table>"""
 
 
@@ -1525,7 +1526,7 @@ def _render_inverter_yield(report: MonthlyReport) -> tuple[str, str]:
     """Sektion 14: Inverter Yield — tabell + ranking."""
     if not report.has_inverter_data or not report.inverters:
         return _render_placeholder(
-            14, "Inverter Yield", "\u2699\ufe0f",
+            14, "Inverter Yield", "⚙️",
             "Inverter-level data missing for this park. Run 'python bazefield_download.py --inverters' to sync."
         ), ""
 
@@ -1534,8 +1535,8 @@ def _render_inverter_yield(report: MonthlyReport) -> tuple[str, str]:
 
     # Datakvalitets-check: inverter-sum vs park-meter
     # När Bazefield saknar inverter-level data (non-communicating inverters)
-    # blir inverter-sum mycket l\u00e4gre \u00e4n meter. Det m\u00e5ste tydligt
-    # kommuniceras s\u00e5 att rapporten inte ser ut som att halva parken \u00e4r nere.
+    # blir inverter-sum mycket lägre än meter. Det måste tydligt
+    # kommuniceras så att rapporten inte ser ut som att halva parken är nere.
     inverter_sum_mwh = sum(inv.total_energy_kwh for inv in inverters) / 1000.0
     meter_mwh = report.actual_energy_mwh
     gap_pct = 0.0
@@ -1546,7 +1547,7 @@ def _render_inverter_yield(report: MonthlyReport) -> tuple[str, str]:
         inactive_count_calc = sum(1 for inv in inverters if inv.days_active == 0)
         data_quality_warning = (
             f'<div class="data-quality-alert">'
-            f'<strong>\u2139\ufe0f Data Quality:</strong> Inverter-level reporting '
+            f'<strong>ℹ️ Data Quality:</strong> Inverter-level reporting '
             f'(<strong>{inverter_sum_mwh:,.0f} MWh</strong>) is <strong>{gap_pct:.0f}% lower</strong> '
             f'than grid meter ({meter_mwh:,.0f} MWh). '
             f'This is because inverters can produce without reporting to Bazefield '
@@ -1594,7 +1595,7 @@ def _render_inverter_yield(report: MonthlyReport) -> tuple[str, str]:
     if inactive_count and gap_pct < 10:
         inactive_names = [inv.name for inv in inverters if inv.days_active == 0]
         inactive_warning = (
-            f'<div class="warning-box">\u26a0\ufe0f <strong>{inactive_count} inverters without production:</strong> '
+            f'<div class="warning-box">⚠️ <strong>{inactive_count} inverters without production:</strong> '
             f'{", ".join(inactive_names[:5])}{("..." if len(inactive_names) > 5 else "")}</div>'
         )
 
@@ -1654,11 +1655,11 @@ def _render_inverter_yield(report: MonthlyReport) -> tuple[str, str]:
     {inactive_warning}
     <div class="side-by-side">
         <div class="card">
-            <h3 style="color:{_C['green']}; margin-bottom:12px;">\U0001f3c6 Top 5 Best</h3>
+            <h3 style="color:{_C['green']}; margin-bottom:12px;">🏆 Top 5 Best</h3>
             {top_table}
         </div>
         <div class="card">
-            <h3 style="color:{_C['red']}; margin-bottom:12px;">\u26a0\ufe0f Bottom 5</h3>
+            <h3 style="color:{_C['red']}; margin-bottom:12px;">⚠️ Bottom 5</h3>
             {bottom_table}
         </div>
     </div>
@@ -1675,7 +1676,7 @@ def _render_inverter_efficiency(report: MonthlyReport) -> tuple[str, str]:
     """Sektion 15: Inverter Efficiency — multi-line + heatmap."""
     if not report.has_inverter_data or not report.inverter_daily_lookup:
         return _render_placeholder(
-            15, "Inverter Efficiency", "\u26a1",
+            15, "Inverter Efficiency", "⚡",
             "Inverter-level data missing. Run 'python bazefield_download.py --inverters' to sync."
         ), ""
 
@@ -1691,8 +1692,8 @@ def _render_inverter_efficiency(report: MonthlyReport) -> tuple[str, str]:
     if gap_pct > 10:
         efficiency_data_alert = (
             '<div class="data-quality-alert">'
-            '<strong>\u2139\ufe0f Note:</strong> Red areas in the heatmap below '
-            'do not mean the inverters are offline \u2014 they are data gaps due to '
+            '<strong>ℹ️ Note:</strong> Red areas in the heatmap below '
+            'do not mean the inverters are offline — they are data gaps due to '
             'non-communicating inverters. See the data quality notice in section 14.'
             '</div>'
         )
@@ -1767,7 +1768,7 @@ def _render_inverter_efficiency(report: MonthlyReport) -> tuple[str, str]:
         "paper_bgcolor": _C["card"],
         "plot_bgcolor": _C["card"],
         "font": {"family": "'Segoe UI', system-ui, sans-serif", "size": 10, "color": _C["text"]},
-        "title": {"text": "CF Heatmap (day \u00d7 inverter)", "font": {"size": 14}},
+        "title": {"text": "CF Heatmap (day × inverter)", "font": {"size": 14}},
         "xaxis": {"title": "Day", "dtick": 1},
         "yaxis": {"title": "", "automargin": True},
         "height": max(300, 18 * len(inverters)),
@@ -1797,7 +1798,7 @@ def _render_alarm_summary(report: MonthlyReport) -> tuple[str, str]:
     """Sektion 18: Alarm & Fault Summary."""
     if not report.has_alarm_data or report.alarm_stats is None:
         return _render_placeholder(
-            18, "Alarms &amp; Faults", "\U0001f514",
+            18, "Alarms &amp; Faults", "🔔",
             "No alarm events for this month. Either run 'python bazefield_download.py --inverters' to sync, or the park was stable."
         ), ""
 
@@ -1867,7 +1868,7 @@ def _render_alarm_summary(report: MonthlyReport) -> tuple[str, str]:
     detail_html = '<table class="alarm-detail-table"><thead><tr><th>Time</th><th>Inverter</th><th>Type</th><th>Description</th><th>Duration (min)</th></tr></thead><tbody>'
     for evt in report.recent_alarms[:15]:
         time_short = evt.time_start_utc[:16].replace("T", " ")
-        dur_str = f'{evt.duration_min:.0f}' if evt.duration_min > 0 else '\u2014'
+        dur_str = f'{evt.duration_min:.0f}' if evt.duration_min > 0 else '—'
         detail_html += (
             f'<tr><td>{time_short}</td>'
             f'<td>{evt.inverter_name}</td>'
@@ -1906,7 +1907,7 @@ def _render_alarm_summary(report: MonthlyReport) -> tuple[str, str]:
 def _render_incidents_placeholder() -> str:
     """Sektion 17: Incident-platshållare (sektion 14, 15, 18 har egna funktioner nu)."""
     return _render_placeholder(
-        17, "Incidents &amp; Work Orders", "\U0001f6e0\ufe0f",
+        17, "Incidents &amp; Work Orders", "🛠️",
         "Incident and work log integration with maintenance system (e.g. QBO, ServiceNow). Contact the O&M team to activate."
     )
 
@@ -1950,7 +1951,7 @@ def _render_ppm_schedule(report: MonthlyReport) -> str:
                 classes += " ppm-scheduled"
             if current:
                 classes += " ppm-current-month"
-            content = "\U0001f4c5" if scheduled else ""
+            content = "📅" if scheduled else ""
             cells.append(f'<td class="{classes}">{content}</td>')
         body_rows.append('<tr>' + ''.join(cells) + '</tr>')
 
@@ -1962,7 +1963,7 @@ def _render_ppm_schedule(report: MonthlyReport) -> str:
     note = (
         '<div class="insight-box">'
         f'The schedule shows standardised preventive maintenance for solar parks. '
-        f'Marked months (<span style="color:#2563eb">\U0001f4c5</span>) '
+        f'Marked months (<span style="color:#2563eb">📅</span>) '
         f'indicate scheduled activity. Current month ({_MONTH_SV[current_month]}) is highlighted.'
         '</div>'
     )
@@ -1995,9 +1996,9 @@ def _render_executive_summary(report: MonthlyReport) -> str:
         irr_word = "lower" if irr_delta < 0 else "higher"
         irr_text = (
             f"Irradiation during {month_full} reached "
-            f"{_fmt(r.actual_irradiation_kwh_m2)} kWh/m\u00b2, "
+            f"{_fmt(r.actual_irradiation_kwh_m2)} kWh/m², "
             f"which is {abs(irr_delta):.1f}% {irr_word} than the budgeted "
-            f"irradiation ({_fmt(r.budget_irradiation_kwh_m2)} kWh/m\u00b2). "
+            f"irradiation ({_fmt(r.budget_irradiation_kwh_m2)} kWh/m²). "
         )
 
     # PR
@@ -2075,13 +2076,13 @@ def _render_executive_summary(report: MonthlyReport) -> str:
 # ---------------------------------------------------------------------------
 
 def render_html(report: MonthlyReport) -> str:
-    """Rendera komplett HTML-rapport fr\u00e5n MonthlyReport.
+    """Rendera komplett HTML-rapport från MonthlyReport.
 
     Args:
-        report: Komplett m\u00e5nadsrapportdata fr\u00e5n generate_report().
+        report: Komplett månadsrapportdata från generate_report().
 
     Returns:
-        Fullst\u00e4ndig HTML-str\u00e4ng redo att skrivas till fil.
+        Fullständig HTML-sträng redo att skrivas till fil.
     """
     all_scripts: list[str] = []
 
@@ -2143,7 +2144,7 @@ def render_html(report: MonthlyReport) -> str:
     combined_scripts = "\n".join(s for s in all_scripts if s)
 
     month_full = _MONTH_FULL_SV[report.month]
-    title = f"{report.park_display_name} \u2013 Performance Report \u2013 {month_full} {report.year}"
+    title = f"{report.park_display_name} – Performance Report – {month_full} {report.year}"
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
