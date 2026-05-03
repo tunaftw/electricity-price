@@ -11,7 +11,7 @@ This script runs the entire update pipeline:
  7. Process raw data to quarterly format
  8. Calculate capture prices
  9. Generate Excel reports
-10. Generate Unified Dashboard (Track A + Track C)
+10. Generate Unified Dashboard (Track C — Nordic Editorial)
 11. Generate park performance reports (only with --reports)
 12. Show status
 """
@@ -175,6 +175,7 @@ def main():
             print("  Done!")
         else:
             print("  Failed or no updates needed")
+            failures.append(f"step {current_step}")
 
     # Step 3: Update ENTSO-E (if token available and not skipped)
     current_step += 1
@@ -191,6 +192,7 @@ def main():
             print("  Done!")
         else:
             print("  Failed or no updates needed")
+            failures.append(f"step {current_step}")
 
     # Step 4: Update Mimer regulation prices
     current_step += 1
@@ -203,6 +205,7 @@ def main():
             print("  Done!")
         else:
             print("  Failed or no updates needed")
+            failures.append(f"step {current_step}")
 
     # Step 5: Update Nasdaq futures
     current_step += 1
@@ -215,6 +218,7 @@ def main():
             print("  Done!")
         else:
             print("  Failed or no updates needed")
+            failures.append(f"step {current_step}")
 
     # Step 6: Update eSett imbalance prices
     current_step += 1
@@ -228,6 +232,7 @@ def main():
             print("  Done!")
         else:
             print("  Failed or no updates needed")
+            failures.append(f"step {current_step}")
 
     # Step 7: Process to quarterly format
     current_step += 1
@@ -272,8 +277,10 @@ def main():
         except ImportError as e:
             print(f"  Warning: Could not import Excel modules: {e}")
             print("  Install openpyxl: pip install openpyxl")
+            failures.append(f"step {current_step}")
         except Exception as e:
             print(f"  Error generating Excel: {e}")
+            failures.append(f"step {current_step}")
 
     # Step 10: Generate Unified Dashboard (Track C — Nordic Editorial)
     current_step += 1
@@ -297,6 +304,7 @@ def main():
             print("  Done!")
         else:
             print("  Failed")
+            failures.append(f"step {current_step}")
     else:
         step(current_step, total_steps, "Park reports (SKIPPED — use --reports)")
 

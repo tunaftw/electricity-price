@@ -154,18 +154,20 @@ def discover_and_download(
 
         count = 0
         for r in raw_rows:
-            daily_fix = r.get("dailyFix", "").strip()
+            # Nasdaq returns null (not just missing keys) for absent values.
+            # Always coalesce None → "" before .strip() to avoid AttributeError.
+            daily_fix = (r.get("dailyFix") or "").strip()
             if not daily_fix:
                 continue
             all_rows.append({
                 "date": r["date"],
                 "contract": symbol,
                 "daily_fix_eur": daily_fix,
-                "bid_eur": r.get("bidPrice", "").strip() or "",
-                "ask_eur": r.get("askPrice", "").strip() or "",
-                "high_eur": r.get("highPrice", "").strip() or "",
-                "low_eur": r.get("lowPrice", "").strip() or "",
-                "open_interest": r.get("oi", "").strip().replace(",", "") or "",
+                "bid_eur": (r.get("bidPrice") or "").strip(),
+                "ask_eur": (r.get("askPrice") or "").strip(),
+                "high_eur": (r.get("highPrice") or "").strip(),
+                "low_eur": (r.get("lowPrice") or "").strip(),
+                "open_interest": (r.get("oi") or "").strip().replace(",", ""),
             })
             count += 1
 

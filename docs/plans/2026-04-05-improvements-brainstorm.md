@@ -4,6 +4,15 @@
 **Status:** Brainstorm-underlag, ej beslutat
 **Syfte:** Identifiera högvärdes-förbättringar för Elpris-projektet
 
+> **Post-cleanup notice (2026-05-03):** Detta dokument refererar till filer som
+> sedan dess har tagits bort i repo-städet — `generate_dashboard.py`,
+> `generate_dashboard_v2.py`, `elpris/dashboard_data.py`, `battery.py` (rot),
+> `solar_battery.py` (rot), `quality_check.py`, `analyze_solar_profiles.py`,
+> `baseload_ratio_cli.py`, `battery_sizing_cli.py` samt deras unika
+> `elpris/`-beroenden. Använd `CLAUDE.md` för aktuell projektstruktur. Idéerna
+> nedan kan fortfarande vara värdefulla — men tekniskt ska de implementeras
+> mot dagens kodbas (Track C unified dashboard som primär renderare).
+
 ---
 
 ## TL;DR
