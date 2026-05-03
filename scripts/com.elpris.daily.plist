@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.elpris.daily</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>/Users/pontusskog/Documents/Developer/electricity-price/update_all.py</string>
+        <string>--quiet</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/pontusskog/Documents/Developer/electricity-price</string>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>6</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <!-- Run on next boot if the scheduled time was missed (e.g. laptop asleep) -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/pontusskog/Documents/Developer/electricity-price/Resultat/logs/daily_update.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/pontusskog/Documents/Developer/electricity-price/Resultat/logs/daily_update.err</string>
+
+    <!-- launchd starts processes with a minimal env. Inject PATH so subprocess
+         can find /usr/local/bin etc. The .env file in WorkingDirectory is
+         loaded by update_all.py itself. -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+    </dict>
+</dict>
+</plist>

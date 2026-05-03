@@ -242,6 +242,27 @@ python3 discover_inverters.py
 ```
 Pingar Bazefield för att lista alla inverter-ID:n per park och regenererar `elpris/inverter_registry.py`. Körs vid behov när nya invertrar driftsätts; `inverter_registry` är Python-källkod som checkas in i git.
 
+### SCADA inverter-data (per-park månadsrapport sektion 14/15/18)
+```bash
+# Engångs-backfill (alla 8 parker, ~50 min totalt)
+python3 bazefield_download.py --inverters --backfill
+
+# Inkrementell sync efter backfill
+python3 bazefield_download.py --inverters
+
+# Bara en park
+python3 bazefield_download.py --inverters --parks horby
+```
+Hämtar daglig yield + alarm-events per inverter via Bazefield för alla 200 invertrar
+i portföljen. Sparas till `Resultat/profiler/parker/inverters/{park}_daily_yield.csv`
+och `{park}_events.csv`. När data finns visar `generate_performance_report.py`
+sektion 14 (Inverter Yield), 15 (Inverter Efficiency) och 18 (Alarm & Fault Summary)
+i månadsrapporten — annars graceful "Begränsad data"-notis.
+
+### Daglig automation (macOS launchd / cron)
+Färdig launchd-plist + installationsinstruktioner finns i [`scripts/README.md`](scripts/README.md).
+Kör `python3 update_all.py --quiet` dagligen 06:00, loggar till `Resultat/logs/`.
+
 ## Viktiga koncept
 
 ### Elområden (SE1-SE4)
@@ -367,10 +388,10 @@ date,contract,daily_fix_eur,bid_eur,ask_eur,high_eur,low_eur,open_interest
 - [x] Track C valt som primär (2026-05) och Track A borttagen (2026-05)
 - [x] Batterioptimering / arbitrage-analys (BESS-flik + battery_arbitrage Excel)
 - [x] Bazefield utökat format (POA, availability, active power)
+- [x] Månadsrapport: SCADA-integration (inverter-nivå, alarm/fault) — implementation klar; `bazefield_download.py --inverters --backfill` hämtar data, sektion 14/15/18 renderas i månadsrapporten
+- [x] Daglig automation (macOS launchd plist i `scripts/`, manuell installation per `scripts/README.md`)
 - [ ] Vidareutveckla Track C (layout, datapunkter, interaktivitet baserat på team-feedback)
 - [ ] Migrera till hosted version med autentisering (Vercel/Netlify privat)
-- [ ] Månadsrapport: SCADA-integration (inverter-nivå, alarm/fault) — design i `docs/plans/2026-04-10-scada-inverter-data-design.md`
-- [ ] Automatisk daglig uppdatering
 - [ ] Historiska solprofiler per region
 - [ ] Använd ENTSO-E solproduktion för capture price-beräkning
 - [ ] Nord Pool intraday (kräver kundavtal)
