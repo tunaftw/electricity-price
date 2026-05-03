@@ -43,17 +43,12 @@ _MONTH_SV = [
     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ]
 
-# Temperaturkoefficient för kiselmoduler (~0.4 %/°C)
-_TEMP_COEFF_PER_C = 0.004
-
-# Antagen genomsnittlig omgivningstemperatur (°C) i Sverige
+# Antagen genomsnittlig omgivningstemperatur (°C) i Sverige — används bara för att fylla
+# `avg_module_temp_c`-fältet i daglig statistik (display-värde), inte i förlustkaskaden.
 _DEFAULT_AMBIENT_TEMP_C = 10.0
 
 # Sandia NOCT-modell: T_module = T_ambient + 0.03 * POA (W/m²)
 _SANDIA_COEFF = 0.03
-
-# Diverse förluster (soiling + clipping + aux) som andel av väderkorrigerad budget
-_OTHER_LOSS_FRACTION = 0.037
 
 
 # ---------------------------------------------------------------------------
@@ -389,37 +384,21 @@ def _calculate_loss_cascade(
                 expected_interval = irr * 0.25 / 1000.0 * capacity_kwp * standard_pr / 1000.0
                 avail_loss += expected_interval * (1.0 - avail)
 
-    # 3. Temperaturförlust
-    temp_loss = 0.0
-    if avg_module_temp_c is not None:
-        # Förlust relativt STC (25°C)
-        delta_t = avg_module_temp_c - 25.0
-        if delta_t > 0:
-            # Bara förlust vid temperaturer över 25°C
-            temp_loss = _TEMP_COEFF_PER_C * delta_t * actual_energy_mwh
-        elif delta_t < 0:
-            # Negativ temperaturförlust = vinst → minskar "andra förluster"
-            temp_loss = _TEMP_COEFF_PER_C * delta_t * actual_energy_mwh
-
-    # 4. Övriga förluster (soiling + clipping + aux)
-    other_loss = _OTHER_LOSS_FRACTION * wc_budget
-
-    # 5. Curtailment = residual
-    curtailment = (budget_energy_mwh
-                   - actual_energy_mwh
-                   - irr_shortfall
-                   - avail_loss
-                   - temp_loss
-                   - other_loss)
+    # 3. Oförklarat (residual)
+    # Allt som inte kan tillskrivas uppmätt instrålning eller availability hamnar här.
+    # Kan vara positiv (faktiska förluster: soiling, clipping, real curtailment, modellfel)
+    # eller negativ (parken slog TMY-budgeten — t.ex. vid klart väder, gynnsam temperatur,
+    # eller om PVsyst-budgeten är konservativ).
+    unexplained = budget_energy_mwh - actual_energy_mwh - irr_shortfall - avail_loss
 
     return LossCascade(
         budget_energy_mwh=round(budget_energy_mwh, 4),
         actual_energy_mwh=round(actual_energy_mwh, 4),
-        curtailment_loss_mwh=round(curtailment, 4),
+        curtailment_loss_mwh=round(unexplained, 4),
         irradiance_shortfall_loss_mwh=round(irr_shortfall, 4),
         availability_loss_mwh=round(avail_loss, 4),
-        temperature_loss_mwh=round(temp_loss, 4),
-        other_losses_mwh=round(other_loss, 4),
+        temperature_loss_mwh=0.0,
+        other_losses_mwh=0.0,
     )
 
 
@@ -492,11 +471,12 @@ def _build_ytd(
                     expected_int = irr * 0.25 / 1000.0 * capacity_kwp * standard_pr / 1000.0
                     avail_loss += expected_int * (1.0 - avail)
 
-        # Curtailment (residual)
+        # Oförklarat (residual). Inte clampad — negativt värde betyder att parken
+        # slog TMY-budgeten efter justering för uppmätt instrålning + availability.
         irr_shortfall = 0.0
         if actual_irr is not None and budget_irr > 0:
             irr_shortfall = budget_energy - wc_budget
-        curtailment = max(0.0, budget_energy - actual_energy - irr_shortfall - avail_loss)
+        unexplained = budget_energy - actual_energy - irr_shortfall - avail_loss
 
         # Norm yield (kWh/kWp = MWh/MWp)
         norm_yield = actual_energy / capacity_mw if capacity_mw > 0 else 0.0
@@ -511,7 +491,7 @@ def _build_ytd(
             capacity_mwp=round(capacity_mw, 3),
             budget_energy_mwh=round(budget_energy, 2),
             actual_energy_mwh=round(actual_energy, 2),
-            curtailment_mwh=round(curtailment, 2),
+            curtailment_mwh=round(unexplained, 2),
             vs_budget_energy_mwh=round(budget_energy - actual_energy, 2),
             norm_yield_mwh_mwp=round(norm_yield, 2),
             wc_budget_mwh=round(wc_budget, 2),

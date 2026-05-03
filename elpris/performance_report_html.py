@@ -343,7 +343,7 @@ def _render_toc() -> str:
         (8, "Power &amp; Irradiance"),
         (9, "Losses (MWh)"),
         (10, "Losses (%)"),
-        (11, "Curtailment &amp; Irradiation"),
+        (11, "Unexplained &amp; Irradiation"),
         (12, "Best &amp; Worst Day"),
         (13, "Top 5 / Bottom 5"),
         (14, "Inverter Yield"),
@@ -621,7 +621,7 @@ def _render_ytd(report: MonthlyReport) -> str:
     table = f"""<div class="table-scroll"><table class="data-table">
 <thead><tr>
     <th>Month</th><th>Capacity (MWp)</th><th>Budget (MWh)</th><th>Actual (MWh)</th>
-    <th>Curtail (MWh)</th><th>vs Budget</th><th>Norm Yield</th><th>WC Budget</th>
+    <th>Unexplained (MWh)</th><th>vs Budget</th><th>Norm Yield</th><th>WC Budget</th>
     <th>Losses</th><th>Bud Irr</th><th>Act Irr</th><th>vs Irr</th>
     <th>Bud PR</th><th>Act PR</th><th>Avail Loss</th>
 </tr></thead><tbody>{rows}</tbody></table></div>"""
@@ -1135,20 +1135,17 @@ def _render_loss_cascade_mwh(report: MonthlyReport) -> str:
     lc = report.losses
 
     categories = [
-        "Budget", "Curtailment", "Irradiance Shortfall",
-        "Availability", "Temperature", "Other", "Actual"
+        "Budget", "Irradiance", "Availability", "Unexplained", "Actual"
     ]
     values = [
         lc.budget_energy_mwh,
-        -lc.curtailment_loss_mwh,
         -lc.irradiance_shortfall_loss_mwh,
         -lc.availability_loss_mwh,
-        -lc.temperature_loss_mwh,
-        -lc.other_losses_mwh,
+        -lc.curtailment_loss_mwh,
         lc.actual_energy_mwh,
     ]
 
-    measure = ["absolute", "relative", "relative", "relative", "relative", "relative", "total"]
+    measure = ["absolute", "relative", "relative", "relative", "total"]
 
     traces = [{
         "type": "waterfall",
@@ -1175,13 +1172,11 @@ def _render_loss_cascade_mwh(report: MonthlyReport) -> str:
 
     # Table
     table_rows = [
-        ("Budget", _fmt(lc.budget_energy_mwh)),
-        ("Curtailment", _fmt(-lc.curtailment_loss_mwh)),
-        ("Irradiance Shortfall", _fmt(-lc.irradiance_shortfall_loss_mwh)),
-        ("Availability Loss", _fmt(-lc.availability_loss_mwh)),
-        ("Temperature Loss", _fmt(-lc.temperature_loss_mwh)),
-        ("Other Losses", _fmt(-lc.other_losses_mwh)),
-        ("<strong>Actual Generation</strong>", f"<strong>{_fmt(lc.actual_energy_mwh)}</strong>"),
+        ("Budget (PVsyst TMY)", _fmt(lc.budget_energy_mwh)),
+        ("Irradiance vs TMY (measured)", _fmt(-lc.irradiance_shortfall_loss_mwh)),
+        ("Availability loss (measured)", _fmt(-lc.availability_loss_mwh)),
+        ("Unexplained (residual)", _fmt(-lc.curtailment_loss_mwh)),
+        ("<strong>Actual generation</strong>", f"<strong>{_fmt(lc.actual_energy_mwh)}</strong>"),
     ]
     table_html = '<table class="params-table"><tr><th>Category</th><th>MWh</th></tr>'
     for label, val in table_rows:
@@ -1211,19 +1206,16 @@ def _render_loss_cascade_pct(report: MonthlyReport) -> str:
         return round(v / budget * 100, 2)
 
     categories = [
-        "Budget", "Curtailment", "Irradiance Shortfall",
-        "Availability", "Temperature", "Other", "Actual"
+        "Budget", "Irradiance", "Availability", "Unexplained", "Actual"
     ]
     values_pct = [
         100.0,
-        -to_pct(lc.curtailment_loss_mwh),
         -to_pct(lc.irradiance_shortfall_loss_mwh),
         -to_pct(lc.availability_loss_mwh),
-        -to_pct(lc.temperature_loss_mwh),
-        -to_pct(lc.other_losses_mwh),
+        -to_pct(lc.curtailment_loss_mwh),
         to_pct(lc.actual_energy_mwh),
     ]
-    measure = ["absolute", "relative", "relative", "relative", "relative", "relative", "total"]
+    measure = ["absolute", "relative", "relative", "relative", "total"]
 
     traces = [{
         "type": "waterfall",
@@ -1250,13 +1242,11 @@ def _render_loss_cascade_pct(report: MonthlyReport) -> str:
 
     # Table
     table_rows = [
-        ("Budget", "100.0%"),
-        ("Curtailment", f"{-to_pct(lc.curtailment_loss_mwh):.1f}%"),
-        ("Irradiance Shortfall", f"{-to_pct(lc.irradiance_shortfall_loss_mwh):.1f}%"),
-        ("Availability Loss", f"{-to_pct(lc.availability_loss_mwh):.1f}%"),
-        ("Temperature Loss", f"{-to_pct(lc.temperature_loss_mwh):.1f}%"),
-        ("Other Losses", f"{-to_pct(lc.other_losses_mwh):.1f}%"),
-        ("<strong>Actual Generation</strong>", f"<strong>{to_pct(lc.actual_energy_mwh):.1f}%</strong>"),
+        ("Budget (PVsyst TMY)", "100.0%"),
+        ("Irradiance vs TMY (measured)", f"{-to_pct(lc.irradiance_shortfall_loss_mwh):.1f}%"),
+        ("Availability loss (measured)", f"{-to_pct(lc.availability_loss_mwh):.1f}%"),
+        ("Unexplained (residual)", f"{-to_pct(lc.curtailment_loss_mwh):.1f}%"),
+        ("<strong>Actual generation</strong>", f"<strong>{to_pct(lc.actual_energy_mwh):.1f}%</strong>"),
     ]
     table_html = '<table class="params-table"><tr><th>Category</th><th>% of Budget</th></tr>'
     for label, val in table_rows:
@@ -1285,9 +1275,9 @@ def _render_curtailment_irr_trend(report: MonthlyReport) -> str:
 
     months = [ms.month_name for ms in ytd]
 
-    # Curtailment MWh
+    # Unexplained residual MWh (can be negative — TMY budget too conservative)
     curt_mwh = [round(ms.curtailment_mwh, 2) for ms in ytd]
-    # Curtailment % of budget
+    # Unexplained residual as % of budget
     curt_pct = [round(ms.curtailment_mwh / ms.budget_energy_mwh * 100, 1) if ms.budget_energy_mwh > 0 else 0 for ms in ytd]
 
     # Irradiance shortfall (vs_budget_irr is budget - actual, positive = shortfall)
@@ -1307,7 +1297,7 @@ def _render_curtailment_irr_trend(report: MonthlyReport) -> str:
         "margin": {"t": 30, "b": 40, "l": 50, "r": 30},
         "paper_bgcolor": "rgba(0,0,0,0)", "plot_bgcolor": "rgba(0,0,0,0)",
         "font": {"family": "'Segoe UI', system-ui, sans-serif", "size": 11, "color": _C["text"]},
-        "title": {"text": "Curtailment (MWh)", "font": {"size": 13}},
+        "title": {"text": "Unexplained residual (MWh)", "font": {"size": 13}},
         "showlegend": False,
         "yaxis": {"gridcolor": "#e2e8f0"},
     }
@@ -1317,7 +1307,7 @@ def _render_curtailment_irr_trend(report: MonthlyReport) -> str:
          "marker": {"color": _C["accent"]}},
     ]
     layout_curt_pct = dict(layout_curt)
-    layout_curt_pct["title"] = {"text": "Curtailment (% of Budget)", "font": {"size": 13}}
+    layout_curt_pct["title"] = {"text": "Unexplained residual (% of Budget)", "font": {"size": 13}}
 
     traces_irr = [
         {"x": months, "y": irr_shortfall_kwh, "type": "bar", "name": "kWh/m²",
@@ -1341,7 +1331,7 @@ Plotly.newPlot('chart-irr-short-pct', {_safe_json(traces_irr_pct)}, {_safe_json(
 """
 
     html = f"""<div class="section" id="{_section_id(11)}">
-    <h2 class="section-title">11. Curtailment &amp; Irradiance Shortfall (YTD Trend)</h2>
+    <h2 class="section-title">11. Unexplained Residual &amp; Irradiance Shortfall (YTD Trend)</h2>
     <div class="side-by-side">
         <div>
             <div class="card"><div id="chart-curt-mwh" class="chart-container" style="min-height:280px;"></div></div>
@@ -2015,14 +2005,13 @@ def _render_executive_summary(report: MonthlyReport) -> str:
     # Losses
     lc = r.losses
     loss_items = []
-    if lc.curtailment_loss_mwh > 0.1:
-        loss_items.append(f"Curtailment: {_fmt(lc.curtailment_loss_mwh)} MWh")
     if lc.irradiance_shortfall_loss_mwh > 0.1:
-        loss_items.append(f"Irradiance Shortfall: {_fmt(lc.irradiance_shortfall_loss_mwh)} MWh")
+        loss_items.append(f"Irradiance shortfall (measured): {_fmt(lc.irradiance_shortfall_loss_mwh)} MWh")
     if lc.availability_loss_mwh > 0.1:
-        loss_items.append(f"Availability: {_fmt(lc.availability_loss_mwh)} MWh")
-    if abs(lc.temperature_loss_mwh) > 0.1:
-        loss_items.append(f"Temperature: {_fmt(lc.temperature_loss_mwh)} MWh")
+        loss_items.append(f"Availability loss (measured): {_fmt(lc.availability_loss_mwh)} MWh")
+    if abs(lc.curtailment_loss_mwh) > 0.1:
+        sign = "loss" if lc.curtailment_loss_mwh > 0 else "gain"
+        loss_items.append(f"Unexplained residual ({sign}): {_fmt(lc.curtailment_loss_mwh)} MWh")
 
     losses_html = ""
     if loss_items:
