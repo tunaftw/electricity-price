@@ -352,6 +352,7 @@ def _render_toc() -> str:
         (17, "Incidents"),
         (18, "Alarms"),
         (19, "Executive Summary"),
+        (20, "Revenue &amp; PPA"),
     ]
     links = " ".join(
         f'<a href="#{_section_id(n)}">{n}. {label}</a>'
@@ -2064,6 +2065,90 @@ def _render_executive_summary(report: MonthlyReport) -> str:
 # Huvudfunktion
 # ---------------------------------------------------------------------------
 
+def _render_revenue_ppa(report: MonthlyReport) -> str:
+    """Sektion 20: Realiserad capture + PPA-blandning.
+
+    Datakälla: ``elpris.park_revenue`` (Bazefield 15-min × spot 15-min ×
+    EXR per period). PPA är knuten till faktiskt producerad volym —
+    downtime/curtailment trycker ner båda intäktsmåtten.
+    """
+    rev = report.revenue
+    section_id = _section_id(20)
+    if rev is None:
+        return _render_placeholder(
+            20,
+            "Revenue &amp; PPA",
+            "💶",
+            "Bazefield × spot-join saknas för månaden — ingen realiserad intäkt att rapportera.",
+        )
+
+    has_ppa = rev.ppa_share_pct is not None and rev.ppa_share_pct > 0
+    spot_card = (
+        f'<div class="kpi-card">'
+        f'  <div class="kpi-label">Revenue · 100% spot</div>'
+        f'  <div class="kpi-value">{_fmt(rev.revenue_spot_eur / 1000, 1)}<span class="kpi-unit">k€</span></div>'
+        f'  <div class="kpi-sub">{_fmt(rev.volume_mwh, 0)} MWh sålt</div>'
+        f'</div>'
+    )
+    capture_spot_card = (
+        f'<div class="kpi-card">'
+        f'  <div class="kpi-label">Capture · spot</div>'
+        f'  <div class="kpi-value">{_fmt(rev.capture_spot_eur_mwh, 1)}<span class="kpi-unit">€/MWh</span></div>'
+        f'  <div class="kpi-sub">vs baseload {_fmt(rev.baseload_eur_mwh, 1)} €/MWh ({_fmt_delta(rev.capture_premium_pct)}%)</div>'
+        f'</div>'
+    )
+    if has_ppa:
+        delta_eur = (rev.revenue_ppa_eur or 0) - rev.revenue_spot_eur
+        delta_pct = (
+            ((rev.revenue_ppa_eur / rev.revenue_spot_eur - 1) * 100)
+            if rev.revenue_spot_eur else None
+        )
+        ppa_card = (
+            f'<div class="kpi-card">'
+            f'  <div class="kpi-label">Revenue · PPA-blandad</div>'
+            f'  <div class="kpi-value">{_fmt(rev.revenue_ppa_eur / 1000, 1)}<span class="kpi-unit">k€</span></div>'
+            f'  <div class="kpi-sub">PPA-hedge: {_fmt_delta(delta_eur / 1000, 1)} k€'
+            f' ({_fmt_delta(delta_pct, 1)}%)</div>'
+            f'</div>'
+        )
+        capture_ppa_card = (
+            f'<div class="kpi-card">'
+            f'  <div class="kpi-label">Capture · PPA-blandad</div>'
+            f'  <div class="kpi-value">{_fmt(rev.capture_ppa_eur_mwh, 1)}<span class="kpi-unit">€/MWh</span></div>'
+            f'  <div class="kpi-sub">{int(rev.ppa_share_pct)}% PPA + {int(100 - rev.ppa_share_pct)}% spot</div>'
+            f'</div>'
+        )
+        contract_card = (
+            f'<div class="kpi-card">'
+            f'  <div class="kpi-label">PPA-kontrakt</div>'
+            f'  <div class="kpi-value">{_fmt(rev.ppa_price_sek_mwh, 0)}<span class="kpi-unit">SEK/MWh</span></div>'
+            f'  <div class="kpi-sub">≈ {_fmt(rev.ppa_price_eur_mwh_avg, 1)} €/MWh @ period-EXR</div>'
+            f'</div>'
+        )
+        explainer = (
+            f'<p style="color:{_C["muted"]}; font-size:13px; margin-top:14px;">'
+            f'PPA-priset i SEK är fast (Asset Value Master). Konvertering till EUR sker per 15-min med samma '
+            f'EXR som spotpriserna — varierande EUR-värden mellan månader beror på växelkursen. '
+            f'PPA omfattar {int(rev.ppa_share_pct)}% av faktiskt producerad volym; resten säljs på spot.'
+            f'</p>'
+        )
+        cards = spot_card + ppa_card + capture_spot_card + capture_ppa_card + contract_card
+    else:
+        cards = spot_card + capture_spot_card
+        explainer = (
+            f'<p style="color:{_C["muted"]}; font-size:13px; margin-top:14px;">'
+            f'Inget PPA-kontrakt registrerat för denna park — 100% av volymen säljs på spotmarknaden.'
+            f'</p>'
+        )
+
+    grid_cols = "repeat(5, 1fr)" if has_ppa else "repeat(2, 1fr)"
+    return f"""<div class="section" id="{section_id}">
+    <h2 class="section-title">20. Revenue &amp; PPA</h2>
+    <div class="kpi-row" style="grid-template-columns: {grid_cols};">{cards}</div>
+    {explainer}
+</div>"""
+
+
 def render_html(report: MonthlyReport) -> str:
     """Rendera komplett HTML-rapport från MonthlyReport.
 
@@ -2128,6 +2213,7 @@ def render_html(report: MonthlyReport) -> str:
     all_scripts.append(sec18_script)
 
     exec_summary_html = _render_executive_summary(report)
+    revenue_ppa_html = _render_revenue_ppa(report)
 
     # Combine scripts
     combined_scripts = "\n".join(s for s in all_scripts if s)
@@ -2167,6 +2253,7 @@ def render_html(report: MonthlyReport) -> str:
         {incidents_html}
         {sec18_html}
         {exec_summary_html}
+        {revenue_ppa_html}
     </div>
     <footer style="text-align:center; padding:20px; color:{_C['muted']}; font-size:12px;">
         Generated by Svea Solar Performance Reporting &middot; {report.park_display_name} &middot; {month_full} {report.year}

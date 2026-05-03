@@ -94,6 +94,24 @@ class LossCascade:
 
 
 @dataclass
+class RevenueData:
+    """Realiserad intäkt och capture-pris för en park-månad.
+
+    PPA-fält är None när parken saknar kontrakt — visa då bara spot.
+    """
+    volume_mwh: float                               # Bazefield-volym × spot-join
+    revenue_spot_eur: float                         # 100% spot
+    revenue_ppa_eur: Optional[float]                # blandad volym × (share×PPA + (1-share)×spot)
+    capture_spot_eur_mwh: Optional[float]
+    capture_ppa_eur_mwh: Optional[float]
+    baseload_eur_mwh: Optional[float]
+    capture_premium_pct: Optional[float]            # capture vs baseload (spot-läge)
+    ppa_price_sek_mwh: Optional[float]              # kontraktsvärde
+    ppa_price_eur_mwh_avg: Optional[float]          # tidsviktad EUR-omräkning
+    ppa_share_pct: Optional[float]
+
+
+@dataclass
 class MonthSummary:
     """En rad i YTD-tabellen."""
     year: int
@@ -161,6 +179,8 @@ class MonthlyReport:
     recent_alarms: list = field(default_factory=list)     # list[AlarmEvent]
     has_inverter_data: bool = False
     has_alarm_data: bool = False
+    # Intäkt + PPA (None om Bazefield × spot-join saknas för månaden)
+    revenue: Optional[RevenueData] = None
 
 
 # ---------------------------------------------------------------------------
@@ -685,6 +705,34 @@ def generate_report(park_key: str, year: int, month: int) -> MonthlyReport:
     has_inverter_data = False
     has_alarm_data = False
 
+    # 12b. Realiserad capture & PPA-revenue för månaden
+    revenue: Optional[RevenueData] = None
+    try:
+        from .park_revenue import calculate_park_revenue_capture
+        rev_data = calculate_park_revenue_capture()
+        park_rows = rev_data.get(park_key, [])
+        match = next(
+            (r for r in park_rows
+             if r["year"] == year and r["month"] == month),
+            None,
+        )
+        if match is not None and match.get("volume_mwh", 0) > 0:
+            revenue = RevenueData(
+                volume_mwh=match["volume_mwh"],
+                revenue_spot_eur=match["revenue_eur"],
+                revenue_ppa_eur=match.get("revenue_eur_ppa"),
+                capture_spot_eur_mwh=match.get("capture_eur_mwh"),
+                capture_ppa_eur_mwh=match.get("capture_eur_mwh_ppa"),
+                baseload_eur_mwh=match.get("baseload_eur_mwh"),
+                capture_premium_pct=match.get("capture_premium_pct"),
+                ppa_price_sek_mwh=match.get("ppa_price_sek_mwh"),
+                ppa_price_eur_mwh_avg=match.get("ppa_price_eur_mwh_avg"),
+                ppa_share_pct=match.get("ppa_share_pct"),
+            )
+    except Exception:
+        # Graceful: revenue-sektionen renderar bara om datat finns
+        revenue = None
+
     try:
         from .inverter_data import (
             load_inverter_yield, load_alarm_events,
@@ -743,6 +791,7 @@ def generate_report(park_key: str, year: int, month: int) -> MonthlyReport:
         recent_alarms=recent_alarms,
         has_inverter_data=has_inverter_data,
         has_alarm_data=has_alarm_data,
+        revenue=revenue,
     )
 
 
