@@ -11,6 +11,7 @@ Library-modul: ingen CLI / ingen `__main__`-block.
 from __future__ import annotations
 
 import sys
+from collections import defaultdict
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
@@ -19,6 +20,7 @@ from .dashboard_v2_data import calculate_dashboard_v2_data
 from .operations_dashboard_data import (
     calculate_negative_price_exposure,
     calculate_tracker_gain,
+    load_park_15min,
 )
 from .park_config import get_park_metadata
 from .performance_report_data import generate_report
@@ -111,8 +113,89 @@ def _daily_records_from_report(report) -> List[Dict[str, Any]]:
             "expected_mwh": _safe_round(d.expected_gen_mwh, 3),
             "pr_pct": _safe_round(d.performance_ratio_pct, 2),
             "pi_pct": _safe_round(d.performance_index_pct, 2),
+            "efficiency_pct": _safe_round(d.efficiency_pct, 2),
+            "module_temp_c": _safe_round(d.avg_module_temp_c, 1),
         })
     return out
+
+
+def _availability_for_month(park_key: str, year: int, month: int) -> Optional[float]:
+    """Irradiance- (eller power-)viktad availability för en park-månad.
+
+    Läser 15-min Bazefield-data och vägar availability-värdena med
+    irradiance om finns, annars effective_power. Returnerar None om
+    ingen availability-data finns för månaden.
+    """
+    records = load_park_15min(park_key)
+    if not records:
+        return None
+    total_w = 0.0
+    total_a = 0.0
+    for r in records:
+        if r["year"] != year or r["month"] != month:
+            continue
+        avail = r.get("availability")
+        if avail is None:
+            continue
+        w = r.get("irradiance_poa") or r.get("effective_power_mw") or 0.0
+        if w <= 0:
+            continue
+        total_w += w
+        total_a += avail * w
+    return round(total_a / total_w, 2) if total_w > 0 else None
+
+
+def _losses_dict(losses) -> Optional[Dict[str, float]]:
+    """Konvertera LossCascade till JSON-vänlig dict."""
+    if losses is None:
+        return None
+    return {
+        "budget_mwh": _safe_round(losses.budget_energy_mwh, 2),
+        "actual_mwh": _safe_round(losses.actual_energy_mwh, 2),
+        "curtailment_mwh": _safe_round(losses.curtailment_loss_mwh, 2),
+        "irradiance_shortfall_mwh": _safe_round(losses.irradiance_shortfall_loss_mwh, 2),
+        "availability_mwh": _safe_round(losses.availability_loss_mwh, 2),
+        "temperature_mwh": _safe_round(losses.temperature_loss_mwh, 2),
+        "other_mwh": _safe_round(losses.other_losses_mwh, 2),
+    }
+
+
+def _last_data_ts(park_key: str) -> Optional[str]:
+    """Senaste 15-min timestamp i Bazefield-CSV (ISO 8601)."""
+    records = load_park_15min(park_key)
+    if not records:
+        return None
+    last = max(r["timestamp_utc"] for r in records)
+    return last.isoformat()
+
+
+def _park_facts(park_key: str) -> Optional[Dict[str, Any]]:
+    """Subset av park-metadata för 'About this park'-panel."""
+    meta = get_park_metadata(park_key)
+    if not meta:
+        return None
+    standard_pr = meta.get("standard_pr") or 0
+    return {
+        "location": meta.get("location"),
+        "commissioning_date": meta.get("commissioning_date"),
+        "module_type": meta.get("module_type"),
+        "module_wp": meta.get("module_wp"),
+        "num_modules": meta.get("num_modules"),
+        "inverter_model": meta.get("inverter_model"),
+        "inverter_manufacturer": meta.get("inverter_manufacturer"),
+        "num_inverters": meta.get("num_inverters"),
+        "tilt_angle": meta.get("tilt_angle"),
+        "azimuth": meta.get("azimuth"),
+        "tracking": meta.get("tracking"),
+        "tracking_type": meta.get("tracking_type"),
+        "ac_capacity_mwac": meta.get("ac_capacity_mwac"),
+        "grid_limit_mwac": meta.get("grid_limit_mwac"),
+        "transformer_capacity_kva": meta.get("transformer_capacity_kva"),
+        "transformer_count": meta.get("transformer_count"),
+        "expected_pr_pct": round(standard_pr * 100, 1) if standard_pr else None,
+        "expected_annual_yield_kwh_kwp": meta.get("expected_annual_yield_kwh_kwp"),
+        "profile_type": meta.get("profile_type"),
+    }
 
 
 def _build_park_months(
@@ -168,9 +251,13 @@ def _build_park_months(
             "vs_budget_pct": vs_budget,
             "yield_kwh_kwp": _safe_round(report.yield_kwh_kwp, 1),
             "pr_pct": _safe_round(report.performance_ratio_pct, 2),
+            "actual_pr_pct": _safe_round(report.performance_ratio_pct, 2),
+            "budget_pr_pct": _safe_round(report.budget_pr_pct, 2),
+            "availability_pct": _availability_for_month(park_key, year, month),
             "actual_irr_kwh_m2": _safe_round(actual_irr, 1),
             "budget_irr_kwh_m2": _safe_round(budget_irr, 1),
             "vs_budget_irr_pct": vs_budget_irr,
+            "losses": _losses_dict(report.losses),
         })
 
         if (year, month) in daily_keys:
@@ -189,6 +276,80 @@ def _safe_negative_price_exposure() -> Dict[str, List[Dict[str, Any]]]:
             file=sys.stderr,
         )
         return {}
+
+
+def _safe_park_revenue() -> Dict[str, List[Dict[str, Any]]]:
+    """Hämta realiserad capture/revenue per park, fallback till tom dict."""
+    try:
+        from .park_revenue import calculate_park_revenue_capture
+        return calculate_park_revenue_capture()
+    except Exception as exc:
+        print(
+            f"[unified_dashboard] park_revenue beräkning misslyckades: {exc}",
+            file=sys.stderr,
+        )
+        return {}
+
+
+def _merge_revenue_into_months(
+    parks: Dict[str, Dict[str, Any]],
+    revenue: Dict[str, List[Dict[str, Any]]],
+) -> None:
+    """Mutera parks: lägg till revenue/capture-fält per månad."""
+    for park_key, park in parks.items():
+        rev = revenue.get(park_key, [])
+        rev_lookup: Dict[tuple, Dict[str, Any]] = {
+            (r["year"], r["month"]): r for r in rev
+        }
+        for m in park["months"]:
+            r = rev_lookup.get((m["year"], m["month"]))
+            if r is None:
+                m["revenue_eur"] = None
+                m["capture_eur_mwh"] = None
+                m["baseload_eur_mwh"] = None
+                m["capture_premium_pct"] = None
+                m["bazefield_volume_mwh"] = None
+            else:
+                m["revenue_eur"] = r["revenue_eur"]
+                m["capture_eur_mwh"] = r["capture_eur_mwh"]
+                m["baseload_eur_mwh"] = r["baseload_eur_mwh"]
+                m["capture_premium_pct"] = r["capture_premium_pct"]
+                m["bazefield_volume_mwh"] = r["volume_mwh"]
+
+
+def _build_fleet_capture_by_zone(
+    parks: Dict[str, Dict[str, Any]],
+) -> Dict[str, List[Dict[str, Any]]]:
+    """Volym-vägd realiserad capture per zon per månad (alla parker i zonen)."""
+    by_zone: dict[str, dict[tuple[int, int], dict[str, float]]] = defaultdict(
+        lambda: defaultdict(lambda: {"rev": 0.0, "vol": 0.0})
+    )
+    for park in parks.values():
+        zone = park.get("zone")
+        if not zone:
+            continue
+        for m in park["months"]:
+            rev = m.get("revenue_eur")
+            vol = m.get("bazefield_volume_mwh")
+            if rev is None or vol is None or vol <= 0:
+                continue
+            ym = (m["year"], m["month"])
+            by_zone[zone][ym]["rev"] += rev
+            by_zone[zone][ym]["vol"] += vol
+
+    out: Dict[str, List[Dict[str, Any]]] = {}
+    for zone, months in by_zone.items():
+        records = []
+        for (year, month), d in sorted(months.items()):
+            cap = d["rev"] / d["vol"] if d["vol"] > 0 else None
+            records.append({
+                "month": f"{year}-{month:02d}",
+                "fleet_capture_eur_mwh": round(cap, 2) if cap is not None else None,
+                "fleet_volume_mwh": round(d["vol"], 2),
+            })
+        if records:
+            out[zone] = records
+    return out
 
 
 def _merge_operations_into_months(
@@ -225,6 +386,8 @@ def _build_assets_section(
             "name": _park_display_name(park_key),
             "zone": PARK_ZONES.get(park_key, ""),
             "capacity_mwp": round(capacity_kwp / 1000.0, 3),
+            "last_data_ts": _last_data_ts(park_key),
+            "facts": _park_facts(park_key),
             "months": months,
             "daily_by_month": daily_by_month,
         }
@@ -233,11 +396,16 @@ def _build_assets_section(
     neg_exposure = _safe_negative_price_exposure()
     _merge_operations_into_months(parks, neg_exposure)
 
+    # Berika med realiserad capture & revenue (Bazefield × spot 15-min)
+    revenue = _safe_park_revenue()
+    _merge_revenue_into_months(parks, revenue)
+
     return {
         "parks": parks,
         "fleet": _build_fleet_overview(parks),
         "tracker_gain": _build_tracker_gain(),
         "capture_by_zone": _build_capture_by_zone(market),
+        "fleet_capture_by_zone": _build_fleet_capture_by_zone(parks),
     }
 
 
@@ -321,6 +489,10 @@ def _build_fleet_overview(parks: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
     total_capacity = 0.0
     total_energy = 0.0
     total_budget = 0.0
+    total_revenue = 0.0
+    total_volume = 0.0
+    total_baseload_weighted = 0.0
+    has_revenue = False
     for park_key, park in parks.items():
         match = next(
             (m for m in park["months"]
@@ -333,10 +505,27 @@ def _build_fleet_overview(parks: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
         total_capacity += park.get("capacity_mwp", 0.0) or 0.0
         total_energy += match.get("energy_mwh") or 0.0
         total_budget += match.get("budget_mwh") or 0.0
+        rev = match.get("revenue_eur")
+        vol = match.get("bazefield_volume_mwh")
+        if rev is not None:
+            total_revenue += rev
+            has_revenue = True
+        if vol is not None:
+            total_volume += vol
+            base = match.get("baseload_eur_mwh")
+            if base is not None:
+                total_baseload_weighted += base * vol
 
     vs_budget = None
     if total_budget > 0:
         vs_budget = round((total_energy / total_budget - 1.0) * 100.0, 1)
+
+    fleet_capture = (total_revenue / total_volume) if total_volume > 0 else None
+    fleet_baseload = (total_baseload_weighted / total_volume) if total_volume > 0 else None
+    capture_premium = None
+    if (fleet_capture is not None and fleet_baseload is not None
+            and fleet_baseload != 0):
+        capture_premium = (fleet_capture / fleet_baseload - 1.0) * 100.0
 
     return {
         "latest_month": f"{year}-{month:02d}",
@@ -344,6 +533,11 @@ def _build_fleet_overview(parks: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
         "total_capacity_mwp": round(total_capacity, 3),
         "total_energy_mwh": round(total_energy, 2),
         "vs_budget_pct": vs_budget,
+        "total_revenue_eur": round(total_revenue, 2) if has_revenue else None,
+        "fleet_volume_mwh": round(total_volume, 2) if total_volume > 0 else None,
+        "fleet_capture_eur_mwh": round(fleet_capture, 2) if fleet_capture is not None else None,
+        "fleet_baseload_eur_mwh": round(fleet_baseload, 2) if fleet_baseload is not None else None,
+        "fleet_capture_premium_pct": round(capture_premium, 2) if capture_premium is not None else None,
     }
 
 
