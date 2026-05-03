@@ -1,0 +1,3 @@
+inverter_name,event_name,event_code,event_type,time_start_utc,time_end_utc,duration_min,description
+HRB-TS2-INV03,Alarm0005,5,Alarm,2026-03-28T07:05:15.9960000Z,2026-03-28T07:05:25.9960000Z,0.0,Grid abnormal
+HRB-TS1-INV05,Alarm0005,5,Alarm,2026-03-28T07:05:16.9960000Z,2026-03-28T07:05:27.9960000Z,0.0,Grid abnormal
