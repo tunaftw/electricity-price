@@ -9,6 +9,7 @@ API documentation: https://api.opendata.esett.com/
 from __future__ import annotations
 
 import csv
+import os
 import time
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -223,10 +224,12 @@ def save_imbalance_data(zone: str, records: list[dict], year: int) -> int:
     # Sort and write
     sorted_records = sorted(existing.values(), key=lambda x: x["time_start"])
 
-    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+    tmp = csv_path.with_suffix(csv_path.suffix + ".tmp")
+    with open(tmp, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(sorted_records)
+    os.replace(tmp, csv_path)
 
     return len(records)
 
@@ -275,6 +278,7 @@ def download_imbalance_prices(
         print(f"Downloading imbalance prices for {zone} from {start_date} to {end_date}")
 
     total_records = 0
+    failed_chunks: list[str] = []
     current = start_date
 
     # Download in monthly chunks
@@ -315,6 +319,7 @@ def download_imbalance_prices(
                     print("no data")
 
         except Exception as e:
+            failed_chunks.append(f"{current}..{chunk_end}: {e}")
             if verbose:
                 print(f"error: {e}")
 
@@ -326,12 +331,17 @@ def download_imbalance_prices(
 
     if verbose:
         print(f"Total: {total_records} records")
+        if failed_chunks:
+            print(f"  WARNING: {len(failed_chunks)} chunks failed:")
+            for msg in failed_chunks:
+                print(f"    - {msg}")
 
     return {
         "zone": zone,
         "start_date": start_date,
         "end_date": end_date,
         "total_records": total_records,
+        "failed_chunks": failed_chunks,
     }
 
 

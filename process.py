@@ -41,7 +41,7 @@ def main():
 
     print("=" * 50)
     print(f"Total: {total:,} quarterly records")
-    print("\nData saved to: data/quarterly/")
+    print("\nData saved to: Resultat/marknadsdata/spotpriser/<zone>/quarterly/")
 
 
 if __name__ == "__main__":

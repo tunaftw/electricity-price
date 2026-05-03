@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import csv
 import io
+import os
 import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -442,11 +443,13 @@ def save_mimer_data(product: str, records: list[dict], year: int) -> int:
     # Sort by time and zone
     sorted_records = sorted(existing_records.values(), key=lambda x: (x["time_start"], x.get("zone", "")))
 
-    # Write back
-    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+    # Write atomically: tmp + rename
+    tmp = csv_path.with_suffix(csv_path.suffix + ".tmp")
+    with open(tmp, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(sorted_records)
+    os.replace(tmp, csv_path)
 
     return len(records)
 
@@ -547,6 +550,7 @@ def download_mimer_product(
 
     # Download in monthly chunks to avoid timeout
     total_records = 0
+    failed_chunks: list[str] = []
     current = start_date
 
     while current <= end_date:
@@ -585,6 +589,7 @@ def download_mimer_product(
                 if verbose:
                     print("no data")
         except Exception as e:
+            failed_chunks.append(f"{current}..{chunk_end}: {e}")
             if verbose:
                 print(f"error: {e}")
 
@@ -596,10 +601,15 @@ def download_mimer_product(
 
     if verbose:
         print(f"Total: {total_records} records downloaded")
+        if failed_chunks:
+            print(f"  WARNING: {len(failed_chunks)} chunks failed:")
+            for msg in failed_chunks:
+                print(f"    - {msg}")
 
     return {
         "product": product,
         "start_date": start_date,
         "end_date": end_date,
         "total_records": total_records,
+        "failed_chunks": failed_chunks,
     }

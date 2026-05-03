@@ -1,7 +1,7 @@
-# Master Update - Uppdatera allt
+# Master Update — Uppdatera allt
 
-Kör hela uppdateringskedjan (12 steg): ladda ner ny data, processera och
-generera rapporter inkl. Unified Dashboard.
+Kör hela uppdateringskedjan (12 steg): hämta ny data, processera och
+generera Track C unified dashboard.
 
 ## Vad som körs
 
@@ -14,7 +14,7 @@ generera rapporter inkl. Unified Dashboard.
  7. **Process** — Konvertera raw till quarterly (15-min)
  8. **Capture** — Beräkna capture prices
  9. **Excel** — Generera capture_prices + battery_arbitrage rapporter
-10. **Unified Dashboard** — Generera Track A + Track C HTML
+10. **Unified Dashboard** — Generera Track C (Nordic Editorial) HTML
 11. **Park reports** — Per-park månadsrapport (endast med `--reports`)
 12. **Status** — Visa datastatus
 
@@ -42,11 +42,18 @@ Kör `python3 update_all.py`
 
 Saknas en nyckel hoppas motsvarande steg över utan fel.
 
+## Felhantering
+
+Master-scriptet returnerar exit-kod 1 om något steg misslyckats (skip räknas
+inte som fel). Varje download-script (entsoe, esett, mimer, nasdaq) returnerar
+i sin tur exit-kod 1 om någon månads-chunk gav API-fel — då skrivs det ut som
+varning och slutsumman markerar steget som misslyckat. Det syns i loggen så
+cron-jobb kan larma.
+
 ## Output
 
 Rapporter sparas till `Resultat/rapporter/`:
 - `capture_prices_YYYYMMDD.xlsx`
 - `battery_arbitrage_YYYYMMDD.xlsx`
-- `dashboard_unified_YYYYMMDD.html` (Track A)
 - `dashboard_unified_v3_YYYYMMDD.html` (Track C)
 - `performance_<park>_<zone>_YYYY-MM.html` (med `--reports`)

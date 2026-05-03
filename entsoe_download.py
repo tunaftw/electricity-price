@@ -104,8 +104,12 @@ def main():
     print("Download complete!")
     print()
     total = sum(r["total_records"] for r in results)
+    failed = sum(len(r.get("failed_chunks", [])) for r in results)
     print(f"Total records: {total}")
-    print("Data saved to: data/raw/entsoe/generation/")
+    print("Data saved to: Resultat/marknadsdata/entsoe/generation/")
+    if failed:
+        print(f"WARNING: {failed} chunk(s) failed — data has gaps. See log above.")
+        return 1
 
     return 0
 

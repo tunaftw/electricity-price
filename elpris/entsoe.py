@@ -498,10 +498,12 @@ def save_generation_data(zone: str, psr_type: str, records: list[dict], year: in
     # Sort and write
     sorted_records = sorted(existing.values(), key=lambda x: x["time_start"])
 
-    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+    tmp = csv_path.with_suffix(csv_path.suffix + ".tmp")
+    with open(tmp, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(sorted_records)
+    os.replace(tmp, csv_path)
 
     return len(records)
 
@@ -551,6 +553,7 @@ def download_generation(
         print(f"Downloading {psr_type} generation for {zone} from {start_date} to {end_date}")
 
     total_records = 0
+    failed_chunks: list[str] = []
     current = start_date
 
     # Download in monthly chunks (API has limits on query size)
@@ -597,6 +600,7 @@ def download_generation(
                     print("no data")
 
         except Exception as e:
+            failed_chunks.append(f"{current}..{chunk_end}: {e}")
             if verbose:
                 print(f"error: {e}")
 
@@ -608,6 +612,10 @@ def download_generation(
 
     if verbose:
         print(f"Total: {total_records} records")
+        if failed_chunks:
+            print(f"  WARNING: {len(failed_chunks)} chunks failed:")
+            for msg in failed_chunks:
+                print(f"    - {msg}")
 
     return {
         "zone": zone,
@@ -615,6 +623,7 @@ def download_generation(
         "start_date": start_date,
         "end_date": end_date,
         "total_records": total_records,
+        "failed_chunks": failed_chunks,
     }
 
 

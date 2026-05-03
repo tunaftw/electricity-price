@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the Unified Dashboard (Track A and/or Track C)."""
+"""Generate the Unified Dashboard (Track C — Nordic Editorial)."""
 from __future__ import annotations
 
 import argparse
@@ -12,54 +12,26 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from elpris.unified_dashboard_data import build_unified_data
-from elpris.unified_dashboard_html import render_track_a
+from elpris.unified_dashboard_v3_html import render_track_c
 
 OUT_DIR = PROJECT_ROOT / "Resultat" / "rapporter"
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(
-        description=(
-            "Generera unified dashboard. Track C (Nordic Editorial) är "
-            "default sedan 2026-05. Track A (Bloomberg-dark) är deprecated "
-            "och tillgänglig endast via --track A för bakåtkompatibilitet."
-        )
-    )
-    p.add_argument(
-        "--track",
-        choices=["A", "C", "both"],
-        default="C",
-        help="Vilken renderer (default: C — Nordic Editorial)",
-    )
-    args = p.parse_args()
+    argparse.ArgumentParser(
+        description="Generera Unified Dashboard (Track C — Nordic Editorial)."
+    ).parse_args()
 
     print("Building unified data...", file=sys.stderr)
     data = build_unified_data()
     today = datetime.now().strftime("%Y%m%d")
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    if args.track in ("A", "both"):
-        print(
-            "  [DEPRECATED] Track A (Bloomberg-dark) is no longer the "
-            "primary renderer. Use --track C for Nordic Editorial.",
-            file=sys.stderr,
-        )
-        html = render_track_a(data)
-        out = OUT_DIR / f"dashboard_unified_{today}.html"
-        out.write_text(html, encoding="utf-8")
-        size_mb = out.stat().st_size / 1024 / 1024
-        print(f"  Track A: {out} ({size_mb:.1f} MB)")
-
-    if args.track in ("C", "both"):
-        try:
-            from elpris.unified_dashboard_v3_html import render_track_c  # noqa: F401
-            html = render_track_c(data)
-            out = OUT_DIR / f"dashboard_unified_v3_{today}.html"
-            out.write_text(html, encoding="utf-8")
-            size_mb = out.stat().st_size / 1024 / 1024
-            print(f"  Track C: {out} ({size_mb:.1f} MB)")
-        except ImportError:
-            print("  Track C: not yet implemented, skipped", file=sys.stderr)
+    html = render_track_c(data)
+    out = OUT_DIR / f"dashboard_unified_v3_{today}.html"
+    out.write_text(html, encoding="utf-8")
+    size_mb = out.stat().st_size / 1024 / 1024
+    print(f"  Track C: {out} ({size_mb:.1f} MB)")
 
     return 0
 

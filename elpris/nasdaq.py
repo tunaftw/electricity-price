@@ -12,6 +12,7 @@ publishing daily settlement prices.
 from __future__ import annotations
 
 import csv
+import os
 import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -183,7 +184,7 @@ def save_to_csv(rows: list[dict], filepath: Path) -> int:
     # Load existing data
     existing = {}
     if filepath.exists():
-        with open(filepath, "r") as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for row in reader:
                 key = (row["date"], row["contract"])
@@ -197,11 +198,14 @@ def save_to_csv(rows: list[dict], filepath: Path) -> int:
     # Sort by date, then contract
     sorted_rows = sorted(existing.values(), key=lambda r: (r["date"], r["contract"]))
 
-    # Write
-    with open(filepath, "w", newline="") as f:
+    # Write atomically: write to .tmp, then rename. Prevents truncation if
+    # interrupted mid-write.
+    tmp = filepath.with_suffix(filepath.suffix + ".tmp")
+    with open(tmp, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
         writer.writeheader()
         writer.writerows(sorted_rows)
+    os.replace(tmp, filepath)
 
     return len(sorted_rows)
 

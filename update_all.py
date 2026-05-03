@@ -146,6 +146,7 @@ def main():
     total_steps = 12
     current_step = 0
     success_count = 0
+    failures: list[str] = []
 
     # Step 1: Update spot prices
     current_step += 1
@@ -158,6 +159,7 @@ def main():
         print("  Done!")
     else:
         print("  Failed or no updates needed")
+        failures.append(f"step {current_step}")
 
     # Step 2: Sync Bazefield solar park data
     current_step += 1
@@ -236,6 +238,7 @@ def main():
         print("  Done!")
     else:
         print("  Failed")
+        failures.append(f"step {current_step}")
 
     # Step 8: Calculate capture prices
     current_step += 1
@@ -280,6 +283,7 @@ def main():
         print("  Done!")
     else:
         print("  Failed")
+        failures.append(f"step {current_step}")
 
     # Step 11: Park performance reports (conditional on --reports)
     current_step += 1
@@ -312,6 +316,12 @@ def main():
     print()
     print("Reports saved to: Resultat/rapporter/")
 
+    # Surface real failures (not intentional skips) so cron / CI can alert
+    if failures:
+        print()
+        print(f"WARNING: {len(failures)} step(s) reported failure: "
+              f"{', '.join(failures)}. Re-run those scripts to investigate gaps.")
+        return 1
     return 0
 
 

@@ -20,17 +20,23 @@ node_modules/
 *.swp
 *.swo
 
-# Large Excel reports (>100MB)
+# Generated reports (regenerated daily by update_all.py)
 Resultat/rapporter/capture_prices_*.xlsx
-
-# Generated dashboard artefacts (regenerated daily by update_all.py)
+Resultat/rapporter/battery_arbitrage_*.xlsx
 Resultat/rapporter/dashboard_*.html
 Resultat/rapporter/dashboard_*.xlsx
+Resultat/rapporter/performance_*.html
 data/reports/battery_arbitrage_*.xlsx
 data/reports/capture_prices_*.xlsx
 
+# Duplicate historical data (canonical copies live in marknadsdata/spotpriser/)
+Resultat/historik-nordpool/
+
 # Browser-automation debug output
 .playwright-mcp/
+
+# Pytest cache
+.pytest_cache/
 
 # Ad-hoc screenshots from interactive sessions
 /*.png

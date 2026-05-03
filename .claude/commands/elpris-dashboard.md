@@ -1,29 +1,24 @@
 # Generera Unified Dashboard
 
-Genererar Track C (Nordic Editorial) — den valda primära dashboarden — till
+Genererar Track C (Nordic Editorial) — den primära unified dashboarden — till
 `Resultat/rapporter/`.
 
 ## Instruktioner
 
 Kör `python3 generate_unified_dashboard.py`
 
-### Flaggor
-
-- `--track C` — Track C (Nordic Editorial, **default**)
-- `--track A` — Track A (Bloomberg-dark, **deprecated** sedan 2026-05)
-- `--track both` — båda spåren (för jämförelse)
-
 ## Output
 
-`Resultat/rapporter/`
-- `dashboard_unified_v3_YYYYMMDD.html` (Track C, ~17 MB) — primär
-- `dashboard_unified_YYYYMMDD.html` (Track A, ~17 MB) — bara om `--track A` eller `both`
+`Resultat/rapporter/dashboard_unified_v3_YYYYMMDD.html` (~17 MB).
 
-Dashboards är fristående HTML-filer med inbäddad data och Plotly.js via CDN.
-Båda spår delar samma backend (`elpris.unified_dashboard_data.build_unified_data`).
+Fristående HTML-fil med inbäddad data och Plotly.js via CDN. 4 flikar:
+**CAPTURE**, **BESS**, **FUTURES**, **ASSETS**.
 
-## Status
+Backend: `elpris.unified_dashboard_data.build_unified_data` aggregerar all data
+till JSON. Renderaren `elpris.unified_dashboard_v3_html.render_track_c` bygger
+HTML.
 
-**Track C valt som primär** efter A/B-jämförelse 2026-05. Track A behålls
-i kodbasen för bakåtkompatibilitet och kan tas bort efter ytterligare
-iteration på Track C.
+## Bakgrund
+
+Track C valdes som primär efter A/B-jämförelse 2026-05. Track A
+(Bloomberg-dark) togs bort 2026-05.

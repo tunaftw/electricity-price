@@ -59,6 +59,7 @@ def main():
     print("=" * 50)
     print()
 
+    total_failed = 0
     for product in products:
         # Determine start date:
         # - If --start provided: use that
@@ -80,14 +81,21 @@ def main():
                 verbose=True,
                 force=args.force,
             )
+            failed = len(result.get("failed_chunks", []))
+            total_failed += failed
             print(f"Done: {result['total_records']} records")
         except Exception as e:
+            total_failed += 1
             print(f"Error downloading {product}: {e}")
 
     print("\n" + "=" * 50)
     print("Download complete!")
-    print("Data saved to: data/raw/mimer/")
+    print("Data saved to: Resultat/marknadsdata/mimer/")
+    if total_failed:
+        print(f"WARNING: {total_failed} chunk(s) failed — data has gaps. See log above.")
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main() or 0)

@@ -165,11 +165,12 @@ def calculate_specific_yield() -> dict[str, list[dict]]:
         if not records:
             continue
 
-        # Aggregate energy per month
+        # Aggregate energy per month using effective_power_mw (meter→inverter
+        # fallback) so parks with broken meter coverage (e.g. Stenstorp) still
+        # report yield based on inverter readings.
         monthly: dict[tuple[int, int], float] = defaultdict(float)
         for rec in records:
-            # energy_mwh = power_mw * 0.25 (15-min interval)
-            monthly[(rec["year"], rec["month"])] += rec["power_mw"] * 0.25
+            monthly[(rec["year"], rec["month"])] += rec["effective_power_mw"] * 0.25
 
         park_data = []
         for (year, month), energy_mwh in sorted(monthly.items()):
@@ -206,11 +207,13 @@ def calculate_negative_price_exposure() -> dict[str, list[dict]]:
         if not park_data or not spot_data:
             continue
 
-        # Index park data by timestamp for fast lookup
+        # Index park data by timestamp for fast lookup. Use effective_power_mw
+        # so meter-gap parks (Stenstorp) still get accurate negative-price
+        # exposure from inverter readings.
         park_by_ts: dict[str, float] = {}
         for rec in park_data:
             ts_key = rec["timestamp_utc"].strftime("%Y-%m-%dT%H:%M")
-            park_by_ts[ts_key] = rec["power_mw"]
+            park_by_ts[ts_key] = rec["effective_power_mw"]
 
         monthly: dict[tuple[int, int], dict] = defaultdict(
             lambda: {"neg_hours": 0, "neg_volume_mwh": 0, "neg_revenue_eur": 0}
