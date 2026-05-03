@@ -527,25 +527,6 @@ select:focus, input:focus { outline: none; border-color: var(--accent-deep); box
   margin-left: 6px;
   vertical-align: middle;
 }
-.drill-period-hint {
-  margin: var(--sp-3) 0 var(--sp-4);
-  padding: var(--sp-2) var(--sp-3);
-  background: var(--surface-sunken);
-  border-radius: var(--radius-md);
-  font-size: var(--fs-sm);
-  color: var(--ink-3);
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-}
-.drill-period-hint[hidden] { display: none; }
-.drill-period-hint a {
-  color: var(--accent-deep);
-  font-weight: 600;
-  text-decoration: none;
-}
-.drill-period-hint a:hover { text-decoration: underline; }
-
 /* time-window range bar (above grid-2 charts) */
 .range-bar {
   display: flex;
@@ -2176,8 +2157,7 @@ var ASSETS_STATE = {
     zone: 'ALL',
     tableParks: null,
     period: { granularity: 'month', year: null, month: null },
-    drillMonth: null,
-    cameFromPeriod: null  // snapshot of period when entering drilldown (for breadcrumb hint)
+    drillPeriod: { granularity: 'month', year: null, month: null }
 };
 var TABLE_STATE = { sortKey: 'energy_mwh', sortDir: 'desc' };
 
@@ -2326,10 +2306,6 @@ function filteredEntries() {
 function parkMonth(park, key) {
     return (park.months || []).find(function(m) { return (m.year + '-' + String(m.month).padStart(2, '0')) === key; });
 }
-function parkLatestMonthKey(park) {
-    var keys = (park.months || []).map(function(m) { return m.year + '-' + pad2(m.month); }).sort();
-    return keys.length ? keys[keys.length - 1] : null;
-}
 function aggregatePark(park, keys) {
     if (!keys || !keys.length) return null;
     var rows = (park.months || []).filter(function(m) {
@@ -2366,7 +2342,7 @@ function aggregatePark(park, keys) {
         : null;
 
     var capacity = park.capacity_mwp || 0;
-    var yieldKwhKwp = (capacity > 0 && energy != null) ? (energy * 1000 / capacity) : null;
+    var yieldKwhKwp = (capacity > 0 && energy != null) ? (energy / capacity) : null;
 
     return {
         period_keys: keys,
@@ -2793,22 +2769,24 @@ function openDrilldown(pk) {
     ASSETS_STATE.mode = 'drilldown';
     ASSETS_STATE.selectedPark = pk;
 
+    var park = ASSETS.parks[pk];
     var p = ASSETS_STATE.period;
-    if (p && p.granularity === 'month' && p.year != null && p.month != null) {
-        // smooth handoff — drill-down opens on the same month
-        ASSETS_STATE.drillMonth = p.year + '-' + pad2(p.month);
-        ASSETS_STATE.cameFromPeriod = null;
+    var dp;
+    if (p && p.year != null) {
+        dp = { granularity: p.granularity || 'month', year: p.year, month: p.month };
     } else {
-        // YTD/Year — jump to the park's latest available month, remember origin
-        ASSETS_STATE.drillMonth = parkLatestMonthKey(ASSETS.parks[pk]);
-        ASSETS_STATE.cameFromPeriod = p ? { granularity: p.granularity, year: p.year, month: p.month } : null;
+        var ym = latestYM();
+        dp = ym ? { granularity: 'month', year: ym.year, month: ym.month }
+                : { granularity: 'month', year: null, month: null };
     }
+    // Snap month if park has no data for that month/year
+    snapDrillPeriodToPark(park, dp);
+    ASSETS_STATE.drillPeriod = dp;
     renderDrilldown();
 }
 window.exitDrilldown = function() {
     ASSETS_STATE.mode = 'fleet';
     ASSETS_STATE.selectedPark = null;
-    ASSETS_STATE.cameFromPeriod = null;
     renderAssets();
 };
 
@@ -2822,12 +2800,250 @@ function captureForZoneMonth(zone, monthKey) {
 function captureSeriesForZone(zone, keys) {
     return keys.map(function(k) { return captureForZoneMonth(zone, k); });
 }
+function captureForPeriod(zone, keys) {
+    if (!keys || !keys.length) return null;
+    var sum = 0, n = 0;
+    keys.forEach(function(k) {
+        var v = captureForZoneMonth(zone, k);
+        if (v != null) { sum += v; n += 1; }
+    });
+    return n > 0 ? (sum / n) : null;
+}
 function trackerGainForMonth(monthKey) {
     if (!ASSETS || !ASSETS.tracker_gain || !ASSETS.tracker_gain.monthly || !monthKey) return null;
     var yr = parseInt(monthKey.split('-')[0]);
     var mo = parseInt(monthKey.split('-')[1]);
     var rec = ASSETS.tracker_gain.monthly.find(function(r) { return r.year === yr && r.month === mo; });
     return rec && rec.gain_pct != null ? rec.gain_pct : null;
+}
+function trackerGainForPeriod(keys) {
+    if (!keys || !keys.length) return null;
+    var sum = 0, n = 0;
+    keys.forEach(function(k) {
+        var v = trackerGainForMonth(k);
+        if (v != null) { sum += v; n += 1; }
+    });
+    return n > 0 ? (sum / n) : null;
+}
+
+// ----- Park-scoped period helpers -----
+function parkAvailableYears(park) {
+    var s = {};
+    (park.months || []).forEach(function(m) { s[m.year] = true; });
+    return Object.keys(s).map(function(y) { return parseInt(y, 10); }).sort(function(a, b) { return a - b; });
+}
+function parkAvailableMonthsInYear(park, yr) {
+    var s = {};
+    (park.months || []).forEach(function(m) { if (m.year === yr) s[m.month] = true; });
+    return Object.keys(s).map(function(n) { return parseInt(n, 10); }).sort(function(a, b) { return a - b; });
+}
+function parkMonthsInYearKeys(park, yr) {
+    return parkAvailableMonthsInYear(park, yr).map(function(mo) { return yr + '-' + pad2(mo); });
+}
+function drillPeriodKeys(park, dp) {
+    dp = dp || ASSETS_STATE.drillPeriod;
+    if (!dp || dp.year == null) return [];
+    if (dp.granularity === 'month') {
+        return dp.month != null ? [dp.year + '-' + pad2(dp.month)] : [];
+    }
+    if (dp.granularity === 'year') {
+        return parkMonthsInYearKeys(park, dp.year);
+    }
+    if (dp.granularity === 'ytd') {
+        var endMonth = currentMonthOfYear();
+        return parkMonthsInYearKeys(park, dp.year).filter(function(k) {
+            return parseInt(k.split('-')[1], 10) <= endMonth;
+        });
+    }
+    return [];
+}
+function drillExpectedMonthsForPeriod(dp) {
+    dp = dp || ASSETS_STATE.drillPeriod;
+    if (!dp || dp.year == null) return 0;
+    if (dp.granularity === 'month') return 1;
+    if (dp.granularity === 'year') {
+        var ymRef = latestYM();
+        if (!ymRef) return 12;
+        if (dp.year < ymRef.year) return 12;
+        if (dp.year === ymRef.year) return ymRef.month;
+        return 0;
+    }
+    if (dp.granularity === 'ytd') return currentMonthOfYear();
+    return 0;
+}
+function drillFormatPeriodSuffix(park, dp) {
+    dp = dp || ASSETS_STATE.drillPeriod;
+    if (!dp || dp.year == null) return '';
+    var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    if (dp.granularity === 'month') {
+        return dp.month != null ? monthNames[dp.month - 1] + ' ' + dp.year : String(dp.year);
+    }
+    if (dp.granularity === 'year') {
+        return 'Full year ' + dp.year;
+    }
+    if (dp.granularity === 'ytd') {
+        var keys = drillPeriodKeys(park, dp);
+        if (!keys.length) return 'YTD ' + dp.year + ' (no data)';
+        var firstMo = parseInt(keys[0].split('-')[1], 10);
+        var lastMo  = parseInt(keys[keys.length - 1].split('-')[1], 10);
+        if (firstMo === lastMo) return 'YTD ' + dp.year + ' (' + monthNames[firstMo - 1] + ')';
+        return 'YTD ' + dp.year + ' (' + monthNames[firstMo - 1] + '–' + monthNames[lastMo - 1] + ')';
+    }
+    return '';
+}
+function snapDrillPeriodToPark(park, dp) {
+    var years = parkAvailableYears(park);
+    if (!years.length) return;
+    if (years.indexOf(dp.year) === -1) {
+        dp.year = years[years.length - 1];
+    }
+    if (dp.granularity === 'month') {
+        var avail = parkAvailableMonthsInYear(park, dp.year);
+        if (!avail.length) {
+            dp.year = years[years.length - 1];
+            avail = parkAvailableMonthsInYear(park, dp.year);
+        }
+        if (avail.length && avail.indexOf(dp.month) === -1) {
+            dp.month = avail[avail.length - 1];
+        }
+    }
+}
+function showDrillToast(msg) {
+    var t = el('drill-period-toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.hidden = false;
+    if (t._timer) clearTimeout(t._timer);
+    t._timer = setTimeout(function() {
+        t.hidden = true;
+        t.textContent = '';
+        t._timer = null;
+    }, 4500);
+}
+function updateDrillPartialBanner(keys, expected, suffix) {
+    var t = el('drill-period-toast');
+    if (!t) return;
+    if (t._timer) return;  // don't override active snap toast
+    var gran = ASSETS_STATE.drillPeriod.granularity;
+    if (gran === 'month' || !keys || keys.length === 0 || keys.length >= expected) {
+        t.hidden = true;
+        t.textContent = '';
+        return;
+    }
+    var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var have = keys.map(function(k) { return parseInt(k.split('-')[1], 10); });
+    var missing = [];
+    for (var mo = 1; mo <= expected; mo++) { if (have.indexOf(mo) === -1) missing.push(monthNames[mo - 1]); }
+    if (!missing.length) {
+        t.hidden = true;
+        t.textContent = '';
+        return;
+    }
+    t.textContent = suffix + ' · ' + keys.length + ' of ' + expected +
+        ' months (missing: ' + missing.join(', ') + ').';
+    t.hidden = false;
+}
+function bindDrillPeriodControls() {
+    var park = ASSETS.parks[ASSETS_STATE.selectedPark];
+    if (!park) return;
+    var gran = el('drill-granularity');
+    if (gran && !gran.dataset.bound) {
+        gran.querySelectorAll('button').forEach(function(b) {
+            b.addEventListener('click', function() {
+                var newGran = b.dataset.gran;
+                if (newGran === ASSETS_STATE.drillPeriod.granularity) return;
+                ASSETS_STATE.drillPeriod.granularity = newGran;
+                if (newGran === 'month') {
+                    var pk2 = ASSETS.parks[ASSETS_STATE.selectedPark];
+                    var avail = parkAvailableMonthsInYear(pk2, ASSETS_STATE.drillPeriod.year);
+                    if (avail.length && avail.indexOf(ASSETS_STATE.drillPeriod.month) === -1) {
+                        ASSETS_STATE.drillPeriod.month = avail[avail.length - 1];
+                    }
+                }
+                renderDrilldown();
+            });
+        });
+        gran.dataset.bound = '1';
+    }
+    var prev = el('drill-year-prev');
+    var next = el('drill-year-next');
+    if (prev && !prev.dataset.bound) {
+        prev.addEventListener('click', function() { stepDrillYear(-1); });
+        prev.dataset.bound = '1';
+    }
+    if (next && !next.dataset.bound) {
+        next.addEventListener('click', function() { stepDrillYear(1); });
+        next.dataset.bound = '1';
+    }
+    var monthSel = el('drill-month-sel');
+    if (monthSel && !monthSel.dataset.bound) {
+        monthSel.addEventListener('change', function() {
+            var v = parseInt(monthSel.value, 10);
+            if (!isNaN(v)) ASSETS_STATE.drillPeriod.month = v;
+            renderDrilldown();
+        });
+        monthSel.dataset.bound = '1';
+    }
+}
+function stepDrillYear(direction) {
+    var park = ASSETS.parks[ASSETS_STATE.selectedPark];
+    if (!park) return;
+    var years = parkAvailableYears(park);
+    if (!years.length) return;
+    var dp = ASSETS_STATE.drillPeriod;
+    var idx = years.indexOf(dp.year);
+    if (idx === -1) idx = years.length - 1;
+    var newIdx = idx + direction;
+    if (newIdx < 0 || newIdx >= years.length) return;
+    var newYear = years[newIdx];
+    var oldMonth = dp.month;
+    dp.year = newYear;
+    if (dp.granularity === 'month') {
+        var avail = parkAvailableMonthsInYear(park, newYear);
+        if (!avail.length) { renderDrilldown(); return; }
+        if (avail.indexOf(oldMonth) === -1) {
+            var snapped = avail[avail.length - 1];
+            dp.month = snapped;
+            var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            showDrillToast('Snapped to ' + newYear + '-' + pad2(snapped) +
+                ' — ' + monthNames[oldMonth - 1] + ' ' + newYear + ' missing.');
+        }
+    }
+    renderDrilldown();
+}
+function refreshDrillPeriodControls(park) {
+    var dp = ASSETS_STATE.drillPeriod;
+    el('drill-granularity').querySelectorAll('button').forEach(function(b) {
+        b.setAttribute('aria-selected', b.dataset.gran === dp.granularity ? 'true' : 'false');
+        b.setAttribute('aria-pressed', b.dataset.gran === dp.granularity ? 'true' : 'false');
+    });
+    el('drill-year-value').textContent = dp.year != null ? String(dp.year) : '—';
+    var years = parkAvailableYears(park);
+    var yIdx = years.indexOf(dp.year);
+    el('drill-year-prev').disabled = (yIdx <= 0);
+    el('drill-year-next').disabled = (yIdx === -1 || yIdx >= years.length - 1);
+    var monthWrap = el('drill-month-wrap');
+    var monthSel = el('drill-month-sel');
+    if (dp.granularity === 'month') {
+        monthWrap.style.display = '';
+        var avail = parkAvailableMonthsInYear(park, dp.year);
+        var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        monthSel.innerHTML = avail.map(function(mo) {
+            return '<option value="' + mo + '"' + (mo === dp.month ? ' selected' : '') + '>' +
+                monthNames[mo - 1] + ' (' + dp.year + '-' + pad2(mo) + ')</option>';
+        }).join('');
+    } else {
+        monthWrap.style.display = 'none';
+    }
+}
+function daysInDrillPeriod(park, keys) {
+    var out = [];
+    keys.forEach(function(k) {
+        var arr = (park.daily_by_month && park.daily_by_month[k]) || [];
+        out = out.concat(arr);
+    });
+    out.sort(function(a, b) { return (a.date || '').localeCompare(b.date || ''); });
+    return out;
 }
 
 function renderDrilldown() {
@@ -2837,97 +3053,79 @@ function renderDrilldown() {
     el('fleet-mode').hidden = true;
     el('drill-mode').hidden = false;
 
-    var monthKey = ASSETS_STATE.drillMonth || latestMonthKey();
-    if (!parkMonth(p, monthKey)) {
-        var available = (p.months || []).map(function(mm) { return mm.year + '-' + String(mm.month).padStart(2, '0'); }).sort();
-        if (available.length) monthKey = available[available.length - 1];
-    }
-    ASSETS_STATE.drillMonth = monthKey;
-    var m = parkMonth(p, monthKey);
+    snapDrillPeriodToPark(p, ASSETS_STATE.drillPeriod);
+    bindDrillPeriodControls();
+    refreshDrillPeriodControls(p);
 
-    // Period hint when arrived from YTD/Year
-    var hint = el('drill-period-hint');
-    if (hint) {
-        var came = ASSETS_STATE.cameFromPeriod;
-        if (came && came.granularity !== 'month') {
-            var label = formatPeriodSuffix(came);
-            hint.innerHTML = 'Showing single month. Came from <strong>' + htmlEsc(label) + '</strong>. ' +
-                '<a href="#assets" onclick="event.preventDefault(); exitDrilldown();">← Back to ' + htmlEsc(label) + '</a>';
-            hint.hidden = false;
-        } else {
-            hint.hidden = true;
-        }
-    }
+    var dp = ASSETS_STATE.drillPeriod;
+    var keys = drillPeriodKeys(p, dp);
+    var expected = drillExpectedMonthsForPeriod(dp);
+    var suffix = drillFormatPeriodSuffix(p, dp);
 
     el('drill-name').textContent = p.name || pk;
+    el('drill-period-suffix').textContent = suffix;
     el('drill-meta').innerHTML =
         '<span><span class="eyebrow">Zone</span> ' + htmlEsc(p.zone || '') + '</span>' +
         '<span><span class="eyebrow">Capacity</span> <span class="num">' + fmtNum(p.capacity_mwp, 2) + '</span> MWp</span>' +
-        '<span><span class="eyebrow">Period</span> <span class="num">' + htmlEsc(monthKey || '–') + '</span></span>';
+        '<span><span class="eyebrow">Period</span> <span class="num">' + htmlEsc(suffix) + '</span></span>';
 
-    // Month selector
-    var sel = el('drill-month-sel');
-    var keys = Object.keys(p.daily_by_month || {}).sort();
-    if (!keys.length) {
-        keys = (p.months || []).map(function(mm) { return mm.year + '-' + String(mm.month).padStart(2, '0'); }).sort();
-    }
-    sel.innerHTML = keys.slice().reverse().map(function(k) {
-        return '<option value="' + htmlEsc(k) + '"' + (k === monthKey ? ' selected' : '') + '>' + htmlEsc(k) + '</option>';
-    }).join('');
-    if (!sel.dataset.bound) {
-        sel.addEventListener('change', function() {
-            ASSETS_STATE.drillMonth = sel.value;
-            renderDrilldown();
-        });
-        sel.dataset.bound = '1';
-    }
+    updateDrillPartialBanner(keys, expected, suffix);
 
-    // KPI strip
-    var captureZone = captureForZoneMonth(p.zone, monthKey);
-    var trackerPct = trackerGainForMonth(monthKey);
+    // Aggregated KPIs
+    var agg = aggregatePark(p, keys);
+    var captureAgg = captureForPeriod(p.zone, keys);
+    var trackerPctAgg = trackerGainForPeriod(keys);
     var isHova = (pk === 'hova');
+    var trackerSub = (dp.granularity === 'month') ? 'vs SE3 fixed-tilt' : 'avg vs SE3 fixed-tilt';
     var trackerTile = isHova
-        ? kpiTile('Tracker gain', trackerPct != null ? fmtPct(trackerPct, 1) : '–', '', 'vs SE3 fixed-tilt')
+        ? kpiTile('Tracker gain', trackerPctAgg != null ? fmtPct(trackerPctAgg, 1) : '–', '', trackerSub)
         : '<div class="kpi" style="opacity:0.55"><div class="kpi-label">Tracker gain</div><div class="kpi-value">—</div><div class="kpi-sub">Hova only</div></div>';
 
-    var pillHtml = '';
-    if (m && m.vs_budget_pct != null) {
-        pillHtml = '<span class="pill ' + vsClass(m.vs_budget_pct) + '">' + fmtPct(m.vs_budget_pct) + '</span>';
+    var pillHtml;
+    if (agg && agg.vs_budget_pct != null) {
+        pillHtml = '<span class="pill ' + vsClass(agg.vs_budget_pct) + '">' + fmtPct(agg.vs_budget_pct) + '</span>';
     } else {
         pillHtml = '<span class="pill neutral">–</span>';
     }
     var vsTile = '<div class="kpi"><div class="kpi-label">vs Budget</div><div class="kpi-value">' +
-        (m && m.vs_budget_pct != null ? fmtPct(m.vs_budget_pct) : '–') + '</div><div class="kpi-sub">' + pillHtml + '</div></div>';
+        (agg && agg.vs_budget_pct != null ? fmtPct(agg.vs_budget_pct) : '–') + '</div><div class="kpi-sub">' + pillHtml + '</div></div>';
 
-    // POA Irradiation tile (actual + vs budget colored pill)
     var irrTile;
-    if (m && m.actual_irr_kwh_m2 != null) {
+    if (agg && agg.actual_irr_kwh_m2 != null) {
         var irrSubHtml;
-        if (m.vs_budget_irr_pct != null) {
-            irrSubHtml = '<span class="pill ' + vsClass(m.vs_budget_irr_pct) + '">' + fmtPct(m.vs_budget_irr_pct) + '</span>';
+        if (agg.vs_budget_irr_pct != null) {
+            irrSubHtml = '<span class="pill ' + vsClass(agg.vs_budget_irr_pct) + '">' + fmtPct(agg.vs_budget_irr_pct) + '</span>';
         } else {
             irrSubHtml = '<span class="pill neutral">vs Budget –</span>';
         }
         irrTile = '<div class="kpi"><div class="kpi-label">POA Irradiation</div>' +
-            '<div><span class="kpi-value">' + fmtNum(m.actual_irr_kwh_m2, 1) + '</span><span class="kpi-unit">kWh/m²</span></div>' +
+            '<div><span class="kpi-value">' + fmtNum(agg.actual_irr_kwh_m2, 1) + '</span><span class="kpi-unit">kWh/m²</span></div>' +
             '<div class="kpi-sub">' + irrSubHtml + '</div></div>';
     } else {
         irrTile = '<div class="kpi" style="opacity:0.55"><div class="kpi-label">POA Irradiation</div>' +
             '<div class="kpi-value">—</div><div class="kpi-sub">no data</div></div>';
     }
 
+    var captureSub = (dp.granularity === 'month') ? '' : 'monthly avg';
+    var dot = (expected > 1 && agg && agg.months_present < expected && agg.months_present > 0)
+        ? ' <span class="partial-data-dot" title="' + agg.months_present + ' of ' + expected + ' months present"></span>'
+        : '';
+    var energyTile = '<div class="kpi"><div class="kpi-label">Energy</div>' +
+        '<div><span class="kpi-value">' + (agg && agg.energy_mwh != null ? fmtNum(agg.energy_mwh, 0) : '–') + '</span><span class="kpi-unit">MWh</span></div>' +
+        '<div class="kpi-sub">' + htmlEsc(suffix) + dot + '</div></div>';
+
     var tiles = [
-        kpiTile('Energy', m ? fmtNum(m.energy_mwh, 0) : '–', 'MWh', monthKey || ''),
+        energyTile,
         vsTile,
-        kpiTile('Yield', m ? fmtNum(m.yield_kwh_kwp, 1) : '–', 'kWh/kWp', ''),
+        kpiTile('Yield', agg && agg.yield_kwh_kwp != null ? fmtNum(agg.yield_kwh_kwp, 1) : '–', 'kWh/kWp', ''),
         irrTile,
-        kpiTile('Capture · ' + (p.zone || ''), captureZone != null ? fmtNum(captureZone, 1) : '–', 'EUR/MWh', ''),
-        kpiTile('Negative-price h', m && m.neg_price_hours != null ? fmtNum(m.neg_price_hours, 0) : '–', 'h', m && m.neg_price_volume_mwh != null ? fmtNum(m.neg_price_volume_mwh, 0) + ' MWh forgone' : ''),
+        kpiTile('Capture · ' + (p.zone || ''), captureAgg != null ? fmtNum(captureAgg, 1) : '–', 'EUR/MWh', captureSub),
+        kpiTile('Negative-price h', agg && agg.neg_price_hours != null ? fmtNum(agg.neg_price_hours, 0) : '–', 'h', agg && agg.neg_price_volume_mwh != null ? fmtNum(agg.neg_price_volume_mwh, 0) + ' MWh forgone' : ''),
         trackerTile,
     ];
     el('drill-kpis').innerHTML = tiles.join('');
 
-    // Charts
+    // Charts (Energy vs Budget, Yield, POA Irradiation are always last 13 months)
     var months = (p.months || []).slice();
     var xs = months.map(function(mm) { return mm.year + '-' + String(mm.month).padStart(2, '0'); });
 
@@ -2948,7 +3146,10 @@ function renderDrilldown() {
         margin: { t: 12, b: 70, l: 64, r: 24 },
     }), PLOTLY_CFG);
 
-    var days = (p.daily_by_month && p.daily_by_month[monthKey]) || [];
+    // Daily chart spans the selected period
+    var dailySub = el('drill-daily-sub');
+    if (dailySub) dailySub.textContent = suffix + ' · actual vs expected.';
+    var days = daysInDrillPeriod(p, keys);
     if (days.length) {
         var dxs = days.map(function(d) { return d.date; });
         Plotly.react('drill-daily-chart', [
@@ -2968,7 +3169,7 @@ function renderDrilldown() {
         }), PLOTLY_CFG);
     } else {
         Plotly.purge('drill-daily-chart');
-        el('drill-daily-chart').innerHTML = '<div class="empty-note">No daily data for ' + htmlEsc(monthKey) + '.</div>';
+        el('drill-daily-chart').innerHTML = '<div class="empty-note">No daily data for ' + htmlEsc(suffix) + '.</div>';
     }
 
     Plotly.react('drill-capture-chart', [
@@ -2979,18 +3180,26 @@ function renderDrilldown() {
         margin: { t: 12, b: 70, l: 64, r: 24 },
     }), PLOTLY_CFG);
 
-    renderBestWorst(p, monthKey);
+    var bwSub = el('drill-bestworst-sub');
+    if (bwSub) bwSub.textContent = suffix + ' · ranked by energy.';
+    renderBestWorst(p, days, suffix);
 
-    var reportPath = 'performance_' + pk + '_' + (p.zone || '') + '_' + monthKey + '.html';
-    el('drill-links').innerHTML =
-        '<a href="' + htmlEsc(reportPath) + '" target="_blank" rel="noopener">' + htmlEsc(reportPath) + '</a> <span class="muted">— if generated</span>';
+    // Performance report link — only meaningful for a single month
+    var linksHost = el('drill-links');
+    if (dp.granularity === 'month' && dp.year != null && dp.month != null) {
+        var monthKey = dp.year + '-' + pad2(dp.month);
+        var reportPath = 'performance_' + pk + '_' + (p.zone || '') + '_' + monthKey + '.html';
+        linksHost.innerHTML =
+            '<a href="' + htmlEsc(reportPath) + '" target="_blank" rel="noopener">' + htmlEsc(reportPath) + '</a> <span class="muted">— if generated</span>';
+    } else {
+        linksHost.innerHTML = '<span class="muted">Per-month report — switch to Month view to open the standalone HTML report.</span>';
+    }
 }
 
-function renderBestWorst(p, monthKey) {
+function renderBestWorst(p, days, suffix) {
     var c = el('drill-bestworst');
-    var days = (p.daily_by_month && p.daily_by_month[monthKey]) || [];
-    if (!days.length) {
-        c.innerHTML = '<div class="empty-note">No daily data for ' + htmlEsc(monthKey) + '.</div>';
+    if (!days || !days.length) {
+        c.innerHTML = '<div class="empty-note">No daily data for ' + htmlEsc(suffix) + '.</div>';
         return;
     }
     var sorted = days.slice().sort(function(a, b) { return (b.energy_mwh || 0) - (a.energy_mwh || 0); });
@@ -3374,16 +3583,32 @@ _SHELL = r"""<!DOCTYPE html>
           <span class="crumb-sep">/</span>
           <span id="drill-name-crumb"></span>
         </div>
-        <div class="drill-period-hint" id="drill-period-hint" hidden></div>
         <div class="drill-hero">
           <div>
-            <h1 class="drill-name" id="drill-name"></h1>
+            <h1 class="drill-name"><span id="drill-name"></span><span id="drill-period-suffix" class="page-title-suffix"></span></h1>
             <div class="drill-meta" id="drill-meta"></div>
           </div>
-          <div class="page-controls">
-            <span class="label-control">Month <select id="drill-month-sel"></select></span>
+        </div>
+
+        <div class="period-bar" id="drill-period-bar" role="group" aria-label="Period filter">
+          <div class="period-bar-left">
+            <div class="seg" id="drill-granularity" role="tablist" aria-label="Granularity">
+              <button type="button" data-gran="month" role="tab" aria-selected="false">Month</button>
+              <button type="button" data-gran="ytd" role="tab" aria-selected="false">YTD</button>
+              <button type="button" data-gran="year" role="tab" aria-selected="false">Year</button>
+            </div>
+            <div class="period-stepper" id="drill-year-stepper" aria-label="Year">
+              <button type="button" id="drill-year-prev" aria-label="Previous year">◀</button>
+              <span class="period-stepper-value" id="drill-year-value">—</span>
+              <button type="button" id="drill-year-next" aria-label="Next year">▶</button>
+            </div>
+            <span class="label-control" id="drill-month-wrap">Month
+              <select id="drill-month-sel"></select>
+            </span>
           </div>
         </div>
+
+        <div class="period-toast" id="drill-period-toast" hidden></div>
 
         <div class="kpi-strip" id="drill-kpis"></div>
 
@@ -3397,7 +3622,7 @@ _SHELL = r"""<!DOCTYPE html>
             <div class="chart" id="drill-yield-chart"></div>
           </div>
           <div class="card">
-            <div class="card-head"><div><div class="card-title">Daily generation</div><div class="card-sub">Selected month, actual vs expected.</div></div></div>
+            <div class="card-head"><div><div class="card-title">Daily generation</div><div class="card-sub" id="drill-daily-sub">Selected period, actual vs expected.</div></div></div>
             <div class="chart" id="drill-daily-chart"></div>
           </div>
           <div class="card">
@@ -3407,7 +3632,7 @@ _SHELL = r"""<!DOCTYPE html>
         </div>
 
         <div class="card">
-          <div class="card-head"><div><div class="card-title">Best &amp; worst days</div><div class="card-sub">Selected month, ranked by energy.</div></div></div>
+          <div class="card-head"><div><div class="card-title">Best &amp; worst days</div><div class="card-sub" id="drill-bestworst-sub">Selected period, ranked by energy.</div></div></div>
           <div class="bw-grid" id="drill-bestworst"></div>
         </div>
 
