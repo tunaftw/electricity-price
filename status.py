@@ -5,6 +5,7 @@ import csv
 from pathlib import Path
 
 from elpris.config import RAW_DIR, QUARTERLY_DIR, ZONES
+from elpris.storage import find_data_gaps
 
 
 def format_size(size_bytes: int) -> str:
@@ -92,11 +93,36 @@ def print_table(title: str, base_dir: Path):
     return has_data
 
 
+def print_gaps():
+    """Scan raw spot prices for gaps and print findings."""
+    print("\nDATA GAPS (raw spotpriser, threshold 2h)")
+    print("=" * 60)
+    any_gaps = False
+    for zone in ZONES:
+        gaps = find_data_gaps(zone, max_gap_hours=2)
+        if not gaps:
+            print(f"{zone:<6} no gaps")
+            continue
+        any_gaps = True
+        print(f"{zone:<6} {len(gaps)} gap(s):")
+        # Show up to 5 most recent (likely most actionable)
+        for gap_start, gap_end in gaps[-5:]:
+            print(f"       {gap_start.date()} → {gap_end.date()}")
+        if len(gaps) > 5:
+            print(f"       … and {len(gaps) - 5} earlier")
+    print("=" * 60)
+    if any_gaps:
+        print("Backfill: python3 download.py --zones <zone> --start <date> --end <date>")
+
+
 def main():
     print("Swedish Electricity Price Data Status")
 
     has_raw = print_table("RAW DATA (mixed resolution)", RAW_DIR)
     has_quarterly = print_table("QUARTERLY DATA (15-min resolution)", QUARTERLY_DIR)
+
+    if has_raw:
+        print_gaps()
 
     if not has_raw:
         print("\nNo raw data downloaded yet. Run 'python download.py' to get started.")
