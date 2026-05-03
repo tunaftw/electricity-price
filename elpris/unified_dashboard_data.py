@@ -309,12 +309,22 @@ def _merge_revenue_into_months(
                 m["baseload_eur_mwh"] = None
                 m["capture_premium_pct"] = None
                 m["bazefield_volume_mwh"] = None
+                m["revenue_eur_ppa"] = None
+                m["capture_eur_mwh_ppa"] = None
+                m["ppa_price_eur_mwh_avg"] = None
+                m["effective_baseload_eur_mwh_ppa"] = None
             else:
                 m["revenue_eur"] = r["revenue_eur"]
                 m["capture_eur_mwh"] = r["capture_eur_mwh"]
                 m["baseload_eur_mwh"] = r["baseload_eur_mwh"]
                 m["capture_premium_pct"] = r["capture_premium_pct"]
                 m["bazefield_volume_mwh"] = r["volume_mwh"]
+                m["revenue_eur_ppa"] = r.get("revenue_eur_ppa")
+                m["capture_eur_mwh_ppa"] = r.get("capture_eur_mwh_ppa")
+                m["ppa_price_eur_mwh_avg"] = r.get("ppa_price_eur_mwh_avg")
+                m["effective_baseload_eur_mwh_ppa"] = r.get(
+                    "effective_baseload_eur_mwh_ppa"
+                )
 
 
 def _build_fleet_capture_by_zone(
@@ -322,7 +332,7 @@ def _build_fleet_capture_by_zone(
 ) -> Dict[str, List[Dict[str, Any]]]:
     """Volym-vägd realiserad capture per zon per månad (alla parker i zonen)."""
     by_zone: dict[str, dict[tuple[int, int], dict[str, float]]] = defaultdict(
-        lambda: defaultdict(lambda: {"rev": 0.0, "vol": 0.0})
+        lambda: defaultdict(lambda: {"rev": 0.0, "rev_ppa": 0.0, "vol": 0.0})
     )
     for park in parks.values():
         zone = park.get("zone")
@@ -336,15 +346,24 @@ def _build_fleet_capture_by_zone(
             ym = (m["year"], m["month"])
             by_zone[zone][ym]["rev"] += rev
             by_zone[zone][ym]["vol"] += vol
+            # PPA: fall tillbaka till spot-revenue om parken saknar PPA-kontrakt
+            rev_ppa = m.get("revenue_eur_ppa")
+            by_zone[zone][ym]["rev_ppa"] += (
+                rev_ppa if rev_ppa is not None else rev
+            )
 
     out: Dict[str, List[Dict[str, Any]]] = {}
     for zone, months in by_zone.items():
         records = []
         for (year, month), d in sorted(months.items()):
             cap = d["rev"] / d["vol"] if d["vol"] > 0 else None
+            cap_ppa = d["rev_ppa"] / d["vol"] if d["vol"] > 0 else None
             records.append({
                 "month": f"{year}-{month:02d}",
                 "fleet_capture_eur_mwh": round(cap, 2) if cap is not None else None,
+                "fleet_capture_eur_mwh_ppa": (
+                    round(cap_ppa, 2) if cap_ppa is not None else None
+                ),
                 "fleet_volume_mwh": round(d["vol"], 2),
             })
         if records:
@@ -378,6 +397,7 @@ def _build_assets_section(
     num_months: int = DEFAULT_HISTORY_MONTHS,
 ) -> Dict[str, Any]:
     """Bygg assets-sektionen med per-park månadsvisa KPI:er."""
+    from .park_config import get_ppa  # local import to avoid cycle at top
     parks: Dict[str, Dict[str, Any]] = {}
     for park_key in PARK_KEYS:
         capacity_kwp = PARK_CAPACITY_KWP.get(park_key, 0)
@@ -388,6 +408,7 @@ def _build_assets_section(
             "capacity_mwp": round(capacity_kwp / 1000.0, 3),
             "last_data_ts": _last_data_ts(park_key),
             "facts": _park_facts(park_key),
+            "ppa": get_ppa(park_key),
             "months": months,
             "daily_by_month": daily_by_month,
         }
@@ -490,6 +511,7 @@ def _build_fleet_overview(parks: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
     total_energy = 0.0
     total_budget = 0.0
     total_revenue = 0.0
+    total_revenue_ppa = 0.0
     total_volume = 0.0
     total_baseload_weighted = 0.0
     has_revenue = False
@@ -509,6 +531,9 @@ def _build_fleet_overview(parks: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
         vol = match.get("bazefield_volume_mwh")
         if rev is not None:
             total_revenue += rev
+            # PPA fallback to spot when park has no PPA contract
+            rev_ppa = match.get("revenue_eur_ppa")
+            total_revenue_ppa += rev_ppa if rev_ppa is not None else rev
             has_revenue = True
         if vol is not None:
             total_volume += vol
@@ -521,6 +546,9 @@ def _build_fleet_overview(parks: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
         vs_budget = round((total_energy / total_budget - 1.0) * 100.0, 1)
 
     fleet_capture = (total_revenue / total_volume) if total_volume > 0 else None
+    fleet_capture_ppa = (
+        (total_revenue_ppa / total_volume) if total_volume > 0 else None
+    )
     fleet_baseload = (total_baseload_weighted / total_volume) if total_volume > 0 else None
     capture_premium = None
     if (fleet_capture is not None and fleet_baseload is not None
@@ -534,8 +562,14 @@ def _build_fleet_overview(parks: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
         "total_energy_mwh": round(total_energy, 2),
         "vs_budget_pct": vs_budget,
         "total_revenue_eur": round(total_revenue, 2) if has_revenue else None,
+        "total_revenue_eur_ppa": (
+            round(total_revenue_ppa, 2) if has_revenue else None
+        ),
         "fleet_volume_mwh": round(total_volume, 2) if total_volume > 0 else None,
         "fleet_capture_eur_mwh": round(fleet_capture, 2) if fleet_capture is not None else None,
+        "fleet_capture_eur_mwh_ppa": (
+            round(fleet_capture_ppa, 2) if fleet_capture_ppa is not None else None
+        ),
         "fleet_baseload_eur_mwh": round(fleet_baseload, 2) if fleet_baseload is not None else None,
         "fleet_capture_premium_pct": round(capture_premium, 2) if capture_premium is not None else None,
     }

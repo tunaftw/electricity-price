@@ -174,6 +174,68 @@ PARK_BUDGET_OVERRIDES: dict[str, dict[str, dict]] = {
 
 
 # ---------------------------------------------------------------------------
+# PPA-konfiguration per park
+# ---------------------------------------------------------------------------
+#
+# Källa: Asset Value Master (project_info-fliken). Pris i SEK/MWh (native
+# kontraktsvaluta). Konvertering till EUR sker per 15-min med samma EXR
+# som spotpriserna (kolumn EXR i quarterly-CSV:erna), så att PPA-värdering
+# ligger i samma valutavärld som realiserad spot-revenue.
+#
+# Hur den används:
+#   * unified_dashboard räknar ut två varianter av realiserad intäkt:
+#       - "spot"  : volym × spotpris  (100% spot, ingen PPA-hedge)
+#       - "ppa"   : volym × (share × ppa_eur(t) + (1-share) × spotpris(t))
+#         där ppa_eur(t) = price_sek_mwh / EXR(t).
+#   * Toggle i dashboarden växlar mellan dessa två. Default = PPA på när
+#     parken har en post här (annars spot).
+#   * PPA är knuten till FAKTISK genererad volym — ingen volym = ingen PPA-
+#     ersättning (downtime/curtailment trycker ner båda).
+#   * Pris är fast SEK/MWh hela perioden (ingen indexering/inflation).
+#     Varierande EUR-tal i rapporter beror på FX-fluktuationer.
+#
+# Format:
+#   "park_key": {
+#       "price_sek_mwh": <fast PPA-pris i SEK per MWh>,
+#       "share_pct":     <andel av producerad volym, 0-100>,
+#   }
+# Sätt None / utelämna parken / share_pct=0 för att tvinga 100% spot.
+PARK_PPA: dict[str, dict] = {
+    # Pris i bilden från Asset Value Master är SEK/kWh → ×1000 = SEK/MWh.
+    "fjallskar":    {"price_sek_mwh": 465.0, "share_pct": 70.0},
+    "horby":        {"price_sek_mwh": 525.0, "share_pct": 70.0},
+    "bjorke":       {"price_sek_mwh": 614.0, "share_pct": 70.0},
+    "agerum":       {"price_sek_mwh": 819.0, "share_pct": 70.0},
+    "hova":         {"price_sek_mwh": 645.0, "share_pct": 70.0},
+    "skakelbacken": {"price_sek_mwh": 619.0, "share_pct": 100.0},
+    "tangen":       {"price_sek_mwh": 582.0, "share_pct": 70.0},
+    # Stenstorp har inget PPA-kontrakt enligt master → 100% spot.
+    # "stenstorp": {...},
+}
+
+
+def get_ppa(park_key: str) -> Optional[dict]:
+    """Returnera PPA-konfig för en park, eller None om inget kontrakt.
+
+    Returvärde:
+        ``{"price_sek_mwh": float, "share_pct": float}`` eller ``None``.
+    """
+    p = PARK_PPA.get(park_key)
+    if p is None:
+        return None
+    share = float(p.get("share_pct", 0.0) or 0.0)
+    if share <= 0:
+        return None
+    price = p.get("price_sek_mwh")
+    if price is None:
+        return None
+    return {
+        "price_sek_mwh": float(price),
+        "share_pct": share,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Intern: ladda PVsyst TMY-profil
 # ---------------------------------------------------------------------------
 

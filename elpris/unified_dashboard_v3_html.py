@@ -164,7 +164,7 @@ _CSS = r"""
   --dur-slow:  400ms;
 
   /* layout */
-  --rail-w: 64px;
+  --rail-w: 92px;
 }
 
 /* ============================================================
@@ -234,103 +234,131 @@ select:focus, input:focus { outline: none; border-color: var(--accent-deep); box
    ============================================================ */
 .app {
   display: grid;
-  grid-template-columns: var(--rail-w) 1fr;
+  grid-template-columns: var(--rail-w) minmax(0, 1fr);
   min-height: 100vh;
 }
 
 .rail {
-  background: var(--surface-rail);
+  background:
+    radial-gradient(120% 60% at 50% 0%, rgba(199, 242, 106, 0.05) 0%, transparent 55%),
+    var(--surface-rail);
   color: #E8E4DA;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: var(--sp-4) 0 var(--sp-4);
+  align-items: stretch;
+  padding: var(--sp-5) 0 var(--sp-4);
   position: sticky;
   top: 0;
   height: 100vh;
+  border-right: 1px solid rgba(232, 228, 218, 0.04);
 }
 
 .rail-mark {
   font-family: var(--font-display);
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 600;
   font-style: italic;
   color: var(--accent);
-  margin-bottom: var(--sp-7);
-  letter-spacing: -0.02em;
+  margin: 0 auto var(--sp-3);
+  letter-spacing: -0.03em;
   line-height: 1;
+  position: relative;
+}
+.rail-mark::after {
+  content: '';
+  display: block;
+  width: 22px;
+  height: 1px;
+  background: rgba(232, 228, 218, 0.16);
+  margin: var(--sp-4) auto var(--sp-2);
 }
 
 .rail-tabs {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-2);
+  gap: 2px;
   flex: 1;
+  padding: var(--sp-2) var(--sp-2) 0;
 }
 
 .rail-tab {
-  width: 44px;
-  height: 44px;
+  width: 100%;
+  padding: 11px 0 9px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   font-family: var(--font-display);
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 500;
   font-style: italic;
-  color: rgba(232, 228, 218, 0.55);
+  color: rgba(232, 228, 218, 0.45);
   border-radius: var(--radius-md);
   transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
   position: relative;
   cursor: pointer;
 }
-.rail-tab:hover { background: var(--surface-rail-2); color: #E8E4DA; }
+.rail-tab:hover {
+  background: rgba(232, 228, 218, 0.04);
+  color: #E8E4DA;
+}
 .rail-tab[aria-selected="true"] {
   background: var(--surface-rail-2);
   color: var(--accent);
 }
-.rail-tab[aria-selected="true"]::after {
+.rail-tab[aria-selected="true"]::before {
   content: '';
   position: absolute;
-  right: -1px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 18px;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
   background: var(--accent);
-  border-radius: 3px 0 0 3px;
+  border-radius: 0 2px 2px 0;
+  box-shadow: 0 0 6px rgba(199, 242, 106, 0.35);
 }
 .rail-tab-name {
-  position: absolute;
-  left: 100%;
-  margin-left: var(--sp-3);
-  background: var(--surface-rail-2);
-  color: #E8E4DA;
+  position: static;
+  display: block;
+  background: transparent;
+  color: rgba(232, 228, 218, 0.42);
   font-family: var(--font-ui);
-  font-size: var(--fs-xs);
+  font-size: 9px;
   font-style: normal;
   font-weight: 600;
-  padding: 4px 8px;
-  border-radius: 4px;
+  padding: 0;
+  margin: 0;
+  border-radius: 0;
   white-space: nowrap;
   pointer-events: none;
-  opacity: 0;
-  transform: translateX(-4px);
-  transition: opacity var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
-  letter-spacing: 0.06em;
+  opacity: 1;
+  transform: none;
+  transition: color var(--dur-fast) var(--ease);
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  z-index: 1000;
+  z-index: auto;
 }
-.rail-tab:hover .rail-tab-name { opacity: 1; transform: translateX(0); }
+.rail-tab:hover .rail-tab-name { color: rgba(232, 228, 218, 0.85); transform: none; }
+.rail-tab[aria-selected="true"] .rail-tab-name { color: rgba(199, 242, 106, 0.82); }
 
 .rail-foot {
   font-family: var(--font-mono);
   font-size: 9px;
-  color: rgba(232, 228, 218, 0.35);
+  color: rgba(232, 228, 218, 0.32);
   text-align: center;
-  line-height: 1.4;
+  line-height: 1.5;
   margin-top: auto;
+  letter-spacing: 0.06em;
+  padding: 0 var(--sp-2);
+}
+.rail-foot::before {
+  content: '';
+  display: block;
+  width: 22px;
+  height: 1px;
+  background: rgba(232, 228, 218, 0.12);
+  margin: 0 auto var(--sp-3);
 }
 
 /* ============================================================
@@ -424,6 +452,11 @@ select:focus, input:focus { outline: none; border-color: var(--accent-deep); box
   color: var(--ink-1);
   box-shadow: var(--shadow-rest);
 }
+.seg button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.seg button:disabled:hover { color: var(--ink-3); }
 
 .label-control {
   display: inline-flex;
@@ -572,6 +605,88 @@ select:focus, input:focus { outline: none; border-color: var(--accent-deep); box
 }
 .park-facts[open] > summary::before { transform: rotate(90deg); }
 .park-facts > summary::-webkit-details-marker { display: none; }
+
+/* generic collapsible card (used by ancillary section) */
+.card-collapsible { padding: 0; }
+.card-collapsible > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: var(--sp-5);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-4);
+}
+.card-collapsible > summary::-webkit-details-marker { display: none; }
+.card-collapsible > summary::after {
+  content: '▸';
+  color: var(--ink-3);
+  font-size: 0.9em;
+  transition: transform 0.15s;
+  margin-left: var(--sp-3);
+  align-self: center;
+}
+.card-collapsible[open] > summary::after { transform: rotate(90deg); }
+.card-collapsible-body { padding: 0 var(--sp-5) var(--sp-5); }
+.card-collapsible-headline {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-md);
+  color: var(--ink-1);
+  white-space: nowrap;
+}
+.card-collapsible-headline em {
+  font-style: normal;
+  color: var(--ink-3);
+  font-family: var(--font-ui);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-right: var(--sp-2);
+}
+
+/* ancillary "implied annual revenue" rank list */
+.anc-rev-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: var(--sp-5);
+}
+.anc-rev-row {
+  display: grid;
+  grid-template-columns: 12px minmax(120px, 0.9fr) minmax(0, 2fr) auto;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(26, 24, 20, 0.06);
+  font-size: var(--fs-sm);
+}
+.anc-rev-row:last-child { border-bottom: none; }
+.anc-rev-row.is-top .anc-rev-label { font-weight: 600; }
+.anc-rev-dot { width: 10px; height: 10px; border-radius: 50%; }
+.anc-rev-label { color: var(--ink-1); font-family: var(--font-ui); }
+.anc-rev-bar { height: 6px; background: var(--ink-5); border-radius: 3px; position: relative; }
+.anc-rev-bar-fill { position: absolute; top: 0; left: 0; height: 100%; border-radius: 3px; }
+.anc-rev-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-sm);
+  color: var(--ink-1);
+  white-space: nowrap;
+  text-align: right;
+}
+.anc-context-note {
+  font-size: var(--fs-xs);
+  color: var(--ink-3);
+  margin-bottom: var(--sp-4);
+  line-height: 1.5;
+}
+.anc-context-note strong {
+  color: var(--ink-1);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
 .facts-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -665,52 +780,146 @@ select:focus, input:focus { outline: none; border-color: var(--accent-deep); box
 }
 .card-actions { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; }
 
-/* hero KPI strip */
+/* hero KPI strip — discrete cards in a grid */
 .kpi-strip {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 0;
-  background: var(--surface-raised);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-rest);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--sp-3);
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
   margin-bottom: var(--sp-5);
-  overflow: hidden;
+  overflow: visible;
 }
 .kpi {
-  padding: var(--sp-5) var(--sp-5);
-  border-right: 1px solid var(--ink-5);
+  position: relative;
+  padding: 22px 22px 18px;
+  background: var(--surface-raised);
+  border: 1px solid rgba(26, 24, 20, 0.05);
+  border-radius: var(--radius-md);
+  box-shadow: 0 1px 1px rgba(26, 24, 20, 0.025);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 132px;
+  transition: box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+  overflow: hidden;
 }
-.kpi:last-child { border-right: 0; }
+.kpi:hover {
+  box-shadow: 0 6px 18px -4px rgba(26, 24, 20, 0.10), 0 0 0 1px rgba(26, 24, 20, 0.07);
+  transform: translateY(-1px);
+  border-color: rgba(26, 24, 20, 0.08);
+}
+.kpi::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(199, 242, 106, 0.0) 0%, rgba(199, 242, 106, 0.0) 100%);
+  transition: background var(--dur-med) var(--ease);
+}
+.kpi-strip > .kpi:first-child {
+  background:
+    linear-gradient(180deg, rgba(199, 242, 106, 0.07) 0%, transparent 36%),
+    var(--surface-raised);
+}
+.kpi-strip > .kpi:first-child::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--accent);
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+  box-shadow: 0 0 12px rgba(199, 242, 106, 0.35);
+}
 .kpi-label {
   font-family: var(--font-ui);
-  font-size: var(--fs-xs);
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.16em;
   color: var(--ink-3);
-  margin-bottom: var(--sp-3);
+  margin-bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1.2;
+}
+.kpi-line {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  line-height: 1;
+  flex-wrap: nowrap;
+  min-height: 34px;
 }
 .kpi-value {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  font-size: var(--fs-2xl);
+  font-size: 30px;
   font-weight: 500;
   color: var(--ink-1);
   line-height: 1;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
 }
 .kpi-unit {
   font-family: var(--font-ui);
-  font-size: var(--fs-md);
+  font-size: 12px;
   font-weight: 500;
   color: var(--ink-3);
-  margin-left: 4px;
+  margin-left: 2px;
+  letter-spacing: 0;
+  text-transform: none;
 }
 .kpi-sub {
-  margin-top: var(--sp-2);
-  font-size: var(--fs-xs);
+  margin-top: auto;
+  font-size: 11px;
   color: var(--ink-3);
-  line-height: var(--lh-snug);
+  line-height: 1.35;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.kpi-sub-divider {
+  color: var(--ink-5);
+  font-weight: 400;
+}
+
+/* trend chip — directional change pill (MoM/YoY) */
+.kpi-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px 2px 6px;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  white-space: nowrap;
+  line-height: 1.5;
+}
+.kpi-trend.up   { background: var(--good-bg); color: var(--good); }
+.kpi-trend.down { background: var(--bad-bg);  color: var(--bad); }
+.kpi-trend.flat { background: var(--surface-sunken); color: var(--ink-3); }
+.kpi-trend-arrow {
+  font-size: 8px;
+  line-height: 1;
+  transform: translateY(-0.5px);
+}
+.kpi-trend-tag {
+  font-family: var(--font-ui);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.65;
+  margin-left: 2px;
 }
 
 /* status pills (vs budget) */
@@ -1312,7 +1521,7 @@ function captureNavRange(direction) {
     CAPTURE_STATE.rangeEnd = newEnd;
     renderCaptureRangeBar();
     renderCaptureChart();
-    renderCaptureRatioChart();
+    renderCaptureSpreadChart();
 }
 function renderCaptureRangeBar() {
     var period = CAPTURE_STATE.period;
@@ -1331,7 +1540,7 @@ function renderCaptureRangeBar() {
             CAPTURE_STATE.rangeEnd = null;
             renderCaptureRangeBar();
             renderCaptureChart();
-            renderCaptureRatioChart();
+            renderCaptureSpreadChart();
         };
     });
     var win = captureCurrentWindow();
@@ -1352,7 +1561,7 @@ function renderCaptureRangeBar() {
             CAPTURE_STATE.rangeEnd = null;
             renderCaptureRangeBar();
             renderCaptureChart();
-            renderCaptureRatioChart();
+            renderCaptureSpreadChart();
         };
         next.disabled = !!win.atLatest;
         now.disabled  = !!win.atLatest;
@@ -1429,7 +1638,7 @@ function renderCapture() {
     renderCaptureKPIs();
     renderCaptureRangeBar();
     renderCaptureChart();
-    renderCaptureRatioChart();
+    renderCaptureSpreadChart();
     renderHeatmap();
 }
 
@@ -1473,10 +1682,37 @@ function renderCaptureKPIs() {
 }
 
 function kpiTile(label, value, unit, sub) {
+    var subHtml = '';
+    if (sub) {
+        // Detect trailing ` · ±X% MoM|YoY` and convert to a styled trend chip.
+        var m = String(sub).match(/^(.*?)(?:\s*·\s*)?([+\-][\d.,]+%)\s*(MoM|YoY)\s*$/);
+        if (m) {
+            var lead = (m[1] || '').replace(/\s*·\s*$/, '').trim();
+            var pct = m[2];
+            var tag = m[3];
+            var num = parseFloat(pct.replace(',', '.').replace('%', '').replace('+', ''));
+            var cls, arrow;
+            if (isNaN(num) || Math.abs(num) < 0.5) { cls = 'flat'; arrow = '→'; }
+            else if (num > 0) { cls = 'up'; arrow = '▲'; }
+            else { cls = 'down'; arrow = '▼'; }
+            subHtml = '<div class="kpi-sub">' +
+                (lead ? '<span>' + htmlEsc(lead) + '</span><span class="kpi-sub-divider">·</span>' : '') +
+                '<span class="kpi-trend ' + cls + '" title="Month-over-month change">' +
+                    '<span class="kpi-trend-arrow">' + arrow + '</span>' +
+                    htmlEsc(pct) +
+                    '<span class="kpi-trend-tag">' + htmlEsc(tag) + '</span>' +
+                '</span>' +
+                '</div>';
+        } else {
+            subHtml = '<div class="kpi-sub">' + htmlEsc(sub) + '</div>';
+        }
+    }
     return '<div class="kpi">' +
         '<div class="kpi-label">' + htmlEsc(label) + '</div>' +
-        '<div><span class="kpi-value">' + htmlEsc(value) + '</span>' + (unit ? '<span class="kpi-unit">' + htmlEsc(unit) + '</span>' : '') + '</div>' +
-        (sub ? '<div class="kpi-sub">' + htmlEsc(sub) + '</div>' : '') +
+        '<div class="kpi-line"><span class="kpi-value">' + htmlEsc(value) + '</span>' +
+            (unit ? '<span class="kpi-unit">' + htmlEsc(unit) + '</span>' : '') +
+        '</div>' +
+        subHtml +
         '</div>';
 }
 
@@ -1562,7 +1798,7 @@ function renderCaptureChart() {
     }), PLOTLY_CFG);
 }
 
-function renderCaptureRatioChart() {
+function renderCaptureSpreadChart() {
     var zone = CAPTURE_STATE.zone;
     var z = (DATA.data && DATA.data[zone]) || {};
     var period = CAPTURE_STATE.period;
@@ -1577,25 +1813,27 @@ function renderCaptureRatioChart() {
             if (period === 'monthly') return r.year + '-' + String(r.month).padStart(2, '0');
             return r.date;
         });
-        var ys = rows.map(function(r) { return r.ratio != null ? r.ratio * 100 : null; });
+        var ys = rows.map(function(r) {
+            return (r.capture != null && r.baseload != null) ? (r.capture - r.baseload) : null;
+        });
         var color = profileColor(k);
         var label = (DATA.profiles && DATA.profiles[k]) || k;
         traces.push({
             x: xs, y: ys, name: label, mode: 'lines+markers', type: 'scatter',
             line: { width: 1.8, color: color, shape: 'spline' },
             marker: { size: period === 'daily' ? 0 : 4, color: color },
-            hovertemplate: '%{x}<br>' + htmlEsc(label) + ': <b>%{y:.1f}%</b> of baseload<extra></extra>',
+            hovertemplate: '%{x}<br>' + htmlEsc(label) + ': <b>%{y:+.1f}</b> EUR/MWh vs baseload<extra></extra>',
         });
     });
     if (!traces.length) {
-        Plotly.purge('capture-ratio-chart');
-        el('capture-ratio-chart').innerHTML = '<div class="empty-note">No capture profiles selected.</div>';
+        Plotly.purge('capture-spread-chart');
+        el('capture-spread-chart').innerHTML = '<div class="empty-note">No capture profiles selected.</div>';
         return;
     }
-    // Add 100% reference line via shapes
-    var shape = { type: 'line', xref: 'paper', x0: 0, x1: 1, y0: 100, y1: 100, line: { color: '#9A958C', dash: 'dot', width: 1 } };
-    Plotly.react('capture-ratio-chart', traces, makeLayout({
-        yaxis: Object.assign({}, PLOTLY_BASE.yaxis, { title: { text: 'Capture / Baseload (%)', font: PLOTLY_BASE.yaxis.title.font }, ticksuffix: '%' }),
+    // Add zero reference line via shapes
+    var shape = { type: 'line', xref: 'paper', x0: 0, x1: 1, y0: 0, y1: 0, line: { color: '#9A958C', dash: 'dot', width: 1 } };
+    Plotly.react('capture-spread-chart', traces, makeLayout({
+        yaxis: Object.assign({}, PLOTLY_BASE.yaxis, { title: { text: 'Capture − Baseload (EUR/MWh)', font: PLOTLY_BASE.yaxis.title.font }, zeroline: false }),
         shapes: [shape],
         margin: { t: 12, b: 70, l: 64, r: 24 },
     }), PLOTLY_CFG);
@@ -1704,9 +1942,9 @@ function renderBessKPIs() {
     var uplift = (sbY && solOnly && solOnly.capture) ? (sbY.capture - solOnly.capture) : null;
     tiles.push(kpiTile('Storage uplift', uplift != null ? '+' + fmtNum(uplift, 1) : '–', 'EUR/MWh', 'vs sol-only capture'));
 
-    // FCR-N latest yearly
+    // FCR-N latest yearly revenue (sum of hourly prices)
     var fcr = lastYearly(z['anc_fcr_n'] && z['anc_fcr_n'].yearly);
-    tiles.push(kpiTile('FCR-N price', fcr ? fmtNum(fcr.baseload || fcr.capture, 0) : '–', 'EUR/MW', fcr ? 'Yearly avg ' + fcr.year : ''));
+    tiles.push(kpiTile('FCR-N revenue', fcr ? fmtNum(fcr.baseload || fcr.capture, 0) : '–', 'EUR/MW·yr', fcr ? 'Annual sum ' + fcr.year : ''));
 
     el('bess-kpis').innerHTML = tiles.join('');
 }
@@ -1981,11 +2219,98 @@ function renderBessUpliftPctChart() {
     }), PLOTLY_CFG);
 }
 
+var ANC_KEYS = ['anc_fcr_n','anc_fcr_d_up','anc_fcr_d_down','anc_afrr_up','anc_afrr_down','anc_mfrr_cm_up','anc_mfrr_cm_down'];
+
+function ancLast12mRevenue(monthly) {
+    if (!monthly || !monthly.length) return null;
+    var tail = monthly.slice(-12);
+    if (tail.length < 6) return null;
+    var sum = 0;
+    var any = false;
+    tail.forEach(function(r) {
+        var v = r.baseload != null ? r.baseload : r.capture;
+        if (v != null) { sum += v; any = true; }
+    });
+    if (!any) return null;
+    var months = tail.length;
+    return months === 12 ? sum : (sum / months) * 12;
+}
+
 function renderAncillaryChart() {
     var zone = BESS_STATE.zone;
     var z = (DATA.data && DATA.data[zone]) || {};
+
+    // ----- actionable summary: implied annual revenue per MW (last 12 m) -----
+    var rows = [];
+    ANC_KEYS.forEach(function(k) {
+        var p = z[k];
+        if (!p || !p.monthly) return;
+        var rev = ancLast12mRevenue(p.monthly);
+        if (rev == null) return;
+        rows.push({
+            key: k,
+            label: (DATA.profiles && DATA.profiles[k]) || k,
+            color: profileColor(k) || '#7c3aed',
+            revenue: rev,
+        });
+    });
+    rows.sort(function(a, b) { return b.revenue - a.revenue; });
+
+    var headlineEl = el('bess-anc-headline');
+    var summaryEl = el('bess-anc-summary');
+    var contextEl = el('bess-anc-context');
+
+    if (!rows.length) {
+        if (headlineEl) headlineEl.innerHTML = '<em>No data</em>';
+        if (summaryEl) summaryEl.innerHTML = '';
+        if (contextEl) contextEl.innerHTML = '';
+        Plotly.purge('bess-anc-chart');
+        el('bess-anc-chart').innerHTML = '<div class="empty-note">No ancillary data for ' + htmlEsc(zone) + '.</div>';
+        return;
+    }
+
+    var top = rows[0];
+    var maxRev = top.revenue;
+
+    if (headlineEl) {
+        headlineEl.innerHTML = '<em>Top product</em>' + htmlEsc(top.label) +
+            ' · <span style="color:var(--ink-1)">' + fmtNum(top.revenue, 0) + '</span> EUR/MW · yr';
+    }
+
+    if (summaryEl) {
+        var html = rows.map(function(r, i) {
+            var pct = maxRev > 0 ? Math.max(2, (r.revenue / maxRev) * 100) : 0;
+            return '<div class="anc-rev-row' + (i === 0 ? ' is-top' : '') + '">' +
+                '<span class="anc-rev-dot" style="background:' + r.color + '"></span>' +
+                '<span class="anc-rev-label">' + htmlEsc(r.label) + '</span>' +
+                '<span class="anc-rev-bar"><span class="anc-rev-bar-fill" style="width:' + pct.toFixed(1) + '%;background:' + r.color + '"></span></span>' +
+                '<span class="anc-rev-value">' + fmtNum(r.revenue, 0) + ' EUR/MW · yr</span>' +
+            '</div>';
+        }).join('');
+        summaryEl.innerHTML = html;
+    }
+
+    // Context line: compare top ancillary to selected arbitrage duration.
+    if (contextEl) {
+        var arbKey = 'arb_' + BESS_STATE.duration;
+        var arb = z[arbKey];
+        var arbY = arb && arb.yearly && arb.yearly.length ? arb.yearly[arb.yearly.length - 1] : null;
+        var arbVal = arbY ? (arbY.capture != null ? arbY.capture : arbY.baseload) : null;
+        var pieces = [];
+        pieces.push('Last 12 months at 1 MW continuous bid acceptance — best product is <strong>' + htmlEsc(top.label) +
+            '</strong> at <strong>' + fmtNum(top.revenue, 0) + '</strong> EUR/MW · yr in ' + htmlEsc(zone) + '.');
+        if (arbVal != null) {
+            var ratio = arbVal > 0 ? top.revenue / arbVal : null;
+            pieces.push('Arbitrage ' + BESS_STATE.duration + ' (' + arbY.year + ') = <strong>' + fmtNum(arbVal, 0) + '</strong> EUR/MW · yr' +
+                (ratio != null ? ' — top ancillary is <strong>' + fmtNum(ratio, 1) + '×</strong> arbitrage' : '') +
+                '. The two stack on the same MW — see methodology.');
+        }
+        contextEl.innerHTML = pieces.join(' ');
+    }
+
+    // ----- monthly chart -----
     var traces = [];
-    ['anc_fcr_n','anc_fcr_d_up','anc_fcr_d_down','anc_afrr_up','anc_afrr_down','anc_mfrr_cm_up','anc_mfrr_cm_down'].forEach(function(k) {
+    ANC_KEYS.forEach(function(k) {
         var p = z[k];
         if (!p || !p.monthly) return;
         var color = profileColor(k);
@@ -1998,15 +2323,21 @@ function renderAncillaryChart() {
             hovertemplate: '%{x}<br>' + htmlEsc(label) + ': <b>%{y:,.0f}</b> EUR/MW<extra></extra>',
         });
     });
-    if (!traces.length) {
-        Plotly.purge('bess-anc-chart');
-        el('bess-anc-chart').innerHTML = '<div class="empty-note">No ancillary data for ' + htmlEsc(zone) + '.</div>';
-        return;
-    }
     Plotly.react('bess-anc-chart', traces, makeLayout({
         yaxis: Object.assign({}, PLOTLY_BASE.yaxis, { title: { text: 'EUR / MW · month', font: PLOTLY_BASE.yaxis.title.font } }),
         margin: { t: 12, b: 70, l: 76, r: 24 },
     }), PLOTLY_CFG);
+
+    // Plotly cannot size correctly inside a closed <details>. Resize on first open.
+    var card = el('bess-anc-card');
+    if (card && !card.dataset.toggleBound) {
+        card.addEventListener('toggle', function() {
+            if (card.open) {
+                try { Plotly.Plots.resize(el('bess-anc-chart')); } catch (e) {}
+            }
+        });
+        card.dataset.toggleBound = '1';
+    }
 }
 
 function renderInvestPanel() {
@@ -3468,6 +3799,289 @@ function daysInDrillPeriod(park, keys) {
     return out;
 }
 
+// ============================================================
+//  Drill chart x-axis resolution toggle (Day / Week / Month)
+// ============================================================
+var DRILL_CHART_RES = {
+    energy: 'month',
+    yield:  'month',
+    poa:    'month',
+    daily:  'day',
+};
+
+function isoWeekKey(dateStr) {
+    if (!dateStr) return '';
+    var d = new Date(dateStr + 'T00:00:00Z');
+    if (isNaN(d.getTime())) return dateStr;
+    var date = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+    var dayNum = date.getUTCDay() || 7;
+    date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+    var yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+    var weekNum = Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+    return date.getUTCFullYear() + '-W' + (weekNum < 10 ? '0' : '') + weekNum;
+}
+
+function bucketKey(dateStr, gran) {
+    if (!dateStr) return '';
+    if (gran === 'day') return dateStr;
+    if (gran === 'week') return isoWeekKey(dateStr);
+    return dateStr.slice(0, 7);
+}
+
+function bucketize(days, gran) {
+    var groups = {};
+    var order = [];
+    days.forEach(function(d) {
+        if (!d.date) return;
+        var k = bucketKey(d.date, gran);
+        if (!groups[k]) { groups[k] = []; order.push(k); }
+        groups[k].push(d);
+    });
+    return order.map(function(k) { return { key: k, items: groups[k] }; });
+}
+
+function sumField(items, field) {
+    var s = null;
+    for (var i = 0; i < items.length; i++) {
+        var v = items[i][field];
+        if (v != null && !isNaN(v)) {
+            s = (s == null ? 0 : s) + Number(v);
+        }
+    }
+    return s;
+}
+
+function meanWeighted(items, field, weightField) {
+    var sw = 0, sx = 0, has = false;
+    for (var i = 0; i < items.length; i++) {
+        var v = items[i][field], w = items[i][weightField];
+        if (v != null && w != null && !isNaN(v) && !isNaN(w) && Number(w) > 0) {
+            sw += Number(w);
+            sx += Number(v) * Number(w);
+            has = true;
+        }
+    }
+    return (has && sw > 0) ? sx / sw : null;
+}
+
+function thirteenMonthDailySource(park) {
+    var monthKeys = (park.months || []).map(function(m) { return m.year + '-' + pad2(m.month); });
+    return daysInDrillPeriod(park, monthKeys);
+}
+
+function resUnitLabel(gran) {
+    if (gran === 'day') return 'day';
+    if (gran === 'week') return 'week';
+    return 'month';
+}
+
+function syncDrillChartResUI() {
+    ['energy', 'yield', 'poa', 'daily'].forEach(function(name) {
+        var seg = el('drill-' + name + '-res');
+        if (!seg) return;
+        var current = DRILL_CHART_RES[name];
+        seg.querySelectorAll('button').forEach(function(b) {
+            var on = b.dataset.res === current;
+            b.setAttribute('aria-selected', on ? 'true' : 'false');
+            b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+    });
+}
+
+function bindDrillChartResControls() {
+    ['energy', 'yield', 'poa', 'daily'].forEach(function(name) {
+        var seg = el('drill-' + name + '-res');
+        if (!seg || seg.dataset.bound) return;
+        seg.querySelectorAll('button').forEach(function(b) {
+            b.addEventListener('click', function() {
+                var r = b.dataset.res;
+                if (r === DRILL_CHART_RES[name]) return;
+                DRILL_CHART_RES[name] = r;
+                syncDrillChartResUI();
+                var pk = ASSETS_STATE.selectedPark;
+                var park = ASSETS.parks[pk];
+                if (!park) return;
+                if (name === 'energy') renderDrillEnergyChart(park);
+                else if (name === 'yield') renderDrillYieldChart(park);
+                else if (name === 'poa') renderDrillPoaChart(park);
+                else if (name === 'daily') {
+                    var keys = drillPeriodKeys(park);
+                    var suffix = drillFormatPeriodSuffix(park, ASSETS_STATE.drillPeriod);
+                    renderDrillDailyChart(park, keys, suffix);
+                }
+            });
+        });
+        seg.dataset.bound = '1';
+    });
+}
+
+function renderDrillEnergyChart(park) {
+    var gran = DRILL_CHART_RES.energy;
+    var months = (park.months || []).slice();
+    if (gran === 'month') {
+        var xs = months.map(function(mm) { return mm.year + '-' + pad2(mm.month); });
+        Plotly.react('drill-energy-chart', [
+            { x: xs, y: months.map(function(mm) { return mm.energy_mwh; }), name: 'Actual', type: 'bar', marker: { color: '#2E5C4D' }, hovertemplate: '%{x}<br>Actual: <b>%{y:,.0f}</b> MWh<extra></extra>' },
+            { x: xs, y: months.map(function(mm) { return mm.budget_mwh; }), name: 'Budget', type: 'bar', marker: { color: '#C9A53C', opacity: 0.55 }, hovertemplate: '%{x}<br>Budget: <b>%{y:,.0f}</b> MWh<extra></extra>' },
+        ], makeLayout({
+            barmode: 'group',
+            yaxis: Object.assign({}, PLOTLY_BASE.yaxis, { title: { text: 'MWh', font: PLOTLY_BASE.yaxis.title.font } }),
+            margin: { t: 12, b: 70, l: 64, r: 24 },
+        }), PLOTLY_CFG);
+        return;
+    }
+    var days = thirteenMonthDailySource(park);
+    if (!days.length) {
+        Plotly.purge('drill-energy-chart');
+        el('drill-energy-chart').innerHTML = '<div class="empty-note">No daily data available for this resolution.</div>';
+        return;
+    }
+    var buckets = bucketize(days, gran);
+    var xs2 = buckets.map(function(b) { return b.key; });
+    var actual = buckets.map(function(b) { return sumField(b.items, 'energy_mwh'); });
+    var expected = buckets.map(function(b) { return sumField(b.items, 'expected_mwh'); });
+    var unit = resUnitLabel(gran);
+    Plotly.react('drill-energy-chart', [
+        { x: xs2, y: actual, name: 'Actual', type: 'bar', marker: { color: '#2E5C4D' }, hovertemplate: '%{x}<br>Actual: <b>%{y:,.1f}</b> MWh / ' + unit + '<extra></extra>' },
+        { x: xs2, y: expected, name: 'Budget', type: 'bar', marker: { color: '#C9A53C', opacity: 0.55 }, hovertemplate: '%{x}<br>Budget: <b>%{y:,.1f}</b> MWh / ' + unit + '<extra></extra>' },
+    ], makeLayout({
+        barmode: 'group',
+        yaxis: Object.assign({}, PLOTLY_BASE.yaxis, { title: { text: 'MWh', font: PLOTLY_BASE.yaxis.title.font } }),
+        margin: { t: 12, b: 70, l: 64, r: 24 },
+    }), PLOTLY_CFG);
+}
+
+function renderDrillYieldChart(park) {
+    var gran = DRILL_CHART_RES.yield;
+    var sub = el('drill-yield-sub');
+    if (sub) sub.textContent = 'kWh / kWp · ' + resUnitLabel(gran) + '.';
+    var months = (park.months || []).slice();
+    if (gran === 'month') {
+        var xs = months.map(function(mm) { return mm.year + '-' + pad2(mm.month); });
+        Plotly.react('drill-yield-chart', [
+            { x: xs, y: months.map(function(mm) { return mm.yield_kwh_kwp; }), type: 'scatter', mode: 'lines+markers', line: { color: '#92B53D', width: 2.4, shape: 'spline' }, marker: { size: 6 }, hovertemplate: '%{x}<br>Yield: <b>%{y:.1f}</b> kWh/kWp<extra></extra>', name: 'Yield' },
+        ], makeLayout({
+            yaxis: Object.assign({}, PLOTLY_BASE.yaxis, { title: { text: 'kWh / kWp', font: PLOTLY_BASE.yaxis.title.font } }),
+            showlegend: false,
+            margin: { t: 12, b: 70, l: 64, r: 24 },
+        }), PLOTLY_CFG);
+        return;
+    }
+    var cap = park.capacity_mwp;
+    if (!cap || cap <= 0) {
+        Plotly.purge('drill-yield-chart');
+        el('drill-yield-chart').innerHTML = '<div class="empty-note">Capacity unknown — yield not computable.</div>';
+        return;
+    }
+    var days = thirteenMonthDailySource(park);
+    if (!days.length) {
+        Plotly.purge('drill-yield-chart');
+        el('drill-yield-chart').innerHTML = '<div class="empty-note">No daily data available for this resolution.</div>';
+        return;
+    }
+    var buckets = bucketize(days, gran);
+    var xs2 = buckets.map(function(b) { return b.key; });
+    var ys = buckets.map(function(b) {
+        var e = sumField(b.items, 'energy_mwh');
+        return e == null ? null : e / cap;
+    });
+    Plotly.react('drill-yield-chart', [
+        { x: xs2, y: ys, type: 'scatter', mode: 'lines+markers', line: { color: '#92B53D', width: 2.4, shape: 'spline' }, marker: { size: 6 }, hovertemplate: '%{x}<br>Yield: <b>%{y:.1f}</b> kWh/kWp<extra></extra>', name: 'Yield' },
+    ], makeLayout({
+        yaxis: Object.assign({}, PLOTLY_BASE.yaxis, { title: { text: 'kWh / kWp', font: PLOTLY_BASE.yaxis.title.font } }),
+        showlegend: false,
+        margin: { t: 12, b: 70, l: 64, r: 24 },
+    }), PLOTLY_CFG);
+}
+
+function renderDrillPoaChart(park) {
+    var gran = DRILL_CHART_RES.poa;
+    var sub = el('drill-poa-sub');
+    if (sub) sub.textContent = 'kWh / m² · ' + resUnitLabel(gran) + ', last 13 months.';
+    var months = (park.months || []).slice();
+    if (gran === 'month') {
+        var xs = months.map(function(mm) { return mm.year + '-' + pad2(mm.month); });
+        Plotly.react('drill-capture-chart', [
+            { x: xs, y: months.map(function(mm) { return mm.actual_irr_kwh_m2; }), type: 'scatter', mode: 'lines+markers', line: { color: '#C16E40', width: 2.4, shape: 'spline' }, marker: { size: 6 }, name: 'Actual', hovertemplate: '%{x}<br>Actual: <b>%{y:.1f}</b> kWh/m²<extra></extra>', connectgaps: false },
+            { x: xs, y: months.map(function(mm) { return mm.budget_irr_kwh_m2; }), type: 'scatter', mode: 'lines+markers', line: { color: '#5B6BA8', width: 2, dash: 'dash', shape: 'spline' }, marker: { size: 5, symbol: 'square-open' }, name: 'Budget', hovertemplate: '%{x}<br>Budget: <b>%{y:.1f}</b> kWh/m²<extra></extra>' },
+        ], makeLayout({
+            yaxis: Object.assign({}, PLOTLY_BASE.yaxis, { title: { text: 'kWh / m²', font: PLOTLY_BASE.yaxis.title.font } }),
+            margin: { t: 12, b: 70, l: 64, r: 24 },
+        }), PLOTLY_CFG);
+        return;
+    }
+    var days = thirteenMonthDailySource(park);
+    if (!days.length) {
+        Plotly.purge('drill-capture-chart');
+        el('drill-capture-chart').innerHTML = '<div class="empty-note">No daily POA data available for this resolution.</div>';
+        return;
+    }
+    var buckets = bucketize(days, gran);
+    var xs2 = buckets.map(function(b) { return b.key; });
+    var actual = buckets.map(function(b) { return sumField(b.items, 'irradiation_kwh_m2'); });
+    Plotly.react('drill-capture-chart', [
+        { x: xs2, y: actual, type: 'scatter', mode: 'lines+markers', line: { color: '#C16E40', width: 2.4, shape: 'spline' }, marker: { size: 6 }, name: 'Actual', hovertemplate: '%{x}<br>Actual: <b>%{y:.1f}</b> kWh/m²<extra></extra>', connectgaps: false },
+    ], makeLayout({
+        yaxis: Object.assign({}, PLOTLY_BASE.yaxis, { title: { text: 'kWh / m²', font: PLOTLY_BASE.yaxis.title.font } }),
+        showlegend: false,
+        margin: { t: 12, b: 70, l: 64, r: 24 },
+    }), PLOTLY_CFG);
+}
+
+function renderDrillDailyChart(park, keys, suffix) {
+    var gran = DRILL_CHART_RES.daily;
+    var dailySub = el('drill-daily-sub');
+    if (dailySub) dailySub.textContent = suffix + ' · ' + resUnitLabel(gran) + ' resolution, actual vs expected.';
+    var days = daysInDrillPeriod(park, keys);
+    if (!days.length) {
+        Plotly.purge('drill-daily-chart');
+        el('drill-daily-chart').innerHTML = '<div class="empty-note">No daily data for ' + htmlEsc(suffix) + '.</div>';
+        return;
+    }
+    var xs, energy, expected, irr, pr;
+    if (gran === 'day') {
+        xs = days.map(function(d) { return d.date; });
+        energy = days.map(function(d) { return d.energy_mwh; });
+        expected = days.map(function(d) { return d.expected_mwh; });
+        irr = days.map(function(d) { return d.irradiation_kwh_m2; });
+        pr = days.map(function(d) { return d.pr_pct; });
+    } else {
+        var buckets = bucketize(days, gran);
+        xs = buckets.map(function(b) { return b.key; });
+        energy = buckets.map(function(b) { return sumField(b.items, 'energy_mwh'); });
+        expected = buckets.map(function(b) { return sumField(b.items, 'expected_mwh'); });
+        irr = buckets.map(function(b) { return sumField(b.items, 'irradiation_kwh_m2'); });
+        pr = buckets.map(function(b) { return meanWeighted(b.items, 'pr_pct', 'irradiation_kwh_m2'); });
+    }
+    var unit = resUnitLabel(gran);
+    Plotly.react('drill-daily-chart', [
+        { x: xs, y: energy, name: 'Actual', type: 'bar', marker: { color: '#2E5C4D' }, hovertemplate: '%{x}<br>Actual: <b>%{y:.2f}</b> MWh / ' + unit + '<extra></extra>' },
+        { x: xs, y: expected, name: 'Expected', type: 'scatter', mode: 'lines', line: { color: '#C16E40', dash: 'dash', width: 2 }, hovertemplate: '%{x}<br>Expected: <b>%{y:.2f}</b> MWh / ' + unit + '<extra></extra>' },
+        { x: xs, y: irr, name: 'POA Irr', type: 'scatter', mode: 'lines', line: { color: '#C9A53C', width: 1.6, shape: 'spline' }, yaxis: 'y2', connectgaps: false, hovertemplate: '%{x}<br>POA Irr: <b>%{y:.2f}</b> kWh/m²<extra></extra>' },
+        { x: xs, y: pr, name: 'PR %', type: 'scatter', mode: 'lines+markers', line: { color: '#5B6BA8', width: 1.8, shape: 'spline' }, marker: { size: 4 }, yaxis: 'y3', connectgaps: false, hovertemplate: '%{x}<br>PR: <b>%{y:.1f}</b> %<extra></extra>' },
+    ], makeLayout({
+        yaxis: Object.assign({}, PLOTLY_BASE.yaxis, { title: { text: 'MWh', font: PLOTLY_BASE.yaxis.title.font } }),
+        yaxis2: Object.assign({}, PLOTLY_BASE.yaxis, {
+            title: { text: 'kWh / m²', font: PLOTLY_BASE.yaxis.title.font },
+            overlaying: 'y',
+            side: 'right',
+            gridcolor: 'transparent',
+            showgrid: false,
+        }),
+        yaxis3: Object.assign({}, PLOTLY_BASE.yaxis, {
+            title: { text: 'PR %', font: PLOTLY_BASE.yaxis.title.font },
+            overlaying: 'y',
+            side: 'right',
+            position: 0.94,
+            anchor: 'free',
+            range: [0, 110],
+            gridcolor: 'transparent',
+            showgrid: false,
+        }),
+        margin: { t: 12, b: 70, l: 64, r: 96 },
+    }), PLOTLY_CFG);
+}
+
 function renderDrilldown() {
     var pk = ASSETS_STATE.selectedPark;
     var p = ASSETS.parks[pk];
@@ -3609,71 +4223,15 @@ function renderDrilldown() {
     ];
     el('drill-kpis').innerHTML = tiles.join('');
 
-    // Charts (Energy vs Budget, Yield, POA Irradiation are always last 13 months)
-    var months = (p.months || []).slice();
-    var xs = months.map(function(mm) { return mm.year + '-' + String(mm.month).padStart(2, '0'); });
-
-    Plotly.react('drill-energy-chart', [
-        { x: xs, y: months.map(function(mm) { return mm.energy_mwh; }), name: 'Actual', type: 'bar', marker: { color: '#2E5C4D' }, hovertemplate: '%{x}<br>Actual: <b>%{y:,.0f}</b> MWh<extra></extra>' },
-        { x: xs, y: months.map(function(mm) { return mm.budget_mwh; }), name: 'Budget', type: 'bar', marker: { color: '#C9A53C', opacity: 0.55 }, hovertemplate: '%{x}<br>Budget: <b>%{y:,.0f}</b> MWh<extra></extra>' },
-    ], makeLayout({
-        barmode: 'group',
-        yaxis: Object.assign({}, PLOTLY_BASE.yaxis, { title: { text: 'MWh', font: PLOTLY_BASE.yaxis.title.font } }),
-        margin: { t: 12, b: 70, l: 64, r: 24 },
-    }), PLOTLY_CFG);
-
-    Plotly.react('drill-yield-chart', [
-        { x: xs, y: months.map(function(mm) { return mm.yield_kwh_kwp; }), type: 'scatter', mode: 'lines+markers', line: { color: '#92B53D', width: 2.4, shape: 'spline' }, marker: { size: 6 }, hovertemplate: '%{x}<br>Yield: <b>%{y:.1f}</b> kWh/kWp<extra></extra>', name: 'Yield' },
-    ], makeLayout({
-        yaxis: Object.assign({}, PLOTLY_BASE.yaxis, { title: { text: 'kWh / kWp', font: PLOTLY_BASE.yaxis.title.font } }),
-        showlegend: false,
-        margin: { t: 12, b: 70, l: 64, r: 24 },
-    }), PLOTLY_CFG);
-
-    // Daily chart spans the selected period
-    var dailySub = el('drill-daily-sub');
-    if (dailySub) dailySub.textContent = suffix + ' · actual vs expected.';
+    // Charts: x-axis resolution toggle (Day/Week/Month). Energy/Yield/POA span last 13 months;
+    // Daily chart spans the selected period. Toggle state lives in DRILL_CHART_RES.
+    bindDrillChartResControls();
+    syncDrillChartResUI();
+    renderDrillEnergyChart(p);
+    renderDrillYieldChart(p);
+    renderDrillPoaChart(p);
+    renderDrillDailyChart(p, keys, suffix);
     var days = daysInDrillPeriod(p, keys);
-    if (days.length) {
-        var dxs = days.map(function(d) { return d.date; });
-        Plotly.react('drill-daily-chart', [
-            { x: dxs, y: days.map(function(d) { return d.energy_mwh; }), name: 'Actual', type: 'bar', marker: { color: '#2E5C4D' }, hovertemplate: '%{x}<br>Actual: <b>%{y:.2f}</b> MWh<extra></extra>' },
-            { x: dxs, y: days.map(function(d) { return d.expected_mwh; }), name: 'Expected', type: 'scatter', mode: 'lines', line: { color: '#C16E40', dash: 'dash', width: 2 }, hovertemplate: '%{x}<br>Expected: <b>%{y:.2f}</b> MWh<extra></extra>' },
-            { x: dxs, y: days.map(function(d) { return d.irradiation_kwh_m2; }), name: 'POA Irr', type: 'scatter', mode: 'lines', line: { color: '#C9A53C', width: 1.6, shape: 'spline' }, yaxis: 'y2', connectgaps: false, hovertemplate: '%{x}<br>POA Irr: <b>%{y:.2f}</b> kWh/m²<extra></extra>' },
-            { x: dxs, y: days.map(function(d) { return d.pr_pct; }), name: 'PR %', type: 'scatter', mode: 'lines+markers', line: { color: '#5B6BA8', width: 1.8, shape: 'spline' }, marker: { size: 4 }, yaxis: 'y3', connectgaps: false, hovertemplate: '%{x}<br>PR: <b>%{y:.1f}</b> %<extra></extra>' },
-        ], makeLayout({
-            yaxis: Object.assign({}, PLOTLY_BASE.yaxis, { title: { text: 'MWh', font: PLOTLY_BASE.yaxis.title.font } }),
-            yaxis2: Object.assign({}, PLOTLY_BASE.yaxis, {
-                title: { text: 'kWh / m²', font: PLOTLY_BASE.yaxis.title.font },
-                overlaying: 'y',
-                side: 'right',
-                gridcolor: 'transparent',
-                showgrid: false,
-            }),
-            yaxis3: Object.assign({}, PLOTLY_BASE.yaxis, {
-                title: { text: 'PR %', font: PLOTLY_BASE.yaxis.title.font },
-                overlaying: 'y',
-                side: 'right',
-                position: 0.94,
-                anchor: 'free',
-                range: [0, 110],
-                gridcolor: 'transparent',
-                showgrid: false,
-            }),
-            margin: { t: 12, b: 70, l: 64, r: 96 },
-        }), PLOTLY_CFG);
-    } else {
-        Plotly.purge('drill-daily-chart');
-        el('drill-daily-chart').innerHTML = '<div class="empty-note">No daily data for ' + htmlEsc(suffix) + '.</div>';
-    }
-
-    Plotly.react('drill-capture-chart', [
-        { x: xs, y: months.map(function(mm) { return mm.actual_irr_kwh_m2; }), type: 'scatter', mode: 'lines+markers', line: { color: '#C16E40', width: 2.4, shape: 'spline' }, marker: { size: 6 }, name: 'Actual', hovertemplate: '%{x}<br>Actual: <b>%{y:.1f}</b> kWh/m²<extra></extra>', connectgaps: false },
-        { x: xs, y: months.map(function(mm) { return mm.budget_irr_kwh_m2; }), type: 'scatter', mode: 'lines+markers', line: { color: '#5B6BA8', width: 2, dash: 'dash', shape: 'spline' }, marker: { size: 5, symbol: 'square-open' }, name: 'Budget', hovertemplate: '%{x}<br>Budget: <b>%{y:.1f}</b> kWh/m²<extra></extra>' },
-    ], makeLayout({
-        yaxis: Object.assign({}, PLOTLY_BASE.yaxis, { title: { text: 'kWh / m²', font: PLOTLY_BASE.yaxis.title.font } }),
-        margin: { t: 12, b: 70, l: 64, r: 24 },
-    }), PLOTLY_CFG);
 
     var bwSub = el('drill-bestworst-sub');
     if (bwSub) bwSub.textContent = suffix + ' · ranked by energy.';
@@ -3681,6 +4239,7 @@ function renderDrilldown() {
 
     // Loss + revenue waterfalls
     bindLossModeControls();
+    bindRevenueModeControls();
     renderLossWaterfall(p, keys);
     renderRevenueWaterfall(p, keys);
 
@@ -3711,7 +4270,7 @@ var DRILL_LOSS_MODE = 'mwh';
 
 function aggregateLosses(park, keys) {
     var fields = ['budget_mwh','actual_mwh','irradiance_shortfall_mwh',
-                  'availability_mwh','curtailment_mwh','temperature_mwh','other_mwh'];
+                  'availability_mwh','curtailment_mwh'];
     var sums = {};
     fields.forEach(function(f) { sums[f] = 0; });
     var any = false;
@@ -3737,8 +4296,8 @@ function renderLossWaterfall(park, keys) {
         return;
     }
     var budget = sums.budget_mwh;
-    var labels = ['Budget', 'Irr shortfall', 'Availability', 'Curtailment', 'Temperature', 'Other', 'Actual'];
-    var measures = ['absolute', 'relative', 'relative', 'relative', 'relative', 'relative', 'total'];
+    var labels = ['Budget', 'Instrålning', 'Tillgänglighet', 'Oförklarat', 'Faktisk'];
+    var measures = ['absolute', 'relative', 'relative', 'relative', 'total'];
     var values, unit;
     if (DRILL_LOSS_MODE === 'mwh') {
         values = [
@@ -3746,8 +4305,6 @@ function renderLossWaterfall(park, keys) {
             -sums.irradiance_shortfall_mwh,
             -sums.availability_mwh,
             -sums.curtailment_mwh,
-            -sums.temperature_mwh,
-            -sums.other_mwh,
             sums.actual_mwh,
         ];
         unit = 'MWh';
@@ -3758,8 +4315,6 @@ function renderLossWaterfall(park, keys) {
             -pct(sums.irradiance_shortfall_mwh),
             -pct(sums.availability_mwh),
             -pct(sums.curtailment_mwh),
-            -pct(sums.temperature_mwh),
-            -pct(sums.other_mwh),
             pct(sums.actual_mwh),
         ];
         unit = '%';
@@ -3805,43 +4360,137 @@ function bindLossModeControls() {
     seg.dataset.bound = '1';
 }
 
+// Revenue mode: 'spot' (100% spot) or 'ppa' (volume-weighted PPA blend).
+// Default = 'ppa' when the selected park has any PPA data, otherwise 'spot'.
+var REVENUE_MODE = 'ppa';
+
+function setRevenueMode(mode) {
+    REVENUE_MODE = (mode === 'spot') ? 'spot' : 'ppa';
+    // Reflect in toggle UI if present.
+    var btnSpot = el('rev-mode-spot');
+    var btnPpa  = el('rev-mode-ppa');
+    if (btnSpot && btnPpa) {
+        btnSpot.setAttribute('aria-selected', REVENUE_MODE === 'spot' ? 'true' : 'false');
+        btnPpa .setAttribute('aria-selected', REVENUE_MODE === 'ppa' ? 'true' : 'false');
+        btnSpot.setAttribute('aria-pressed', REVENUE_MODE === 'spot' ? 'true' : 'false');
+        btnPpa .setAttribute('aria-pressed', REVENUE_MODE === 'ppa' ? 'true' : 'false');
+    }
+}
+
+function bindRevenueModeControls() {
+    var seg = el('rev-mode-toggle');
+    if (!seg || seg.dataset.bound) return;
+    seg.querySelectorAll('button').forEach(function(b) {
+        b.addEventListener('click', function() {
+            if (b.disabled) return;
+            var m = b.dataset.revMode;
+            if (m === REVENUE_MODE) return;
+            setRevenueMode(m);
+            var pk = ASSETS_STATE.selectedPark;
+            var park = ASSETS.parks[pk];
+            if (park) renderRevenueWaterfall(park, drillPeriodKeys(park));
+        });
+    });
+    seg.dataset.bound = '1';
+}
+
 function renderRevenueWaterfall(park, keys) {
     var host = el('drill-revenue-chart');
     if (!host) return;
+    var sub  = el('drill-revenue-sub');
+
+    var hasPpa = !!(park && park.ppa);
+    // Auto-fall back to spot when the park has no PPA contract.
+    var mode = (REVENUE_MODE === 'ppa' && hasPpa) ? 'ppa' : 'spot';
+
+    // Update toggle availability + sub-text.
+    var btnSpot = el('rev-mode-spot');
+    var btnPpa  = el('rev-mode-ppa');
+    if (btnPpa) {
+        btnPpa.disabled = !hasPpa;
+        btnPpa.title = hasPpa
+            ? ('PPA: ' + park.ppa.share_pct + '% @ ' + fmtNum(park.ppa.price_sek_mwh, 0) + ' SEK/MWh')
+            : 'No PPA configured for this park';
+    }
+    // Reflect the effective mode in toggle aria-state.
+    if (btnSpot && btnPpa) {
+        btnSpot.setAttribute('aria-selected', mode === 'spot' ? 'true' : 'false');
+        btnSpot.setAttribute('aria-pressed',  mode === 'spot' ? 'true' : 'false');
+        btnPpa .setAttribute('aria-selected', mode === 'ppa'  ? 'true' : 'false');
+        btnPpa .setAttribute('aria-pressed',  mode === 'ppa'  ? 'true' : 'false');
+    }
+
     var rows = (park.months || []).filter(function(m) {
         return keys.indexOf(m.year + '-' + pad2(m.month)) !== -1;
     });
     var hasRev = rows.some(function(r) { return r.revenue_eur != null; });
     if (!hasRev) {
+        if (sub) sub.textContent = mode === 'ppa'
+            ? 'PPA: ' + park.ppa.share_pct + '% @ ' + fmtNum(park.ppa.price_sek_mwh, 0) + ' SEK/MWh + spot.'
+            : '100% spot. No PPA hedge applied.';
         Plotly.purge('drill-revenue-chart');
         host.innerHTML = '<div class="empty-note">No revenue data for selected period (Bazefield × spot join unavailable).</div>';
         return;
     }
-    var actualRev = 0, actualVol = 0, baselineWeighted = 0, baselineDen = 0;
+    var actualRev = 0, actualRevPpa = 0;
+    var actualVol = 0, baselineWeighted = 0, baselineDen = 0;
+    var effBaseWeighted = 0, effBaseDen = 0;  // volume-weighted PPA-blended baseload
     var budgetMwh = 0;
     rows.forEach(function(r) {
         if (r.revenue_eur != null) actualRev += r.revenue_eur;
+        if (r.revenue_eur_ppa != null) actualRevPpa += r.revenue_eur_ppa;
+        else if (r.revenue_eur != null) actualRevPpa += r.revenue_eur;  // park lacks PPA
         if (r.bazefield_volume_mwh != null) actualVol += r.bazefield_volume_mwh;
         if (r.budget_mwh != null) budgetMwh += r.budget_mwh;
         if (r.baseload_eur_mwh != null && r.bazefield_volume_mwh != null) {
             baselineWeighted += r.baseload_eur_mwh * r.bazefield_volume_mwh;
             baselineDen += r.bazefield_volume_mwh;
         }
+        if (r.effective_baseload_eur_mwh_ppa != null && r.bazefield_volume_mwh != null) {
+            effBaseWeighted += r.effective_baseload_eur_mwh_ppa * r.bazefield_volume_mwh;
+            effBaseDen += r.bazefield_volume_mwh;
+        }
     });
     var baseload = baselineDen > 0 ? baselineWeighted / baselineDen : null;
     if (baseload == null) {
+        if (sub) sub.textContent = mode === 'ppa'
+            ? 'PPA: ' + park.ppa.share_pct + '% @ ' + fmtNum(park.ppa.price_sek_mwh, 0) + ' SEK/MWh + spot.'
+            : '100% spot. No PPA hedge applied.';
         Plotly.purge('drill-revenue-chart');
         host.innerHTML = '<div class="empty-note">Insufficient baseload data for decomposition.</div>';
         return;
     }
-    var capture = actualVol > 0 ? actualRev / actualVol : null;
-    var budgetRev = budgetMwh * baseload;
-    var volumeEffect = (actualVol - budgetMwh) * baseload;
-    var priceEffect = (capture != null) ? actualVol * (capture - baseload) : 0;
+    // Effective baseload + realized for the chosen pricing assumption.
+    // For PPA: baseload comes from backend (per-period FX applied) and is
+    // volume-weighted across the selected months.
+    var realizedRev = actualRev;
+    var effectiveBaseload = baseload;
+    var effPpaEur = (effBaseDen > 0) ? (effBaseWeighted / effBaseDen) : null;
+    var implPpaEur = null;  // implied period-average PPA price in EUR/MWh
+    if (mode === 'ppa' && effPpaEur != null) {
+        effectiveBaseload = effPpaEur;
+        realizedRev = actualRevPpa;
+        // Reverse-engineer the period's PPA EUR price from the blend.
+        var share = park.ppa.share_pct / 100.0;
+        if (share > 0) implPpaEur = (effPpaEur - (1 - share) * baseload) / share;
+    }
+    if (sub) {
+        if (mode === 'ppa') {
+            var ppaEurStr = (implPpaEur != null) ? (' (≈ ' + fmtNum(implPpaEur, 1) + ' €/MWh @ period EXR)') : '';
+            sub.textContent = 'PPA-blended: ' + park.ppa.share_pct + '% @ ' + fmtNum(park.ppa.price_sek_mwh, 0) + ' SEK/MWh' + ppaEurStr + ' + ' + (100 - park.ppa.share_pct) + '% spot. Budget priced on same blend.';
+        } else {
+            sub.textContent = '100% spot. No PPA hedge applied.';
+        }
+    }
+    var capture = actualVol > 0 ? realizedRev / actualVol : null;
+    var budgetRev = budgetMwh * effectiveBaseload;
+    var volumeEffect = (actualVol - budgetMwh) * effectiveBaseload;
+    var priceEffect = (capture != null) ? actualVol * (capture - effectiveBaseload) : 0;
 
-    var labels = ['Budget rev.<br>(@baseload)', 'Volume effect', 'Price effect', 'Realized rev.'];
+    var budgetLabel = (mode === 'ppa') ? 'Budget rev.<br>(@PPA blend)' : 'Budget rev.<br>(@baseload)';
+    var labels = [budgetLabel, 'Volume effect', 'Price effect', 'Realized rev.'];
     var measures = ['absolute', 'relative', 'relative', 'total'];
-    var values = [budgetRev, volumeEffect, priceEffect, actualRev];
+    var values = [budgetRev, volumeEffect, priceEffect, realizedRev];
     Plotly.react('drill-revenue-chart', [{
         type: 'waterfall',
         x: labels,
@@ -4012,8 +4661,7 @@ _SHELL = r"""<!DOCTYPE html>
       </div>
     </div>
     <div class="rail-foot">
-      v3<br>
-      Track C
+      ED · v3
     </div>
   </aside>
 
@@ -4065,9 +4713,9 @@ _SHELL = r"""<!DOCTYPE html>
           </div>
           <div class="card">
             <div class="card-head">
-              <div><div class="card-title">Capture ratio</div><div class="card-sub">Capture price as % of zone baseload.</div></div>
+              <div><div class="card-title">Capture spread</div><div class="card-sub">Capture price minus baseload, EUR/MWh. Positive = profile captures premium; negative = discount (cannibalisation).</div></div>
             </div>
-            <div class="chart chart-tall" id="capture-ratio-chart"></div>
+            <div class="chart chart-tall" id="capture-spread-chart"></div>
           </div>
         </div>
 
@@ -4142,13 +4790,6 @@ _SHELL = r"""<!DOCTYPE html>
 
         <div class="card">
           <div class="card-head">
-            <div><div class="card-title">Ancillary services</div><div class="card-sub">FCR / aFRR / mFRR-CM clearing prices.</div></div>
-          </div>
-          <div class="chart" id="bess-anc-chart"></div>
-        </div>
-
-        <div class="card">
-          <div class="card-head">
             <div><div class="card-title">Investment economics</div><div class="card-sub">Single-zone, single-duration screening NPV / payback.</div></div>
           </div>
           <div class="grid-2">
@@ -4161,6 +4802,21 @@ _SHELL = r"""<!DOCTYPE html>
             <div id="invest-output"></div>
           </div>
         </div>
+
+        <details class="card card-collapsible" id="bess-anc-card">
+          <summary>
+            <div>
+              <div class="card-title">Ancillary services</div>
+              <div class="card-sub">Implied annual revenue per MW at 100 % availability — last 12 months.</div>
+            </div>
+            <span id="bess-anc-headline" class="card-collapsible-headline"></span>
+          </summary>
+          <div class="card-collapsible-body">
+            <div class="anc-context-note" id="bess-anc-context"></div>
+            <div class="anc-rev-list" id="bess-anc-summary"></div>
+            <div class="chart" id="bess-anc-chart"></div>
+          </div>
+        </details>
       </div>
     </section>
 
@@ -4368,19 +5024,55 @@ _SHELL = r"""<!DOCTYPE html>
 
         <div class="drill-chart-grid">
           <div class="card">
-            <div class="card-head"><div><div class="card-title">Energy vs Budget</div><div class="card-sub">Last 13 months.</div></div></div>
+            <div class="card-head">
+              <div><div class="card-title">Energy vs Budget</div><div class="card-sub">Last 13 months.</div></div>
+              <div class="card-actions">
+                <div class="seg" id="drill-energy-res" data-chart="energy" role="tablist" aria-label="X-axis resolution">
+                  <button type="button" data-res="day" role="tab" aria-selected="false" aria-pressed="false">Day</button>
+                  <button type="button" data-res="week" role="tab" aria-selected="false" aria-pressed="false">Week</button>
+                  <button type="button" data-res="month" role="tab" aria-selected="true" aria-pressed="true">Month</button>
+                </div>
+              </div>
+            </div>
             <div class="chart" id="drill-energy-chart"></div>
           </div>
           <div class="card">
-            <div class="card-head"><div><div class="card-title">Specific Yield</div><div class="card-sub">kWh / kWp · month.</div></div></div>
+            <div class="card-head">
+              <div><div class="card-title">Specific Yield</div><div class="card-sub" id="drill-yield-sub">kWh / kWp · month.</div></div>
+              <div class="card-actions">
+                <div class="seg" id="drill-yield-res" data-chart="yield" role="tablist" aria-label="X-axis resolution">
+                  <button type="button" data-res="day" role="tab" aria-selected="false" aria-pressed="false">Day</button>
+                  <button type="button" data-res="week" role="tab" aria-selected="false" aria-pressed="false">Week</button>
+                  <button type="button" data-res="month" role="tab" aria-selected="true" aria-pressed="true">Month</button>
+                </div>
+              </div>
+            </div>
             <div class="chart" id="drill-yield-chart"></div>
           </div>
           <div class="card">
-            <div class="card-head"><div><div class="card-title">Daily generation</div><div class="card-sub" id="drill-daily-sub">Selected period, actual vs expected.</div></div></div>
+            <div class="card-head">
+              <div><div class="card-title">Daily generation</div><div class="card-sub" id="drill-daily-sub">Selected period, actual vs expected.</div></div>
+              <div class="card-actions">
+                <div class="seg" id="drill-daily-res" data-chart="daily" role="tablist" aria-label="X-axis resolution">
+                  <button type="button" data-res="day" role="tab" aria-selected="true" aria-pressed="true">Day</button>
+                  <button type="button" data-res="week" role="tab" aria-selected="false" aria-pressed="false">Week</button>
+                  <button type="button" data-res="month" role="tab" aria-selected="false" aria-pressed="false">Month</button>
+                </div>
+              </div>
+            </div>
             <div class="chart" id="drill-daily-chart"></div>
           </div>
           <div class="card">
-            <div class="card-head"><div><div class="card-title">POA Irradiation: Actual vs Budget</div><div class="card-sub">kWh / m² · month, last 13 months.</div></div></div>
+            <div class="card-head">
+              <div><div class="card-title">POA Irradiation: Actual vs Budget</div><div class="card-sub" id="drill-poa-sub">kWh / m² · month, last 13 months.</div></div>
+              <div class="card-actions">
+                <div class="seg" id="drill-poa-res" data-chart="poa" role="tablist" aria-label="X-axis resolution">
+                  <button type="button" data-res="day" role="tab" aria-selected="false" aria-pressed="false">Day</button>
+                  <button type="button" data-res="week" role="tab" aria-selected="false" aria-pressed="false">Week</button>
+                  <button type="button" data-res="month" role="tab" aria-selected="true" aria-pressed="true">Month</button>
+                </div>
+              </div>
+            </div>
             <div class="chart" id="drill-capture-chart"></div>
           </div>
         </div>
@@ -4388,7 +5080,7 @@ _SHELL = r"""<!DOCTYPE html>
         <div class="grid-2">
           <div class="card">
             <div class="card-head">
-              <div><div class="card-title">Loss analysis</div><div class="card-sub">Budget → Actual cascade by loss type.</div></div>
+              <div><div class="card-title">Loss analysis</div><div class="card-sub">Budget → Actual. Endast uppmätt instrålning &amp; availability; allt annat hamnar i &quot;Oförklarat&quot;.</div></div>
               <div class="card-actions">
                 <div class="seg" id="drill-loss-mode" role="tablist" aria-label="Loss display mode">
                   <button type="button" data-mode="mwh" role="tab" aria-selected="true" aria-pressed="true">MWh</button>
@@ -4399,7 +5091,15 @@ _SHELL = r"""<!DOCTYPE html>
             <div class="chart" id="drill-loss-chart"></div>
           </div>
           <div class="card">
-            <div class="card-head"><div><div class="card-title">Revenue decomposition</div><div class="card-sub">Budget revenue → volume effect → price effect → realized.</div></div></div>
+            <div class="card-head">
+              <div><div class="card-title">Revenue decomposition</div><div class="card-sub" id="drill-revenue-sub">Budget revenue → volume effect → price effect → realized.</div></div>
+              <div class="card-actions">
+                <div class="seg" id="rev-mode-toggle" role="tablist" aria-label="Revenue pricing mode">
+                  <button type="button" id="rev-mode-spot" data-rev-mode="spot" role="tab" aria-selected="false" aria-pressed="false" title="100% spot">Spot</button>
+                  <button type="button" id="rev-mode-ppa"  data-rev-mode="ppa"  role="tab" aria-selected="true"  aria-pressed="true"  title="PPA-blended">PPA</button>
+                </div>
+              </div>
+            </div>
             <div class="chart" id="drill-revenue-chart"></div>
           </div>
         </div>

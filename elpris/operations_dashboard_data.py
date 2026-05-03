@@ -127,7 +127,11 @@ def load_park_15min(park_key: str) -> list[dict]:
 def load_spot_prices_15min(zone: str) -> dict[str, list[dict]]:
     """Load quarterly spot prices as 15-min data.
 
-    Returns dict keyed by ISO date -> list of {timestamp_utc, eur_mwh}.
+    Returns dict keyed by ISO date -> list of
+    {timestamp_utc, eur_mwh, sek_per_eur}. ``sek_per_eur`` is the EXR
+    column from the source CSV (SEK per 1 EUR), used to convert
+    SEK-denominated PPA prices into EUR for revenue blending. Falls
+    back to None when EXR is missing/zero in the row.
     """
     zone_dir = QUARTERLY_DIR / zone
     if not zone_dir.exists():
@@ -142,9 +146,17 @@ def load_spot_prices_15min(zone: str) -> dict[str, list[dict]]:
                 ts_utc = ts.astimezone(UTC_TZ)
                 date_key = ts_utc.strftime("%Y-%m-%d")
                 eur_mwh = float(row["EUR_per_kWh"]) * 1000
+                exr_raw = row.get("EXR")
+                try:
+                    sek_per_eur = float(exr_raw) if exr_raw else None
+                    if sek_per_eur is not None and sek_per_eur <= 0:
+                        sek_per_eur = None
+                except (TypeError, ValueError):
+                    sek_per_eur = None
                 by_date[date_key].append({
                     "timestamp_utc": ts_utc,
                     "eur_mwh": eur_mwh,
+                    "sek_per_eur": sek_per_eur,
                 })
     return dict(by_date)
 
