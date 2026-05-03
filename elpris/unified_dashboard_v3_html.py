@@ -527,6 +527,70 @@ select:focus, input:focus { outline: none; border-color: var(--accent-deep); box
   margin-left: 6px;
   vertical-align: middle;
 }
+.freshness-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  vertical-align: middle;
+  margin-left: 4px;
+  border: 1px solid rgba(0,0,0,0.06);
+}
+.freshness-dot.warn { background: var(--warn); }
+.freshness-dot.bad  { background: var(--bad); }
+.drill-insight {
+  margin-top: var(--sp-2);
+  font-family: var(--font-display, 'Newsreader', serif);
+  font-style: italic;
+  font-size: var(--fs-md);
+  color: var(--ink-2);
+  max-width: 65ch;
+}
+.park-facts {
+  background: var(--surface-raised);
+  border: 1px solid var(--border, rgba(0,0,0,0.08));
+  border-radius: var(--radius-md);
+  padding: var(--sp-3) var(--sp-4);
+  margin: var(--sp-3) 0 var(--sp-4);
+}
+.park-facts > summary {
+  cursor: pointer;
+  font-family: var(--font-display, 'Newsreader', serif);
+  font-size: var(--fs-md);
+  font-weight: 500;
+  color: var(--ink-1);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.park-facts > summary::before {
+  content: '▸';
+  font-size: 0.8em;
+  color: var(--ink-3, var(--ink-2));
+  transition: transform 0.15s;
+}
+.park-facts[open] > summary::before { transform: rotate(90deg); }
+.park-facts > summary::-webkit-details-marker { display: none; }
+.facts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--sp-3) var(--sp-5);
+  margin-top: var(--sp-3);
+}
+.fact-cell { font-size: var(--fs-sm); }
+.fact-k {
+  font-size: var(--fs-xs, 11px);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-3, var(--ink-2));
+  margin-bottom: 2px;
+}
+.fact-v {
+  font-family: var(--font-display, 'Newsreader', serif);
+  font-size: var(--fs-md);
+  color: var(--ink-1);
+}
 /* time-window range bar (above grid-2 charts) */
 .range-bar {
   display: flex;
@@ -1458,6 +1522,34 @@ function renderCaptureChart() {
         traces.push(trace);
     });
 
+    // Fleet realized capture overlay — only for monthly view and zones
+    // where SveaSolar parks exist (SE3 / SE4).
+    if (period === 'monthly'
+        && DATA.assets
+        && DATA.assets.fleet_capture_by_zone
+        && DATA.assets.fleet_capture_by_zone[zone]) {
+        var fcz = DATA.assets.fleet_capture_by_zone[zone];
+        var winRows = fcz.filter(function(r) {
+            if (!win) return true;
+            // r.month is "YYYY-MM" — convert to UTC ms (month start)
+            var parts = r.month.split('-');
+            var ms = Date.UTC(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
+            return ms >= win.startMs && ms <= win.endMs;
+        });
+        if (winRows.length) {
+            traces.push({
+                x: winRows.map(function(r) { return r.month; }),
+                y: winRows.map(function(r) { return r.fleet_capture_eur_mwh; }),
+                name: 'Fleet realized (' + zone + ')',
+                type: 'scatter',
+                mode: 'lines+markers',
+                line: { color: '#5B6BA8', dash: 'dot', width: 2 },
+                marker: { size: 5, symbol: 'diamond' },
+                hovertemplate: '%{x}<br>Fleet realized: <b>%{y:.1f}</b> EUR/MWh<extra></extra>',
+            });
+        }
+    }
+
     if (!traces.length) {
         Plotly.purge('capture-main-chart');
         el('capture-main-chart').innerHTML = '<div class="empty-note">Select at least one profile.</div>';
@@ -1991,7 +2083,7 @@ function computeInvest() {
 // ============================================================
 //  FUTURES TAB
 // ============================================================
-var FUTURES_STATE = { zone: 'SE3' };
+var FUTURES_STATE = { zone: 'SE3', convergenceContract: null };
 
 function renderFutures() {
     var fwd = DATA.forward;
@@ -2011,9 +2103,12 @@ function renderFutures() {
     });
 
     renderFuturesKPIs(fwd);
-    renderForwardChart(fwd);
+    renderSysForwardChart(fwd);
+    renderZoneForwardVsRealisedChart(fwd);
     renderEpadChart(fwd);
     renderForwardTable(fwd);
+    renderConvergenceChart(fwd);
+    renderLookbackTable(fwd);
 }
 
 function renderFuturesKPIs(fwd) {
@@ -2046,7 +2141,35 @@ function renderFuturesKPIs(fwd) {
     el('futures-kpis').innerHTML = tiles.join('');
 }
 
-function renderForwardChart(fwd) {
+function _futuresCategoryArray(fwd) {
+    var contracts = (fwd.contracts || []).slice();
+    var allContracts = (fwd.expired_contracts || []).concat(contracts);
+    allContracts.sort(function(a, b) {
+        var s = (a.start || '').localeCompare(b.start || '');
+        if (s !== 0) return s;
+        var ra = a.type === 'quarter' ? 0 : 1;
+        var rb = b.type === 'quarter' ? 0 : 1;
+        return ra - rb;
+    });
+    return allContracts.map(function(c) { return c.label; });
+}
+
+function renderSysForwardChart(fwd) {
+    var contracts = (fwd.contracts || []).slice();
+    var labels = contracts.map(function(c) { return c.label; });
+    var sysSeries = labels.map(function(l) { return (fwd.sys && fwd.sys[l] != null) ? fwd.sys[l] : null; });
+    var traces = [
+        { x: labels, y: sysSeries, name: 'SYS baseload', mode: 'lines+markers', type: 'scatter', line: { color: '#2E5C4D', width: 2, shape: 'spline' }, marker: { size: 6 }, hovertemplate: '%{x}<br>SYS: <b>%{y:.2f}</b> EUR/MWh<extra></extra>' },
+    ];
+    Plotly.react('futures-sys-chart', traces, makeLayout({
+        yaxis: Object.assign({}, PLOTLY_BASE.yaxis, { title: { text: 'EUR / MWh', font: PLOTLY_BASE.yaxis.title.font } }),
+        margin: { t: 12, b: 86, l: 64, r: 24 },
+        xaxis: Object.assign({}, PLOTLY_BASE.xaxis, { tickangle: -45, type: 'category', categoryorder: 'array', categoryarray: _futuresCategoryArray(fwd) }),
+        showlegend: false,
+    }), PLOTLY_CFG);
+}
+
+function renderZoneForwardVsRealisedChart(fwd) {
     var zone = FUTURES_STATE.zone;
     var contracts = (fwd.contracts || []).slice();
     var labels = contracts.map(function(c) { return c.label; });
@@ -2058,28 +2181,16 @@ function renderForwardChart(fwd) {
     var realLabels = (fwd.expired_contracts || []).map(function(c) { return c.label; });
     var realSeries = realLabels.map(function(l) { return (fwd.spot_realized[zone] && fwd.spot_realized[zone][l]) ? fwd.spot_realized[zone][l].spot_avg : null; });
 
-    // Build chronological x-axis order so expired contracts (e.g. Q1-26) precede active ones.
-    var allContracts = (fwd.expired_contracts || []).concat(contracts);
-    allContracts.sort(function(a, b) {
-        var s = (a.start || '').localeCompare(b.start || '');
-        if (s !== 0) return s;
-        var ra = a.type === 'quarter' ? 0 : 1;
-        var rb = b.type === 'quarter' ? 0 : 1;
-        return ra - rb;
-    });
-    var categoryArray = allContracts.map(function(c) { return c.label; });
-
     var traces = [
-        { x: labels, y: sysSeries,  name: 'SYS baseload',     mode: 'lines+markers', type: 'scatter', line: { color: '#2E5C4D', width: 2, shape: 'spline' }, marker: { size: 6 }, hovertemplate: '%{x}<br>SYS: <b>%{y:.2f}</b> EUR/MWh<extra></extra>' },
-        { x: labels, y: zoneSeries, name: zone + ' implied',  mode: 'lines+markers', type: 'scatter', line: { color: '#C16E40', width: 2, shape: 'spline' }, marker: { size: 6 }, hovertemplate: '%{x}<br>' + zone + ': <b>%{y:.2f}</b> EUR/MWh<extra></extra>' },
+        { x: labels, y: zoneSeries, name: zone + ' implied', mode: 'lines+markers', type: 'scatter', line: { color: '#C16E40', width: 2, shape: 'spline' }, marker: { size: 6 }, hovertemplate: '%{x}<br>' + zone + ': <b>%{y:.2f}</b> EUR/MWh<extra></extra>' },
     ];
     if (realLabels.length) {
         traces.push({ x: realLabels, y: realSeries, name: 'Realised ' + zone, type: 'scatter', mode: 'markers', marker: { color: '#B14F75', size: 9, symbol: 'diamond' }, hovertemplate: '%{x}<br>Realised: <b>%{y:.2f}</b> EUR/MWh<extra></extra>' });
     }
-    Plotly.react('futures-forward-chart', traces, makeLayout({
+    Plotly.react('futures-zone-chart', traces, makeLayout({
         yaxis: Object.assign({}, PLOTLY_BASE.yaxis, { title: { text: 'EUR / MWh', font: PLOTLY_BASE.yaxis.title.font } }),
         margin: { t: 12, b: 86, l: 64, r: 24 },
-        xaxis: Object.assign({}, PLOTLY_BASE.xaxis, { tickangle: -45, type: 'category', categoryorder: 'array', categoryarray: categoryArray }),
+        xaxis: Object.assign({}, PLOTLY_BASE.xaxis, { tickangle: -45, type: 'category', categoryorder: 'array', categoryarray: _futuresCategoryArray(fwd) }),
     }), PLOTLY_CFG);
 }
 
@@ -2146,6 +2257,248 @@ function renderForwardTable(fwd) {
     el('futures-table-year').innerHTML = head + buildBody(yearRows);
 }
 
+// ---- Forward convergence + lookback ----
+
+function _convergenceContractList(fwd) {
+    var hist = fwd.forward_history || {};
+    var labels = Object.keys(hist);
+    labels.sort(function(a, b) {
+        return (hist[a].delivery_start || '').localeCompare(hist[b].delivery_start || '');
+    });
+    return labels;
+}
+
+function _findFixNear(series, targetDate, windowDays) {
+    if (!series || !series.length) return null;
+    var target = new Date(targetDate).getTime();
+    var bestRow = null;
+    var bestDiff = Infinity;
+    for (var i = 0; i < series.length; i++) {
+        var d = new Date(series[i].date).getTime();
+        var diff = Math.abs(d - target);
+        if (diff <= windowDays * 86400000 && diff < bestDiff) {
+            bestDiff = diff;
+            bestRow = series[i];
+        }
+    }
+    return bestRow;
+}
+
+function _shiftIso(iso, months) {
+    var d = new Date(iso);
+    d.setMonth(d.getMonth() - months);
+    return d.toISOString().slice(0, 10);
+}
+
+function renderConvergenceChart(fwd) {
+    var hist = fwd.forward_history || {};
+    var labels = _convergenceContractList(fwd);
+    if (!labels.length) {
+        Plotly.purge('futures-convergence-chart');
+        el('convergence-contract').innerHTML = '<option>—</option>';
+        return;
+    }
+
+    if (!FUTURES_STATE.convergenceContract || !hist[FUTURES_STATE.convergenceContract]) {
+        // Default to most recent delivered contract, else most recent overall.
+        var todayIso = new Date().toISOString().slice(0, 10);
+        var delivered = labels.filter(function(l) { return hist[l].delivery_end < todayIso; });
+        FUTURES_STATE.convergenceContract = delivered.length
+            ? delivered[delivered.length - 1]
+            : labels[labels.length - 1];
+    }
+
+    // Populate selector
+    var sel = el('convergence-contract');
+    sel.innerHTML = labels.map(function(l) {
+        return '<option value="' + l + '"' + (l === FUTURES_STATE.convergenceContract ? ' selected' : '') + '>' + htmlEsc(l) + '</option>';
+    }).join('');
+    sel.onchange = function() {
+        FUTURES_STATE.convergenceContract = sel.value;
+        renderConvergenceChart(fwd);
+    };
+
+    var contract = hist[FUTURES_STATE.convergenceContract];
+    var zone = FUTURES_STATE.zone;
+
+    var sysSeries = contract.sys_series || [];
+    var epadSeries = (contract.epad_series && contract.epad_series[zone]) || [];
+
+    // Build implied series by joining SYS and EPAD on date
+    var epadByDate = {};
+    epadSeries.forEach(function(r) { epadByDate[r.date] = r.price; });
+    var impliedDates = [];
+    var impliedPrices = [];
+    sysSeries.forEach(function(r) {
+        if (epadByDate[r.date] != null) {
+            impliedDates.push(r.date);
+            impliedPrices.push(r.price + epadByDate[r.date]);
+        }
+    });
+
+    var realised = (contract.realised_spot && contract.realised_spot[zone] != null)
+        ? contract.realised_spot[zone] : null;
+
+    var traces = [
+        {
+            x: sysSeries.map(function(r) { return r.date; }),
+            y: sysSeries.map(function(r) { return r.price; }),
+            name: 'SYS forward',
+            type: 'scatter', mode: 'lines',
+            line: { color: '#2E5C4D', width: 2 },
+            hovertemplate: '%{x}<br>SYS: <b>%{y:.2f}</b> EUR/MWh<extra></extra>',
+        },
+        {
+            x: impliedDates,
+            y: impliedPrices,
+            name: zone + ' implied',
+            type: 'scatter', mode: 'lines',
+            line: { color: '#C16E40', width: 2 },
+            hovertemplate: '%{x}<br>' + zone + ' implied: <b>%{y:.2f}</b> EUR/MWh<extra></extra>',
+        },
+    ];
+
+    var shapes = [
+        {
+            type: 'line', xref: 'x', yref: 'paper',
+            x0: contract.delivery_start, x1: contract.delivery_start,
+            y0: 0, y1: 1,
+            line: { color: '#999', width: 1, dash: 'dot' },
+        },
+    ];
+    var annotations = [
+        {
+            x: contract.delivery_start, y: 1, xref: 'x', yref: 'paper',
+            text: 'Delivery starts', showarrow: false,
+            font: { size: 10, color: '#666' },
+            xanchor: 'left', yanchor: 'top', xshift: 4,
+        },
+    ];
+
+    if (realised != null) {
+        traces.push({
+            x: [contract.delivery_start, contract.delivery_end],
+            y: [realised, realised],
+            name: 'Realised ' + zone,
+            type: 'scatter', mode: 'lines+markers',
+            line: { color: '#B14F75', width: 2, dash: 'dash' },
+            marker: { color: '#B14F75', size: 9, symbol: 'diamond' },
+            hovertemplate: '%{x}<br>Realised: <b>%{y:.2f}</b> EUR/MWh<extra></extra>',
+        });
+    }
+
+    // Sub-title: warn if final is stale
+    var sub = 'Daily settlement path for ' + FUTURES_STATE.convergenceContract +
+        ', delivery ' + contract.delivery_start + ' → ' + contract.delivery_end +
+        '. Final fix ' + (contract.final_settlement_date || '–') + '.';
+    if (contract.is_clean_final === false) {
+        var lastDate = new Date(contract.final_settlement_date);
+        var startDate = new Date(contract.delivery_start);
+        var daysGap = Math.round((startDate - lastDate) / 86400000);
+        sub += ' ⚠ Last fix ' + daysGap + ' days before delivery — possible coverage gap.';
+    }
+    el('convergence-sub').textContent = sub;
+
+    Plotly.react('futures-convergence-chart', traces, makeLayout({
+        yaxis: Object.assign({}, PLOTLY_BASE.yaxis, { title: { text: 'EUR / MWh', font: PLOTLY_BASE.yaxis.title.font } }),
+        xaxis: Object.assign({}, PLOTLY_BASE.xaxis, { title: { text: 'Settlement date', font: PLOTLY_BASE.xaxis.title.font } }),
+        margin: { t: 12, b: 60, l: 64, r: 24 },
+        shapes: shapes,
+        annotations: annotations,
+    }), PLOTLY_CFG);
+}
+
+function renderLookbackTable(fwd) {
+    var hist = fwd.forward_history || {};
+    var todayIso = new Date().toISOString().slice(0, 10);
+    var labels = _convergenceContractList(fwd);
+    var zones = ['SE1', 'SE2', 'SE3', 'SE4'];
+    var lookbacks = [
+        { key: 'tm12', label: 'T-12mo', months: 12 },
+        { key: 'tm6',  label: 'T-6mo',  months: 6 },
+        { key: 'tm3',  label: 'T-3mo',  months: 3 },
+        { key: 'tm1',  label: 'T-1mo',  months: 1 },
+    ];
+
+    var rows = [];
+    labels.forEach(function(label) {
+        var c = hist[label];
+        var deliveredOrInDelivery = c.delivery_start <= todayIso;
+        if (!deliveredOrInDelivery) return;
+        zones.forEach(function(zone) {
+            var sysSeries = c.sys_series || [];
+            var epadSeries = (c.epad_series && c.epad_series[zone]) || [];
+            var epadByDate = {};
+            epadSeries.forEach(function(r) { epadByDate[r.date] = r.price; });
+            // Implied series for lookback math
+            var impliedSeries = sysSeries.filter(function(r) { return epadByDate[r.date] != null; })
+                .map(function(r) { return { date: r.date, price: r.price + epadByDate[r.date] }; });
+            var sysFinalSeries = sysSeries.length
+                ? [{ date: sysSeries[sysSeries.length - 1].date, price: sysSeries[sysSeries.length - 1].price + (epadByDate[sysSeries[sysSeries.length - 1].date] || 0) }]
+                : [];
+            // Final value: last available implied (falling back to "—" if no overlap)
+            var finalRow = impliedSeries.length ? impliedSeries[impliedSeries.length - 1] : null;
+
+            var realised = (c.realised_spot && c.realised_spot[zone] != null)
+                ? c.realised_spot[zone] : null;
+
+            var row = {
+                contract: label,
+                zone: zone,
+                final: finalRow ? finalRow.price : null,
+                realised: realised,
+                delivery_start: c.delivery_start,
+            };
+            lookbacks.forEach(function(lb) {
+                var target = _shiftIso(c.delivery_start, lb.months);
+                var hit = _findFixNear(impliedSeries, target, 7);
+                row[lb.key] = hit ? hit.price : null;
+            });
+            row.error_eur = (row.final != null && row.realised != null)
+                ? row.final - row.realised : null;
+            row.error_pct = (row.error_eur != null && row.realised)
+                ? (row.error_eur / row.realised * 100) : null;
+            rows.push(row);
+        });
+    });
+    rows.sort(function(a, b) {
+        var s = (b.delivery_start || '').localeCompare(a.delivery_start || '');
+        if (s !== 0) return s;
+        return a.zone.localeCompare(b.zone);
+    });
+
+    function colorFor(absErr) {
+        if (absErr == null) return '';
+        if (absErr < 5)  return 'color:var(--good)';
+        if (absErr < 15) return 'color:var(--warn)';
+        return 'color:var(--bad)';
+    }
+    function fmt(v, dp) { return v == null ? '—' : v.toFixed(dp || 2); }
+
+    var head = '<thead><tr>' +
+        '<th>Contract</th><th>Zone</th>' +
+        lookbacks.map(function(lb) { return '<th class="num">' + lb.label + '</th>'; }).join('') +
+        '<th class="num">Final</th><th class="num">Realised</th>' +
+        '<th class="num">Error €/MWh</th><th class="num">Error %</th>' +
+        '</tr></thead>';
+
+    var body = '<tbody>' + rows.map(function(r) {
+        var absErr = r.error_eur != null ? Math.abs(r.error_eur) : null;
+        var style = colorFor(absErr);
+        return '<tr>' +
+            '<td>' + htmlEsc(r.contract) + '</td>' +
+            '<td>' + r.zone + '</td>' +
+            lookbacks.map(function(lb) { return '<td class="num">' + fmt(r[lb.key]) + '</td>'; }).join('') +
+            '<td class="num">' + fmt(r.final) + '</td>' +
+            '<td class="num">' + fmt(r.realised) + '</td>' +
+            '<td class="num" style="' + style + '">' + (r.error_eur == null ? '—' : (r.error_eur > 0 ? '+' : '') + r.error_eur.toFixed(2)) + '</td>' +
+            '<td class="num" style="' + style + '">' + (r.error_pct == null ? '—' : (r.error_pct > 0 ? '+' : '') + r.error_pct.toFixed(1) + '%') + '</td>' +
+            '</tr>';
+    }).join('') + '</tbody>';
+
+    el('futures-lookback-table').innerHTML = head + body;
+}
+
 
 // ============================================================
 //  ASSETS TAB
@@ -2171,6 +2524,18 @@ function tableParkSet() {
     // null = all selected (default)
     if (ASSETS_STATE.tableParks === null) return null;
     return ASSETS_STATE.tableParks;
+}
+
+function freshnessIndicator(isoTs) {
+    if (!isoTs) return '';
+    var t = Date.parse(isoTs);
+    if (isNaN(t)) return '';
+    var ageH = (Date.now() - t) / 3600000;
+    if (ageH <= 36) return '';
+    var cls, label;
+    if (ageH <= 96) { cls = 'warn'; label = Math.round(ageH) + 'h since last data'; }
+    else { cls = 'bad'; label = Math.round(ageH / 24) + 'd since last data'; }
+    return ' <span class="freshness-dot ' + cls + '" title="' + label + '" aria-label="' + label + '"></span>';
 }
 
 function renderAssets() {
@@ -2344,6 +2709,11 @@ function aggregatePark(park, keys) {
     var capacity = park.capacity_mwp || 0;
     var yieldKwhKwp = (capacity > 0 && energy != null) ? (energy / capacity) : null;
 
+    var revenue = sum('revenue_eur');
+    var bzVolume = sum('bazefield_volume_mwh');
+    var realizedCapture = (revenue != null && bzVolume != null && bzVolume > 0)
+        ? (revenue / bzVolume) : null;
+
     return {
         period_keys: keys,
         months_present: rows.length,
@@ -2357,7 +2727,14 @@ function aggregatePark(park, keys) {
         budget_irr_kwh_m2: irrBudget,
         vs_budget_irr_pct: vsBudgetIrr,
         yield_kwh_kwp: yieldKwhKwp,
-        pr_pct: weightedAvg('pr_pct', 'energy_mwh')
+        pr_pct: weightedAvg('pr_pct', 'energy_mwh'),
+        actual_pr_pct: weightedAvg('actual_pr_pct', 'energy_mwh'),
+        budget_pr_pct: weightedAvg('budget_pr_pct', 'energy_mwh'),
+        availability_pct: weightedAvg('availability_pct', 'energy_mwh'),
+        revenue_eur: revenue,
+        bazefield_volume_mwh: bzVolume,
+        realized_capture_eur_mwh: realizedCapture,
+        baseload_eur_mwh: weightedAvg('baseload_eur_mwh', 'bazefield_volume_mwh')
     };
 }
 function partialDataDot(agg, expected) {
@@ -2565,7 +2942,8 @@ function renderFleetKPIs(keys, expected) {
         return;
     }
     var totalCap = 0, totalActual = 0, totalBudget = 0, totalNeg = 0;
-    var anyData = false;
+    var totalRevenue = 0, totalVolume = 0, totalBaseloadWeighted = 0;
+    var anyData = false, hasRevenue = false;
     entries.forEach(function(e) {
         var p = e[1];
         totalCap += (p.capacity_mwp || 0);
@@ -2575,21 +2953,48 @@ function renderFleetKPIs(keys, expected) {
             if (agg.energy_mwh != null) totalActual += agg.energy_mwh;
             if (agg.budget_mwh != null) totalBudget += agg.budget_mwh;
             if (agg.neg_price_hours != null) totalNeg += agg.neg_price_hours;
+            if (agg.revenue_eur != null) { totalRevenue += agg.revenue_eur; hasRevenue = true; }
+            if (agg.bazefield_volume_mwh != null) totalVolume += agg.bazefield_volume_mwh;
+            if (agg.baseload_eur_mwh != null && agg.bazefield_volume_mwh != null) {
+                totalBaseloadWeighted += agg.baseload_eur_mwh * agg.bazefield_volume_mwh;
+            }
         }
     });
     var vsBudget = totalBudget > 0 ? 100 * (totalActual - totalBudget) / totalBudget : null;
     var vsCls = vsClass(vsBudget);
     var pillHtml = vsBudget != null ? '<span class="pill ' + vsCls + '">' + fmtPct(vsBudget) + '</span>' : '<span class="pill neutral">–</span>';
 
+    var fleetCapture = (totalVolume > 0 && hasRevenue) ? (totalRevenue / totalVolume) : null;
+    var fleetBaseload = (totalVolume > 0) ? (totalBaseloadWeighted / totalVolume) : null;
+    var capturePremium = (fleetCapture != null && fleetBaseload != null && fleetBaseload !== 0)
+        ? (fleetCapture / fleetBaseload - 1) * 100 : null;
+    var premiumPill = capturePremium != null
+        ? '<span class="pill ' + vsClass(capturePremium) + '">' + fmtPct(capturePremium, 1) + ' vs baseload</span>'
+        : '<span class="pill neutral">–</span>';
+
     var suffix = formatPeriodSuffix();
     var energyLabel = 'Energy · ' + suffix;
     var negLabel = 'Negative-price hours · ' + suffix;
     var energySub = anyData ? ('Budget: ' + fmtNum(totalBudget, 0) + ' MWh') : 'No data for period';
 
+    var revenueTile = '<div class="kpi"><div class="kpi-label">Revenue · ' + suffix + '</div>' +
+        '<div><span class="kpi-value">' +
+        (hasRevenue ? fmtNum(totalRevenue / 1000, 0) : '–') +
+        '</span><span class="kpi-unit">k€</span></div>' +
+        '<div class="kpi-sub">' + (hasRevenue ? fmtNum(totalVolume, 0) + ' MWh sold' : 'no spot data') + '</div></div>';
+
+    var captureTile = '<div class="kpi"><div class="kpi-label">Realized capture</div>' +
+        '<div><span class="kpi-value">' +
+        (fleetCapture != null ? fmtNum(fleetCapture, 1) : '–') +
+        '</span><span class="kpi-unit">€/MWh</span></div>' +
+        '<div class="kpi-sub">' + premiumPill + '</div></div>';
+
     var tiles = [
         kpiTile('Parks', String(entries.length), '', 'Active in fleet view'),
         kpiTile('Installed capacity', fmtNum(totalCap, 1), 'MWp', 'DC, sum across selection'),
         kpiTile(energyLabel, anyData ? fmtNum(totalActual, 0) : '–', 'MWh', energySub),
+        revenueTile,
+        captureTile,
         '<div class="kpi"><div class="kpi-label">vs Budget</div><div class="kpi-value">' + (vsBudget != null ? fmtPct(vsBudget) : '–') + '</div><div class="kpi-sub">' + pillHtml + '</div></div>',
         kpiTile(negLabel, anyData ? fmtNum(totalNeg, 0) : '–', 'h', 'Sum across selection'),
     ];
@@ -2630,7 +3035,7 @@ function renderParkGrid(keys, expected) {
         var dot = partialDataDot(agg, expected);
         return '<div class="park-tile ' + cls + '" data-park="' + htmlEsc(pk) + '" tabindex="0" role="button">' +
             '<div class="park-tile-head">' +
-                '<div class="park-tile-name">' + htmlEsc(p.name || pk) + dot + '</div>' +
+                '<div class="park-tile-name">' + htmlEsc(p.name || pk) + dot + freshnessIndicator(p.last_data_ts) + '</div>' +
                 '<div class="park-tile-zone">' + htmlEsc(p.zone || '') + '</div>' +
             '</div>' +
             '<div class="park-tile-stat"><span class="park-tile-stat-k">Capacity</span><span class="park-tile-stat-v">' + fmtNum(p.capacity_mwp, 2) + ' MWp</span></div>' +
@@ -2664,8 +3069,14 @@ function tableRows(keys, expected) {
             yield_kwh_kwp: agg ? agg.yield_kwh_kwp : null,
             actual_irr_kwh_m2: agg ? agg.actual_irr_kwh_m2 : null,
             vs_budget_irr_pct: agg ? agg.vs_budget_irr_pct : null,
+            pr_pct: agg ? agg.actual_pr_pct : null,
+            availability_pct: agg ? agg.availability_pct : null,
+            revenue_eur: agg ? agg.revenue_eur : null,
+            capture_eur_mwh: agg ? agg.realized_capture_eur_mwh : null,
+            baseload_eur_mwh: agg ? agg.baseload_eur_mwh : null,
             months_present: agg ? agg.months_present : 0,
-            months_expected: expected || 1
+            months_expected: expected || 1,
+            last_data_ts: p.last_data_ts || null
         };
     });
 }
@@ -2688,14 +3099,18 @@ function renderParkTable(keys, expected) {
         return htmlEsc(v);
     };
     var cols = [
-        { k: 'name',          label: 'Park',            fmt: nameFormatter, cls: '', html: true, withDot: true },
+        { k: 'name',          label: 'Park',            fmt: nameFormatter, cls: '', html: true, withDot: true, withFreshness: true },
         { k: 'zone',          label: 'Zone',            fmt: htmlEsc, cls: '' },
         { k: 'capacity_mwp',  label: 'Cap MWp',         fmt: function(v) { return fmtNum(v, 2); }, cls: 'num' },
         { k: 'energy_mwh',    label: energyLabel,       fmt: function(v) { return fmtNum(v, 0); }, cls: 'num' },
         { k: 'vs_budget_pct', label: 'vs Budget',       fmt: function(v) { if (v == null) return '–'; var c = vsClass(v); return '<span class="pill ' + c + '">' + fmtPct(v) + '</span>'; }, cls: 'num', html: true },
-        { k: 'actual_irr_kwh_m2', label: 'Irr (kWh/m²)',   fmt: function(v) { return fmtNum(v, 1); }, cls: 'num' },
-        { k: 'vs_budget_irr_pct', label: 'vs Bdg',         fmt: function(v) { if (v == null) return '–'; var c = vsClass(v); return '<span class="pill ' + c + '">' + fmtPct(v) + '</span>'; }, cls: 'num', html: true },
-        { k: 'yield_kwh_kwp',    label: 'Yield kWh/kWp',   fmt: function(v) { return fmtNum(v, 1); }, cls: 'num' },
+        { k: 'pr_pct',        label: 'PR %',            fmt: function(v) { return v == null ? '–' : fmtNum(v, 1); }, cls: 'num' },
+        { k: 'availability_pct', label: 'Avail %',      fmt: function(v) { return v == null ? '–' : fmtNum(v, 1); }, cls: 'num' },
+        { k: 'capture_eur_mwh', label: 'Capture €/MWh', fmt: function(v) { return v == null ? '–' : fmtNum(v, 1); }, cls: 'num' },
+        { k: 'revenue_eur',   label: 'Revenue k€',      fmt: function(v) { return v == null ? '–' : fmtNum(v / 1000, 1); }, cls: 'num' },
+        { k: 'actual_irr_kwh_m2', label: 'Irr (kWh/m²)', fmt: function(v) { return fmtNum(v, 1); }, cls: 'num' },
+        { k: 'vs_budget_irr_pct', label: 'vs Bdg',      fmt: function(v) { if (v == null) return '–'; var c = vsClass(v); return '<span class="pill ' + c + '">' + fmtPct(v) + '</span>'; }, cls: 'num', html: true },
+        { k: 'yield_kwh_kwp', label: 'Yield kWh/kWp',   fmt: function(v) { return fmtNum(v, 1); }, cls: 'num' },
     ];
     var head = '<thead><tr>' + cols.map(function(c) {
         var sortAttr = (c.k === sk) ? (dir > 0 ? 'ascending' : 'descending') : 'none';
@@ -2706,11 +3121,13 @@ function renderParkTable(keys, expected) {
         var dot = (r.months_expected > 1 && r.months_present < r.months_expected && r.months_present > 0)
             ? '<span class="partial-data-dot" title="' + r.months_present + ' of ' + r.months_expected + ' months present"></span>'
             : '';
+        var fresh = freshnessIndicator(r.last_data_ts);
         return '<tr data-park="' + htmlEsc(r.key) + '">' +
             cols.map(function(c) {
                 var v = r[c.k];
                 var disp = c.fmt ? c.fmt(v) : (v == null ? '–' : v);
                 if (c.withDot) disp = disp + dot;
+                if (c.withFreshness) disp = disp + fresh;
                 return '<td class="' + (c.cls || '') + '">' + disp + '</td>';
             }).join('') +
         '</tr>';
@@ -2740,10 +3157,15 @@ function exportParkCsv() {
         if (p.granularity === 'ytd') return p.year + '-YTD';
         return 'period';
     })();
-    var header = ['Park','Zone','Capacity_MWp','Energy_MWh_' + periodSlug,'vs_Budget_pct','Irr_kWh_m2','vs_Budget_Irr_pct','Yield_kWh_kWp','Months_present','Months_expected'];
+    var header = ['Park','Zone','Capacity_MWp','Energy_MWh_' + periodSlug,'vs_Budget_pct',
+                  'PR_pct','Availability_pct','Capture_EUR_MWh','Revenue_EUR','Baseload_EUR_MWh',
+                  'Irr_kWh_m2','vs_Budget_Irr_pct','Yield_kWh_kWp','Months_present','Months_expected','Last_data_ts'];
     var rows = [header];
     tableRows(keys, expected).forEach(function(r) {
-        rows.push([r.name, r.zone, r.capacity_mwp, r.energy_mwh, r.vs_budget_pct, r.actual_irr_kwh_m2, r.vs_budget_irr_pct, r.yield_kwh_kwp, r.months_present, r.months_expected]);
+        rows.push([r.name, r.zone, r.capacity_mwp, r.energy_mwh, r.vs_budget_pct,
+                   r.pr_pct, r.availability_pct, r.capture_eur_mwh, r.revenue_eur, r.baseload_eur_mwh,
+                   r.actual_irr_kwh_m2, r.vs_budget_irr_pct, r.yield_kwh_kwp,
+                   r.months_present, r.months_expected, r.last_data_ts]);
     });
     var csv = rows.map(function(r) {
         return r.map(function(c) {
@@ -3114,12 +3536,74 @@ function renderDrilldown() {
         '<div><span class="kpi-value">' + (agg && agg.energy_mwh != null ? fmtNum(agg.energy_mwh, 0) : '–') + '</span><span class="kpi-unit">MWh</span></div>' +
         '<div class="kpi-sub">' + htmlEsc(suffix) + dot + '</div></div>';
 
+    var revenueTile;
+    if (agg && agg.revenue_eur != null) {
+        revenueTile = '<div class="kpi"><div class="kpi-label">Revenue</div>' +
+            '<div><span class="kpi-value">' + fmtNum(agg.revenue_eur / 1000, 1) +
+            '</span><span class="kpi-unit">k€</span></div>' +
+            '<div class="kpi-sub">' + (agg.bazefield_volume_mwh != null ? fmtNum(agg.bazefield_volume_mwh, 0) + ' MWh sold' : '') + '</div></div>';
+    } else {
+        revenueTile = '<div class="kpi" style="opacity:0.55"><div class="kpi-label">Revenue</div><div class="kpi-value">—</div><div class="kpi-sub">no spot match</div></div>';
+    }
+
+    var realizedCap = agg ? agg.realized_capture_eur_mwh : null;
+    var baseload = agg ? agg.baseload_eur_mwh : null;
+    var realizedTile;
+    if (realizedCap != null) {
+        var vsZone = (captureAgg != null) ? (realizedCap - captureAgg) : null;
+        var vsZonePill = vsZone != null
+            ? '<span class="pill ' + vsClass(vsZone) + '">' + (vsZone >= 0 ? '+' : '') + fmtNum(vsZone, 1) + ' vs zone gen.</span>'
+            : '<span class="pill neutral">vs zone –</span>';
+        realizedTile = '<div class="kpi"><div class="kpi-label">Realized capture</div>' +
+            '<div><span class="kpi-value">' + fmtNum(realizedCap, 1) + '</span><span class="kpi-unit">€/MWh</span></div>' +
+            '<div class="kpi-sub">' + vsZonePill + '</div></div>';
+    } else {
+        realizedTile = '<div class="kpi" style="opacity:0.55"><div class="kpi-label">Realized capture</div><div class="kpi-value">—</div></div>';
+    }
+
+    var premiumTile;
+    if (realizedCap != null && baseload != null && baseload !== 0) {
+        var prem = (realizedCap / baseload - 1) * 100;
+        var premPill = '<span class="pill ' + vsClass(prem) + '">' + fmtPct(prem, 1) + '</span>';
+        premiumTile = '<div class="kpi"><div class="kpi-label">Baseload spot</div>' +
+            '<div><span class="kpi-value">' + fmtNum(baseload, 1) + '</span><span class="kpi-unit">€/MWh</span></div>' +
+            '<div class="kpi-sub">' + premPill + ' capture vs baseload</div></div>';
+    } else {
+        premiumTile = '<div class="kpi" style="opacity:0.55"><div class="kpi-label">Baseload spot</div><div class="kpi-value">—</div></div>';
+    }
+
+    var prTile;
+    if (agg && agg.actual_pr_pct != null) {
+        var dPr = (agg.budget_pr_pct != null) ? (agg.actual_pr_pct - agg.budget_pr_pct) : null;
+        var prPill = dPr != null
+            ? '<span class="pill ' + vsClass(dPr) + '">' + (dPr >= 0 ? '+' : '') + fmtNum(dPr, 1) + ' pp vs budget</span>'
+            : '<span class="pill neutral">–</span>';
+        prTile = '<div class="kpi"><div class="kpi-label">Performance Ratio</div>' +
+            '<div><span class="kpi-value">' + fmtNum(agg.actual_pr_pct, 1) + '</span><span class="kpi-unit">%</span></div>' +
+            '<div class="kpi-sub">' + prPill + '</div></div>';
+    } else {
+        prTile = '<div class="kpi" style="opacity:0.55"><div class="kpi-label">Performance Ratio</div><div class="kpi-value">—</div></div>';
+    }
+
+    var availTile;
+    if (agg && agg.availability_pct != null) {
+        availTile = '<div class="kpi"><div class="kpi-label">Availability</div>' +
+            '<div><span class="kpi-value">' + fmtNum(agg.availability_pct, 1) + '</span><span class="kpi-unit">%</span></div>' +
+            '<div class="kpi-sub">irradiance-weighted</div></div>';
+    } else {
+        availTile = '<div class="kpi" style="opacity:0.55"><div class="kpi-label">Availability</div><div class="kpi-value">—</div><div class="kpi-sub">no data</div></div>';
+    }
+
     var tiles = [
         energyTile,
+        revenueTile,
+        realizedTile,
+        premiumTile,
         vsTile,
-        kpiTile('Yield', agg && agg.yield_kwh_kwp != null ? fmtNum(agg.yield_kwh_kwp, 1) : '–', 'kWh/kWp', ''),
+        prTile,
+        availTile,
         irrTile,
-        kpiTile('Capture · ' + (p.zone || ''), captureAgg != null ? fmtNum(captureAgg, 1) : '–', 'EUR/MWh', captureSub),
+        kpiTile('Yield', agg && agg.yield_kwh_kwp != null ? fmtNum(agg.yield_kwh_kwp, 1) : '–', 'kWh/kWp', ''),
         kpiTile('Negative-price h', agg && agg.neg_price_hours != null ? fmtNum(agg.neg_price_hours, 0) : '–', 'h', agg && agg.neg_price_volume_mwh != null ? fmtNum(agg.neg_price_volume_mwh, 0) + ' MWh forgone' : ''),
         trackerTile,
     ];
@@ -3156,6 +3640,7 @@ function renderDrilldown() {
             { x: dxs, y: days.map(function(d) { return d.energy_mwh; }), name: 'Actual', type: 'bar', marker: { color: '#2E5C4D' }, hovertemplate: '%{x}<br>Actual: <b>%{y:.2f}</b> MWh<extra></extra>' },
             { x: dxs, y: days.map(function(d) { return d.expected_mwh; }), name: 'Expected', type: 'scatter', mode: 'lines', line: { color: '#C16E40', dash: 'dash', width: 2 }, hovertemplate: '%{x}<br>Expected: <b>%{y:.2f}</b> MWh<extra></extra>' },
             { x: dxs, y: days.map(function(d) { return d.irradiation_kwh_m2; }), name: 'POA Irr', type: 'scatter', mode: 'lines', line: { color: '#C9A53C', width: 1.6, shape: 'spline' }, yaxis: 'y2', connectgaps: false, hovertemplate: '%{x}<br>POA Irr: <b>%{y:.2f}</b> kWh/m²<extra></extra>' },
+            { x: dxs, y: days.map(function(d) { return d.pr_pct; }), name: 'PR %', type: 'scatter', mode: 'lines+markers', line: { color: '#5B6BA8', width: 1.8, shape: 'spline' }, marker: { size: 4 }, yaxis: 'y3', connectgaps: false, hovertemplate: '%{x}<br>PR: <b>%{y:.1f}</b> %<extra></extra>' },
         ], makeLayout({
             yaxis: Object.assign({}, PLOTLY_BASE.yaxis, { title: { text: 'MWh', font: PLOTLY_BASE.yaxis.title.font } }),
             yaxis2: Object.assign({}, PLOTLY_BASE.yaxis, {
@@ -3165,7 +3650,17 @@ function renderDrilldown() {
                 gridcolor: 'transparent',
                 showgrid: false,
             }),
-            margin: { t: 12, b: 70, l: 64, r: 64 },
+            yaxis3: Object.assign({}, PLOTLY_BASE.yaxis, {
+                title: { text: 'PR %', font: PLOTLY_BASE.yaxis.title.font },
+                overlaying: 'y',
+                side: 'right',
+                position: 0.94,
+                anchor: 'free',
+                range: [0, 110],
+                gridcolor: 'transparent',
+                showgrid: false,
+            }),
+            margin: { t: 12, b: 70, l: 64, r: 96 },
         }), PLOTLY_CFG);
     } else {
         Plotly.purge('drill-daily-chart');
@@ -3184,6 +3679,22 @@ function renderDrilldown() {
     if (bwSub) bwSub.textContent = suffix + ' · ranked by energy.';
     renderBestWorst(p, days, suffix);
 
+    // Loss + revenue waterfalls
+    bindLossModeControls();
+    renderLossWaterfall(p, keys);
+    renderRevenueWaterfall(p, keys);
+
+    // About this park
+    renderParkFacts(p);
+
+    // Auto insight tagline
+    var insight = buildInsightText(agg);
+    var insightEl = el('drill-insight');
+    if (insightEl) {
+        insightEl.textContent = insight;
+        insightEl.style.display = insight ? '' : 'none';
+    }
+
     // Performance report link — only meaningful for a single month
     var linksHost = el('drill-links');
     if (dp.granularity === 'month' && dp.year != null && dp.month != null) {
@@ -3194,6 +3705,216 @@ function renderDrilldown() {
     } else {
         linksHost.innerHTML = '<span class="muted">Per-month report — switch to Month view to open the standalone HTML report.</span>';
     }
+}
+
+var DRILL_LOSS_MODE = 'mwh';
+
+function aggregateLosses(park, keys) {
+    var fields = ['budget_mwh','actual_mwh','irradiance_shortfall_mwh',
+                  'availability_mwh','curtailment_mwh','temperature_mwh','other_mwh'];
+    var sums = {};
+    fields.forEach(function(f) { sums[f] = 0; });
+    var any = false;
+    (park.months || []).forEach(function(m) {
+        if (keys.indexOf(m.year + '-' + pad2(m.month)) === -1) return;
+        if (!m.losses) return;
+        any = true;
+        fields.forEach(function(f) {
+            var v = m.losses[f];
+            if (v != null) sums[f] += v;
+        });
+    });
+    return any ? sums : null;
+}
+
+function renderLossWaterfall(park, keys) {
+    var host = el('drill-loss-chart');
+    if (!host) return;
+    var sums = aggregateLosses(park, keys);
+    if (!sums) {
+        Plotly.purge('drill-loss-chart');
+        host.innerHTML = '<div class="empty-note">No loss data for selected period.</div>';
+        return;
+    }
+    var budget = sums.budget_mwh;
+    var labels = ['Budget', 'Irr shortfall', 'Availability', 'Curtailment', 'Temperature', 'Other', 'Actual'];
+    var measures = ['absolute', 'relative', 'relative', 'relative', 'relative', 'relative', 'total'];
+    var values, unit;
+    if (DRILL_LOSS_MODE === 'mwh') {
+        values = [
+            budget,
+            -sums.irradiance_shortfall_mwh,
+            -sums.availability_mwh,
+            -sums.curtailment_mwh,
+            -sums.temperature_mwh,
+            -sums.other_mwh,
+            sums.actual_mwh,
+        ];
+        unit = 'MWh';
+    } else {
+        var pct = function(x) { return budget > 0 ? (x / budget * 100) : 0; };
+        values = [
+            100,
+            -pct(sums.irradiance_shortfall_mwh),
+            -pct(sums.availability_mwh),
+            -pct(sums.curtailment_mwh),
+            -pct(sums.temperature_mwh),
+            -pct(sums.other_mwh),
+            pct(sums.actual_mwh),
+        ];
+        unit = '%';
+    }
+    Plotly.react('drill-loss-chart', [{
+        type: 'waterfall',
+        x: labels,
+        y: values,
+        measure: measures,
+        text: values.map(function(v) {
+            return (DRILL_LOSS_MODE === 'mwh' ? fmtNum(v, 0) : fmtNum(v, 1)) + ' ' + unit;
+        }),
+        textposition: 'outside',
+        connector: { line: { color: '#C0BBA8' } },
+        increasing: { marker: { color: '#92B53D' } },
+        decreasing: { marker: { color: '#B14E45' } },
+        totals: { marker: { color: '#2E5C4D' } },
+        hovertemplate: '%{x}<br><b>%{y:.1f}</b> ' + unit + '<extra></extra>',
+    }], makeLayout({
+        yaxis: Object.assign({}, PLOTLY_BASE.yaxis, { title: { text: unit, font: PLOTLY_BASE.yaxis.title.font } }),
+        margin: { t: 24, b: 70, l: 64, r: 24 },
+        showlegend: false,
+    }), PLOTLY_CFG);
+}
+
+function bindLossModeControls() {
+    var seg = el('drill-loss-mode');
+    if (!seg || seg.dataset.bound) return;
+    seg.querySelectorAll('button').forEach(function(b) {
+        b.addEventListener('click', function() {
+            var m = b.dataset.mode;
+            if (m === DRILL_LOSS_MODE) return;
+            DRILL_LOSS_MODE = m;
+            seg.querySelectorAll('button').forEach(function(x) {
+                x.setAttribute('aria-selected', x.dataset.mode === m ? 'true' : 'false');
+                x.setAttribute('aria-pressed', x.dataset.mode === m ? 'true' : 'false');
+            });
+            var pk = ASSETS_STATE.selectedPark;
+            var park = ASSETS.parks[pk];
+            renderLossWaterfall(park, drillPeriodKeys(park));
+        });
+    });
+    seg.dataset.bound = '1';
+}
+
+function renderRevenueWaterfall(park, keys) {
+    var host = el('drill-revenue-chart');
+    if (!host) return;
+    var rows = (park.months || []).filter(function(m) {
+        return keys.indexOf(m.year + '-' + pad2(m.month)) !== -1;
+    });
+    var hasRev = rows.some(function(r) { return r.revenue_eur != null; });
+    if (!hasRev) {
+        Plotly.purge('drill-revenue-chart');
+        host.innerHTML = '<div class="empty-note">No revenue data for selected period (Bazefield × spot join unavailable).</div>';
+        return;
+    }
+    var actualRev = 0, actualVol = 0, baselineWeighted = 0, baselineDen = 0;
+    var budgetMwh = 0;
+    rows.forEach(function(r) {
+        if (r.revenue_eur != null) actualRev += r.revenue_eur;
+        if (r.bazefield_volume_mwh != null) actualVol += r.bazefield_volume_mwh;
+        if (r.budget_mwh != null) budgetMwh += r.budget_mwh;
+        if (r.baseload_eur_mwh != null && r.bazefield_volume_mwh != null) {
+            baselineWeighted += r.baseload_eur_mwh * r.bazefield_volume_mwh;
+            baselineDen += r.bazefield_volume_mwh;
+        }
+    });
+    var baseload = baselineDen > 0 ? baselineWeighted / baselineDen : null;
+    if (baseload == null) {
+        Plotly.purge('drill-revenue-chart');
+        host.innerHTML = '<div class="empty-note">Insufficient baseload data for decomposition.</div>';
+        return;
+    }
+    var capture = actualVol > 0 ? actualRev / actualVol : null;
+    var budgetRev = budgetMwh * baseload;
+    var volumeEffect = (actualVol - budgetMwh) * baseload;
+    var priceEffect = (capture != null) ? actualVol * (capture - baseload) : 0;
+
+    var labels = ['Budget rev.<br>(@baseload)', 'Volume effect', 'Price effect', 'Realized rev.'];
+    var measures = ['absolute', 'relative', 'relative', 'total'];
+    var values = [budgetRev, volumeEffect, priceEffect, actualRev];
+    Plotly.react('drill-revenue-chart', [{
+        type: 'waterfall',
+        x: labels,
+        y: values,
+        measure: measures,
+        text: values.map(function(v) { return fmtNum(v / 1000, 1) + ' k€'; }),
+        textposition: 'outside',
+        connector: { line: { color: '#C0BBA8' } },
+        increasing: { marker: { color: '#92B53D' } },
+        decreasing: { marker: { color: '#B14E45' } },
+        totals: { marker: { color: '#2E5C4D' } },
+        hovertemplate: '%{x}<br><b>%{y:,.0f}</b> €<extra></extra>',
+    }], makeLayout({
+        yaxis: Object.assign({}, PLOTLY_BASE.yaxis, { title: { text: 'EUR', font: PLOTLY_BASE.yaxis.title.font } }),
+        margin: { t: 24, b: 70, l: 80, r: 24 },
+        showlegend: false,
+    }), PLOTLY_CFG);
+}
+
+function renderParkFacts(park) {
+    var f = park && park.facts;
+    var host = el('drill-facts-grid');
+    if (!host) return;
+    if (!f) { host.innerHTML = '<div class="empty-note">No metadata available.</div>'; return; }
+    var rows = [
+        ['Location', f.location || '–'],
+        ['Commissioning', f.commissioning_date || '–'],
+        ['Module', (f.module_type || '–') + (f.module_wp ? ' · ' + f.module_wp + ' Wp' : '')],
+        ['# Modules', f.num_modules != null ? fmtNum(f.num_modules, 0) : '–'],
+        ['Inverter', (f.inverter_manufacturer ? f.inverter_manufacturer + ' ' : '') + (f.inverter_model || '–')],
+        ['# Inverters', f.num_inverters != null ? fmtNum(f.num_inverters, 0) : '–'],
+        ['Tilt / Azimuth', (f.tilt_angle != null ? f.tilt_angle + '°' : '–') + ' / ' + (f.azimuth != null ? f.azimuth + '°' : '–')],
+        ['Tracking', f.tracking ? (f.tracking_type || 'tracker') : 'Fixed'],
+        ['AC capacity', f.ac_capacity_mwac != null ? fmtNum(f.ac_capacity_mwac, 2) + ' MWac' : '–'],
+        ['Grid limit', f.grid_limit_mwac != null ? fmtNum(f.grid_limit_mwac, 2) + ' MWac' : '–'],
+        ['Transformer', (f.transformer_count != null && f.transformer_capacity_kva != null)
+            ? f.transformer_count + ' × ' + fmtNum(f.transformer_capacity_kva, 0) + ' kVA' : '–'],
+        ['Expected PR', f.expected_pr_pct != null ? fmtNum(f.expected_pr_pct, 1) + ' %' : '–'],
+        ['Expected yield', f.expected_annual_yield_kwh_kwp != null
+            ? fmtNum(f.expected_annual_yield_kwh_kwp, 0) + ' kWh/kWp/yr' : '–'],
+        ['PVsyst profile', f.profile_type || '–'],
+    ];
+    host.innerHTML = rows.map(function(r) {
+        return '<div class="fact-cell"><div class="fact-k">' + htmlEsc(r[0]) +
+            '</div><div class="fact-v">' + htmlEsc(String(r[1])) + '</div></div>';
+    }).join('');
+}
+
+function buildInsightText(agg) {
+    if (!agg) return '';
+    var vs = agg.vs_budget_pct;
+    if (vs == null) return '';
+    var verdict;
+    if (vs >= 5) verdict = 'Above budget';
+    else if (vs <= -5) verdict = 'Below budget';
+    else verdict = 'On budget';
+    var dPr = (agg.actual_pr_pct != null && agg.budget_pr_pct != null)
+        ? (agg.actual_pr_pct - agg.budget_pr_pct) : null;
+    var dIrr = agg.vs_budget_irr_pct;
+    var driver = '';
+    if (dPr != null && Math.abs(dPr) >= 1) {
+        driver += ' driven by PR ' + (dPr >= 0 ? '+' : '') + fmtNum(dPr, 1) + 'pp';
+    }
+    if (dIrr != null && Math.abs(dIrr) >= 2) {
+        var conn;
+        if (driver) {
+            conn = (dPr != null && Math.sign(dPr) === Math.sign(dIrr)) ? ' and ' : ' despite ';
+        } else {
+            conn = ' driven by ';
+        }
+        driver += conn + 'irradiance ' + (dIrr >= 0 ? '+' : '') + fmtNum(dIrr, 1) + '%';
+    }
+    return verdict + driver + '.';
 }
 
 function renderBestWorst(p, days, suffix) {
@@ -3457,12 +4178,19 @@ _SHELL = r"""<!DOCTYPE html>
 
         <div class="card">
           <div class="card-head">
-            <div><div class="card-title">Forward vs realised</div><div class="card-sub">SYS, zone-implied (SYS + EPAD) and realised YTD spot for delivered contracts.</div></div>
+            <div><div class="card-title">SYS baseload — forward curve</div><div class="card-sub">Nordic system price futures across active contracts.</div></div>
+          </div>
+          <div class="chart" id="futures-sys-chart"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div><div class="card-title">Zone forward vs realised</div><div class="card-sub">Zone-implied (SYS + EPAD) and realised YTD spot for delivered contracts.</div></div>
             <div class="card-actions">
-              <span class="label-control">Zone <div class="seg futures-zone-seg" data-target="forward"></div></span>
+              <span class="label-control">Zone <div class="seg futures-zone-seg" data-target="zone"></div></span>
             </div>
           </div>
-          <div class="chart chart-tall" id="futures-forward-chart"></div>
+          <div class="chart" id="futures-zone-chart"></div>
         </div>
 
         <div class="card">
@@ -3494,6 +4222,26 @@ _SHELL = r"""<!DOCTYPE html>
             <div style="overflow-x:auto">
               <table class="editorial" id="futures-table-year"></table>
             </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div><div class="card-title">Forward convergence</div><div class="card-sub" id="convergence-sub">Daily settlement path for a single delivered or pending contract, with realised spot.</div></div>
+            <div class="card-actions">
+              <span class="label-control">Contract <select id="convergence-contract"></select></span>
+              <span class="label-control">Zone <div class="seg futures-zone-seg" data-target="convergence"></div></span>
+            </div>
+          </div>
+          <div class="chart chart-tall" id="futures-convergence-chart"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div><div class="card-title">Lookback — forward vs realised</div><div class="card-sub">Zone-implied price (SYS + EPAD) at fixed lookback intervals before delivery, and the realised spot.</div></div>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="editorial" id="futures-lookback-table"></table>
           </div>
         </div>
       </div>
@@ -3587,8 +4335,14 @@ _SHELL = r"""<!DOCTYPE html>
           <div>
             <h1 class="drill-name"><span id="drill-name"></span><span id="drill-period-suffix" class="page-title-suffix"></span></h1>
             <div class="drill-meta" id="drill-meta"></div>
+            <div class="drill-insight" id="drill-insight"></div>
           </div>
         </div>
+
+        <details class="park-facts" id="drill-facts">
+          <summary>About this park</summary>
+          <div class="facts-grid" id="drill-facts-grid"></div>
+        </details>
 
         <div class="period-bar" id="drill-period-bar" role="group" aria-label="Period filter">
           <div class="period-bar-left">
@@ -3628,6 +4382,25 @@ _SHELL = r"""<!DOCTYPE html>
           <div class="card">
             <div class="card-head"><div><div class="card-title">POA Irradiation: Actual vs Budget</div><div class="card-sub">kWh / m² · month, last 13 months.</div></div></div>
             <div class="chart" id="drill-capture-chart"></div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head">
+              <div><div class="card-title">Loss analysis</div><div class="card-sub">Budget → Actual cascade by loss type.</div></div>
+              <div class="card-actions">
+                <div class="seg" id="drill-loss-mode" role="tablist" aria-label="Loss display mode">
+                  <button type="button" data-mode="mwh" role="tab" aria-selected="true" aria-pressed="true">MWh</button>
+                  <button type="button" data-mode="pct" role="tab" aria-selected="false" aria-pressed="false">%</button>
+                </div>
+              </div>
+            </div>
+            <div class="chart" id="drill-loss-chart"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div><div class="card-title">Revenue decomposition</div><div class="card-sub">Budget revenue → volume effect → price effect → realized.</div></div></div>
+            <div class="chart" id="drill-revenue-chart"></div>
           </div>
         </div>
 

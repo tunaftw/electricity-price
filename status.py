@@ -115,6 +115,67 @@ def print_gaps():
         print("Backfill: python3 download.py --zones <zone> --start <date> --end <date>")
 
 
+def print_futures_health():
+    """Warn about Nasdaq forward contracts that are stale or near expiry.
+
+    - "Approaching expiry" — delivery starts within 14 days but the latest
+      daily fix is older than 7 days, suggesting a sync is due.
+    - "Stale finals" — already-delivered contracts whose last fix is more
+      than 7 days before delivery_start, indicating an old coverage gap
+      whose historical settlement data is incomplete.
+    """
+    from datetime import date, datetime, timedelta
+    from elpris.config import NASDAQ_DATA_DIR
+    from elpris.dashboard_v2_data import _load_full_history, _parse_contract_period
+
+    sys_file = NASDAQ_DATA_DIR / "sys_baseload.csv"
+    if not sys_file.exists():
+        return
+
+    history = _load_full_history(sys_file)
+    today = date.today()
+
+    approaching = []
+    stale = []
+    for symbol, series in history.items():
+        if not series:
+            continue
+        parsed = _parse_contract_period(symbol)
+        if not parsed:
+            continue
+        label, _ctype, start_iso, end_iso = parsed
+        start_d = datetime.fromisoformat(start_iso).date()
+        end_d = datetime.fromisoformat(end_iso).date()
+        last_d = datetime.fromisoformat(series[-1]["date"]).date()
+
+        if 0 <= (start_d - today).days <= 14 and (today - last_d).days > 7:
+            approaching.append((label, start_iso, last_d, (today - last_d).days))
+        if end_d < today and last_d < start_d - timedelta(days=7):
+            stale.append((label, start_iso, last_d))
+
+    if not approaching and not stale:
+        return
+
+    RED = "\033[31m"
+    YELLOW = "\033[33m"
+    RESET = "\033[0m"
+
+    print("\nFUTURES HEALTH (Nasdaq forward coverage)")
+    print("=" * 60)
+    if approaching:
+        for label, start_iso, last_d, days_stale in approaching:
+            print(f"{RED}⚠ {label} expires in <14 days (delivery {start_iso}); "
+                  f"last fix {last_d} ({days_stale} days stale).{RESET}")
+        print("  Run: python3 nasdaq_download.py")
+    if stale:
+        for label, start_iso, last_d in stale:
+            expected_near = (datetime.fromisoformat(start_iso).date() - timedelta(days=1))
+            print(f"{YELLOW}⚠ {label}: last fix {last_d}, expected near "
+                  f"{expected_near}. Possible coverage gap — historical "
+                  f"settlement may be missing.{RESET}")
+    print("=" * 60)
+
+
 def main():
     print("Swedish Electricity Price Data Status")
 
@@ -123,6 +184,8 @@ def main():
 
     if has_raw:
         print_gaps()
+
+    print_futures_health()
 
     if not has_raw:
         print("\nNo raw data downloaded yet. Run 'python download.py' to get started.")

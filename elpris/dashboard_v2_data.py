@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import csv
 from collections import defaultdict
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -620,6 +620,32 @@ def _parse_contract_period(symbol: str) -> tuple[str, str, str, str] | None:
     )
 
 
+def _load_full_history(filepath: Path) -> dict[str, list[dict]]:
+    """Load full daily history per contract from a Nasdaq CSV.
+
+    Returns: {contract_symbol: [{"date": str, "price": float}, ...]} sorted by date.
+    """
+    history: dict[str, list[dict]] = {}
+    if not filepath.exists():
+        return history
+    with open(filepath, "r") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            fix = row.get("daily_fix_eur", "").strip()
+            if not fix:
+                continue
+            try:
+                price = float(fix)
+            except ValueError:
+                continue
+            history.setdefault(row["contract"], []).append(
+                {"date": row["date"], "price": price}
+            )
+    for symbol in history:
+        history[symbol].sort(key=lambda r: r["date"])
+    return history
+
+
 def load_forward_curve_data(spot_data: dict[str, dict]) -> dict | None:
     """Load latest futures settlement prices and build forward curve.
 
@@ -782,6 +808,102 @@ def load_forward_curve_data(spot_data: dict[str, dict]) -> dict | None:
         if any(c["label"] in spot_realized.get(z, {}) for z in ZONES)
     ]
 
+    # ------------------------------------------------------------------
+    # forward_history: full daily settlement series per contract.
+    # Includes every contract that ever appeared in CSV, so the frontend
+    # convergence view can render delivered, in-delivery and pending alike.
+    # ------------------------------------------------------------------
+    sys_history = _load_full_history(sys_file)
+    epad_history: dict[str, dict[str, list[dict]]] = {}
+    for zone, filename in epad_files.items():
+        epad_history[zone] = _load_full_history(NASDAQ_DATA_DIR / filename)
+
+    forward_history: dict[str, dict] = {}
+    today = date.today()
+    for c in contracts:
+        symbol = c["symbol"]
+        sys_series = sys_history.get(symbol, [])
+        if not sys_series:
+            continue
+        final_date = sys_series[-1]["date"]
+        delivery_start = c["start"]
+        # 7-day grace window before delivery counts as "clean" final fix
+        is_clean = final_date >= (
+            datetime.fromisoformat(delivery_start).date() - timedelta(days=7)
+        ).isoformat()
+
+        # Realised spot per zone over the contract delivery period.
+        realised = {}
+        for zone in ZONES:
+            zone_spot = spot_data.get(zone, {})
+            if not zone_spot:
+                continue
+            total = 0.0
+            count = 0
+            for date_key, hours in zone_spot.items():
+                if c["start"] <= date_key <= min(c["end"], today.isoformat()):
+                    for h in hours:
+                        total += h["eur_mwh"]
+                        count += 1
+            if count > 0:
+                realised[zone] = round(total / count, 2)
+
+        # EPAD series mapped via _parse_contract_period (same label match
+        # logic as the active-contract pricing above).
+        epad_series_by_zone: dict[str, list[dict]] = {}
+        for zone in ZONES:
+            for sym, series in epad_history.get(zone, {}).items():
+                parsed_e = _parse_contract_period(sym)
+                if parsed_e and parsed_e[0] == c["label"]:
+                    epad_series_by_zone[zone] = series
+                    break
+
+        forward_history[c["label"]] = {
+            "type": c["type"],
+            "delivery_start": c["start"],
+            "delivery_end": c["end"],
+            "final_settlement_date": final_date,
+            "is_clean_final": is_clean,
+            "sys_series": sys_series,
+            "epad_series": epad_series_by_zone,
+            "realised_spot": realised,
+        }
+
+    # ------------------------------------------------------------------
+    # forward_health: stale finals + approaching expiry (for status.py)
+    # ------------------------------------------------------------------
+    forward_health = {"stale_finals": [], "approaching_expiry": []}
+    today_iso = today.isoformat()
+    for c in contracts:
+        sys_series = sys_history.get(c["symbol"], [])
+        if not sys_series:
+            continue
+        final_date = sys_series[-1]["date"]
+        delivery_start_d = datetime.fromisoformat(c["start"]).date()
+        delivery_end_d = datetime.fromisoformat(c["end"]).date()
+        last_fix_d = datetime.fromisoformat(final_date).date()
+
+        # Stale final: contract has delivered but last fix is > 7 days
+        # before delivery_start (incomplete capture).
+        if delivery_end_d < today and last_fix_d < delivery_start_d - timedelta(days=7):
+            forward_health["stale_finals"].append({
+                "contract": c["label"],
+                "expected_near": (delivery_start_d - timedelta(days=1)).isoformat(),
+                "last_fix": final_date,
+            })
+
+        # Approaching expiry: delivery_start within 14 days, last fix > 7 days old.
+        if (
+            0 <= (delivery_start_d - today).days <= 14
+            and (today - last_fix_d).days > 7
+        ):
+            forward_health["approaching_expiry"].append({
+                "contract": c["label"],
+                "delivery_start": c["start"],
+                "last_fix": final_date,
+                "days_stale": (today - last_fix_d).days,
+            })
+
     return {
         "settlement_date": settlement_date,
         "contracts": contract_labels,
@@ -790,6 +912,8 @@ def load_forward_curve_data(spot_data: dict[str, dict]) -> dict | None:
         "epad": epad_fwd,
         "zone_fwd": zone_fwd,
         "spot_realized": spot_realized,
+        "forward_history": forward_history,
+        "forward_health": forward_health,
     }
 
 
