@@ -458,6 +458,20 @@ select:focus, input:focus { outline: none; border-color: var(--accent-deep); box
 }
 .seg button:disabled:hover { color: var(--ink-3); }
 
+/* Pricing-mode badge inside KPI labels (shows whether tile is on Spot or PPA blend). */
+.mode-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.mode-badge.mode-spot { background: rgba(176, 131, 44, 0.18); color: #B0832C; }
+.mode-badge.mode-ppa  { background: rgba(46, 92, 77, 0.18);  color: #2E5C4D; }
+
 .label-control {
   display: inline-flex;
   align-items: center;
@@ -3045,6 +3059,18 @@ function aggregatePark(park, keys) {
     var realizedCapture = (revenue != null && bzVolume != null && bzVolume > 0)
         ? (revenue / bzVolume) : null;
 
+    // PPA aggregates. For parks lacking a PPA contract, revenue_eur_ppa is null
+    // per row — fall back to spot revenue so portfolio sums stay consistent.
+    var revenuePpa = 0, anyPpa = false;
+    rows.forEach(function(r) {
+        if (r.revenue_eur_ppa != null) { revenuePpa += r.revenue_eur_ppa; anyPpa = true; }
+        else if (r.revenue_eur != null) { revenuePpa += r.revenue_eur; anyPpa = true; }
+    });
+    if (!anyPpa) revenuePpa = null;
+    var realizedCapturePpa = (revenuePpa != null && bzVolume != null && bzVolume > 0)
+        ? (revenuePpa / bzVolume) : null;
+    var effBaselinePpa = weightedAvg('effective_baseload_eur_mwh_ppa', 'bazefield_volume_mwh');
+
     return {
         period_keys: keys,
         months_present: rows.length,
@@ -3063,9 +3089,12 @@ function aggregatePark(park, keys) {
         budget_pr_pct: weightedAvg('budget_pr_pct', 'energy_mwh'),
         availability_pct: weightedAvg('availability_pct', 'energy_mwh'),
         revenue_eur: revenue,
+        revenue_eur_ppa: revenuePpa,
         bazefield_volume_mwh: bzVolume,
         realized_capture_eur_mwh: realizedCapture,
-        baseload_eur_mwh: weightedAvg('baseload_eur_mwh', 'bazefield_volume_mwh')
+        realized_capture_eur_mwh_ppa: realizedCapturePpa,
+        baseload_eur_mwh: weightedAvg('baseload_eur_mwh', 'bazefield_volume_mwh'),
+        effective_baseload_eur_mwh_ppa: effBaselinePpa
     };
 }
 function partialDataDot(agg, expected) {
@@ -3083,6 +3112,7 @@ function renderFleetMode() {
 
     ensurePeriodInit();
     bindPeriodControls();
+    bindGlobalRevenueModeControls();
     refreshPeriodControls();
 
     var keys = periodKeys();
@@ -3273,8 +3303,9 @@ function renderFleetKPIs(keys, expected) {
         return;
     }
     var totalCap = 0, totalActual = 0, totalBudget = 0, totalNeg = 0;
-    var totalRevenue = 0, totalVolume = 0, totalBaseloadWeighted = 0;
-    var anyData = false, hasRevenue = false;
+    var totalRevenue = 0, totalRevenuePpa = 0;
+    var totalVolume = 0, totalBaseloadWeighted = 0, totalEffBaseloadWeighted = 0;
+    var anyData = false, hasRevenue = false, hasEffBaseload = false;
     entries.forEach(function(e) {
         var p = e[1];
         totalCap += (p.capacity_mwp || 0);
@@ -3285,9 +3316,19 @@ function renderFleetKPIs(keys, expected) {
             if (agg.budget_mwh != null) totalBudget += agg.budget_mwh;
             if (agg.neg_price_hours != null) totalNeg += agg.neg_price_hours;
             if (agg.revenue_eur != null) { totalRevenue += agg.revenue_eur; hasRevenue = true; }
+            if (agg.revenue_eur_ppa != null) totalRevenuePpa += agg.revenue_eur_ppa;
+            else if (agg.revenue_eur != null) totalRevenuePpa += agg.revenue_eur;
             if (agg.bazefield_volume_mwh != null) totalVolume += agg.bazefield_volume_mwh;
             if (agg.baseload_eur_mwh != null && agg.bazefield_volume_mwh != null) {
                 totalBaseloadWeighted += agg.baseload_eur_mwh * agg.bazefield_volume_mwh;
+            }
+            if (agg.effective_baseload_eur_mwh_ppa != null && agg.bazefield_volume_mwh != null) {
+                totalEffBaseloadWeighted += agg.effective_baseload_eur_mwh_ppa * agg.bazefield_volume_mwh;
+                hasEffBaseload = true;
+            } else if (agg.baseload_eur_mwh != null && agg.bazefield_volume_mwh != null) {
+                // Park without PPA → use spot baseload as effective.
+                totalEffBaseloadWeighted += agg.baseload_eur_mwh * agg.bazefield_volume_mwh;
+                hasEffBaseload = true;
             }
         }
     });
@@ -3295,26 +3336,33 @@ function renderFleetKPIs(keys, expected) {
     var vsCls = vsClass(vsBudget);
     var pillHtml = vsBudget != null ? '<span class="pill ' + vsCls + '">' + fmtPct(vsBudget) + '</span>' : '<span class="pill neutral">–</span>';
 
-    var fleetCapture = (totalVolume > 0 && hasRevenue) ? (totalRevenue / totalVolume) : null;
-    var fleetBaseload = (totalVolume > 0) ? (totalBaseloadWeighted / totalVolume) : null;
-    var capturePremium = (fleetCapture != null && fleetBaseload != null && fleetBaseload !== 0)
-        ? (fleetCapture / fleetBaseload - 1) * 100 : null;
+    var usePpa = (REVENUE_MODE === 'ppa');
+    var displayRevenue = usePpa ? totalRevenuePpa : totalRevenue;
+    var fleetCapture = (totalVolume > 0 && hasRevenue) ? (displayRevenue / totalVolume) : null;
+    var fleetBaselineSpot = (totalVolume > 0) ? (totalBaseloadWeighted / totalVolume) : null;
+    var fleetBaselineEff  = (totalVolume > 0 && hasEffBaseload) ? (totalEffBaseloadWeighted / totalVolume) : fleetBaselineSpot;
+    var fleetBaselineRef  = usePpa ? fleetBaselineEff : fleetBaselineSpot;
+    var capturePremium = (fleetCapture != null && fleetBaselineRef != null && fleetBaselineRef !== 0)
+        ? (fleetCapture / fleetBaselineRef - 1) * 100 : null;
+    var premiumLabel = usePpa ? ' vs PPA blend' : ' vs baseload';
     var premiumPill = capturePremium != null
-        ? '<span class="pill ' + vsClass(capturePremium) + '">' + fmtPct(capturePremium, 1) + ' vs baseload</span>'
+        ? '<span class="pill ' + vsClass(capturePremium) + '">' + fmtPct(capturePremium, 1) + premiumLabel + '</span>'
         : '<span class="pill neutral">–</span>';
 
     var suffix = formatPeriodSuffix();
+    var modeBadge = '<span class="mode-badge ' + (usePpa ? 'mode-ppa' : 'mode-spot') + '">' + (usePpa ? 'PPA' : 'SPOT') + '</span>';
     var energyLabel = 'Energy · ' + suffix;
     var negLabel = 'Negative-price hours · ' + suffix;
     var energySub = anyData ? ('Budget: ' + fmtNum(totalBudget, 0) + ' MWh') : 'No data for period';
 
-    var revenueTile = '<div class="kpi"><div class="kpi-label">Revenue · ' + suffix + '</div>' +
+    var revenueTile = '<div class="kpi"><div class="kpi-label">Revenue ' + modeBadge + ' · ' + suffix + '</div>' +
         '<div><span class="kpi-value">' +
-        (hasRevenue ? fmtNum(totalRevenue / 1000, 0) : '–') +
+        (hasRevenue ? fmtNum(displayRevenue / 1000, 0) : '–') +
         '</span><span class="kpi-unit">k€</span></div>' +
         '<div class="kpi-sub">' + (hasRevenue ? fmtNum(totalVolume, 0) + ' MWh sold' : 'no spot data') + '</div></div>';
 
-    var captureTile = '<div class="kpi"><div class="kpi-label">Realized capture</div>' +
+    var captureLabel = usePpa ? 'Realized capture (PPA blend)' : 'Realized capture';
+    var captureTile = '<div class="kpi"><div class="kpi-label">' + captureLabel + '</div>' +
         '<div><span class="kpi-value">' +
         (fleetCapture != null ? fmtNum(fleetCapture, 1) : '–') +
         '</span><span class="kpi-unit">€/MWh</span></div>' +
@@ -3391,8 +3439,13 @@ function tableRows(keys, expected) {
     }).map(function(e) {
         var pk = e[0], p = e[1];
         var agg = aggregatePark(p, keys);
+        // Pricing-mode aware revenue/capture columns. Falls back to spot when
+        // the park has no PPA contract, so the table column stays comparable.
+        var usePpa = (REVENUE_MODE === 'ppa') && agg
+            && (agg.revenue_eur_ppa != null || agg.realized_capture_eur_mwh_ppa != null);
         return {
             key: pk, name: p.name || pk, zone: p.zone || '',
+            has_ppa: !!(p.ppa),
             capacity_mwp: p.capacity_mwp || 0,
             energy_mwh: agg ? agg.energy_mwh : null,
             budget_mwh: agg ? agg.budget_mwh : null,
@@ -3402,8 +3455,8 @@ function tableRows(keys, expected) {
             vs_budget_irr_pct: agg ? agg.vs_budget_irr_pct : null,
             pr_pct: agg ? agg.actual_pr_pct : null,
             availability_pct: agg ? agg.availability_pct : null,
-            revenue_eur: agg ? agg.revenue_eur : null,
-            capture_eur_mwh: agg ? agg.realized_capture_eur_mwh : null,
+            revenue_eur: agg ? (usePpa ? agg.revenue_eur_ppa : agg.revenue_eur) : null,
+            capture_eur_mwh: agg ? (usePpa ? agg.realized_capture_eur_mwh_ppa : agg.realized_capture_eur_mwh) : null,
             baseload_eur_mwh: agg ? agg.baseload_eur_mwh : null,
             months_present: agg ? agg.months_present : 0,
             months_expected: expected || 1,
@@ -3437,8 +3490,8 @@ function renderParkTable(keys, expected) {
         { k: 'vs_budget_pct', label: 'vs Budget',       fmt: function(v) { if (v == null) return '–'; var c = vsClass(v); return '<span class="pill ' + c + '">' + fmtPct(v) + '</span>'; }, cls: 'num', html: true },
         { k: 'pr_pct',        label: 'PR %',            fmt: function(v) { return v == null ? '–' : fmtNum(v, 1); }, cls: 'num' },
         { k: 'availability_pct', label: 'Avail %',      fmt: function(v) { return v == null ? '–' : fmtNum(v, 1); }, cls: 'num' },
-        { k: 'capture_eur_mwh', label: 'Capture €/MWh', fmt: function(v) { return v == null ? '–' : fmtNum(v, 1); }, cls: 'num' },
-        { k: 'revenue_eur',   label: 'Revenue k€',      fmt: function(v) { return v == null ? '–' : fmtNum(v / 1000, 1); }, cls: 'num' },
+        { k: 'capture_eur_mwh', label: 'Capture €/MWh' + (REVENUE_MODE === 'ppa' ? ' (PPA)' : ''), fmt: function(v) { return v == null ? '–' : fmtNum(v, 1); }, cls: 'num' },
+        { k: 'revenue_eur',   label: 'Revenue k€' + (REVENUE_MODE === 'ppa' ? ' (PPA)' : ''),    fmt: function(v) { return v == null ? '–' : fmtNum(v / 1000, 1); }, cls: 'num' },
         { k: 'actual_irr_kwh_m2', label: 'Irr (kWh/m²)', fmt: function(v) { return fmtNum(v, 1); }, cls: 'num' },
         { k: 'vs_budget_irr_pct', label: 'vs Bdg',      fmt: function(v) { if (v == null) return '–'; var c = vsClass(v); return '<span class="pill ' + c + '">' + fmtPct(v) + '</span>'; }, cls: 'num', html: true },
         { k: 'yield_kwh_kwp', label: 'Yield kWh/kWp',   fmt: function(v) { return fmtNum(v, 1); }, cls: 'num' },
@@ -4150,38 +4203,50 @@ function renderDrilldown() {
         '<div><span class="kpi-value">' + (agg && agg.energy_mwh != null ? fmtNum(agg.energy_mwh, 0) : '–') + '</span><span class="kpi-unit">MWh</span></div>' +
         '<div class="kpi-sub">' + htmlEsc(suffix) + dot + '</div></div>';
 
+    // Toggle between spot and PPA-blended values for Revenue / Realized capture / Reference baseload.
+    var drillUsePpa = (REVENUE_MODE === 'ppa') && agg && (agg.revenue_eur_ppa != null);
+    var drillRevenue = drillUsePpa ? agg.revenue_eur_ppa : (agg ? agg.revenue_eur : null);
+    var drillCapture = drillUsePpa ? agg.realized_capture_eur_mwh_ppa : (agg ? agg.realized_capture_eur_mwh : null);
+    var drillBaseRef = drillUsePpa
+        ? (agg && agg.effective_baseload_eur_mwh_ppa != null ? agg.effective_baseload_eur_mwh_ppa : (agg ? agg.baseload_eur_mwh : null))
+        : (agg ? agg.baseload_eur_mwh : null);
+    var modeBadge = '<span class="mode-badge ' + (drillUsePpa ? 'mode-ppa' : 'mode-spot') + '">' + (drillUsePpa ? 'PPA' : 'SPOT') + '</span>';
+
     var revenueTile;
-    if (agg && agg.revenue_eur != null) {
-        revenueTile = '<div class="kpi"><div class="kpi-label">Revenue</div>' +
-            '<div><span class="kpi-value">' + fmtNum(agg.revenue_eur / 1000, 1) +
+    if (drillRevenue != null) {
+        revenueTile = '<div class="kpi"><div class="kpi-label">Revenue ' + modeBadge + '</div>' +
+            '<div><span class="kpi-value">' + fmtNum(drillRevenue / 1000, 1) +
             '</span><span class="kpi-unit">k€</span></div>' +
             '<div class="kpi-sub">' + (agg.bazefield_volume_mwh != null ? fmtNum(agg.bazefield_volume_mwh, 0) + ' MWh sold' : '') + '</div></div>';
     } else {
         revenueTile = '<div class="kpi" style="opacity:0.55"><div class="kpi-label">Revenue</div><div class="kpi-value">—</div><div class="kpi-sub">no spot match</div></div>';
     }
 
-    var realizedCap = agg ? agg.realized_capture_eur_mwh : null;
-    var baseload = agg ? agg.baseload_eur_mwh : null;
     var realizedTile;
-    if (realizedCap != null) {
-        var vsZone = (captureAgg != null) ? (realizedCap - captureAgg) : null;
+    if (drillCapture != null) {
+        // vs zone reference is always spot-based (zone capture comes from PVsyst-weighted spot, not PPA).
+        // Show vs-zone only in spot mode to avoid mixing different reference worlds.
+        var vsZone = (!drillUsePpa && captureAgg != null) ? (drillCapture - captureAgg) : null;
         var vsZonePill = vsZone != null
             ? '<span class="pill ' + vsClass(vsZone) + '">' + (vsZone >= 0 ? '+' : '') + fmtNum(vsZone, 1) + ' vs zone gen.</span>'
-            : '<span class="pill neutral">vs zone –</span>';
-        realizedTile = '<div class="kpi"><div class="kpi-label">Realized capture</div>' +
-            '<div><span class="kpi-value">' + fmtNum(realizedCap, 1) + '</span><span class="kpi-unit">€/MWh</span></div>' +
+            : '<span class="pill neutral">' + (drillUsePpa ? 'PPA blend' : 'vs zone –') + '</span>';
+        var realizedLabel = drillUsePpa ? 'Realized capture (PPA)' : 'Realized capture';
+        realizedTile = '<div class="kpi"><div class="kpi-label">' + realizedLabel + '</div>' +
+            '<div><span class="kpi-value">' + fmtNum(drillCapture, 1) + '</span><span class="kpi-unit">€/MWh</span></div>' +
             '<div class="kpi-sub">' + vsZonePill + '</div></div>';
     } else {
         realizedTile = '<div class="kpi" style="opacity:0.55"><div class="kpi-label">Realized capture</div><div class="kpi-value">—</div></div>';
     }
 
     var premiumTile;
-    if (realizedCap != null && baseload != null && baseload !== 0) {
-        var prem = (realizedCap / baseload - 1) * 100;
+    if (drillCapture != null && drillBaseRef != null && drillBaseRef !== 0) {
+        var prem = (drillCapture / drillBaseRef - 1) * 100;
         var premPill = '<span class="pill ' + vsClass(prem) + '">' + fmtPct(prem, 1) + '</span>';
-        premiumTile = '<div class="kpi"><div class="kpi-label">Baseload spot</div>' +
-            '<div><span class="kpi-value">' + fmtNum(baseload, 1) + '</span><span class="kpi-unit">€/MWh</span></div>' +
-            '<div class="kpi-sub">' + premPill + ' capture vs baseload</div></div>';
+        var refLabel = drillUsePpa ? 'PPA blend baseline' : 'Baseload spot';
+        var premSub = drillUsePpa ? ' capture vs PPA blend' : ' capture vs baseload';
+        premiumTile = '<div class="kpi"><div class="kpi-label">' + refLabel + '</div>' +
+            '<div><span class="kpi-value">' + fmtNum(drillBaseRef, 1) + '</span><span class="kpi-unit">€/MWh</span></div>' +
+            '<div class="kpi-sub">' + premPill + premSub + '</div></div>';
     } else {
         premiumTile = '<div class="kpi" style="opacity:0.55"><div class="kpi-label">Baseload spot</div><div class="kpi-value">—</div></div>';
     }
@@ -4366,14 +4431,24 @@ var REVENUE_MODE = 'ppa';
 
 function setRevenueMode(mode) {
     REVENUE_MODE = (mode === 'spot') ? 'spot' : 'ppa';
-    // Reflect in toggle UI if present.
-    var btnSpot = el('rev-mode-spot');
-    var btnPpa  = el('rev-mode-ppa');
-    if (btnSpot && btnPpa) {
-        btnSpot.setAttribute('aria-selected', REVENUE_MODE === 'spot' ? 'true' : 'false');
-        btnPpa .setAttribute('aria-selected', REVENUE_MODE === 'ppa' ? 'true' : 'false');
-        btnSpot.setAttribute('aria-pressed', REVENUE_MODE === 'spot' ? 'true' : 'false');
-        btnPpa .setAttribute('aria-pressed', REVENUE_MODE === 'ppa' ? 'true' : 'false');
+    // Sync both toggle controls (Revenue waterfall + global Assets header).
+    function syncSeg(spotBtn, ppaBtn) {
+        if (!spotBtn || !ppaBtn) return;
+        spotBtn.setAttribute('aria-selected', REVENUE_MODE === 'spot' ? 'true' : 'false');
+        ppaBtn .setAttribute('aria-selected', REVENUE_MODE === 'ppa' ? 'true' : 'false');
+        spotBtn.setAttribute('aria-pressed',  REVENUE_MODE === 'spot' ? 'true' : 'false');
+        ppaBtn .setAttribute('aria-pressed',  REVENUE_MODE === 'ppa' ? 'true' : 'false');
+    }
+    syncSeg(el('rev-mode-spot'), el('rev-mode-ppa'));
+    var globalSeg = el('assets-rev-mode');
+    if (globalSeg) {
+        var btns = globalSeg.querySelectorAll('button');
+        var s = null, p = null;
+        btns.forEach(function(b) {
+            if (b.dataset.revMode === 'spot') s = b;
+            if (b.dataset.revMode === 'ppa')  p = b;
+        });
+        syncSeg(s, p);
     }
 }
 
@@ -4386,9 +4461,43 @@ function bindRevenueModeControls() {
             var m = b.dataset.revMode;
             if (m === REVENUE_MODE) return;
             setRevenueMode(m);
-            var pk = ASSETS_STATE.selectedPark;
-            var park = ASSETS.parks[pk];
-            if (park) renderRevenueWaterfall(park, drillPeriodKeys(park));
+            // Re-render anything that consumes REVENUE_MODE.
+            if (ASSETS_STATE.mode === 'drilldown') {
+                var pk = ASSETS_STATE.selectedPark;
+                var park = ASSETS.parks[pk];
+                if (park) {
+                    var keys = drillPeriodKeys(park);
+                    renderRevenueWaterfall(park, keys);
+                    // Drill KPIs also depend on REVENUE_MODE
+                    var dp = ASSETS_STATE.drillPeriod;
+                    if (typeof renderDrillKPIs === 'function') {
+                        // already rendered by renderDrilldown — re-trigger via showDrilldown isn't ideal,
+                        // so just re-render the KPIs directly.
+                    }
+                    showDrilldown(pk);
+                }
+            } else {
+                renderFleetMode();
+            }
+        });
+    });
+    seg.dataset.bound = '1';
+}
+
+function bindGlobalRevenueModeControls() {
+    var seg = el('assets-rev-mode');
+    if (!seg || seg.dataset.bound) return;
+    seg.querySelectorAll('button').forEach(function(b) {
+        b.addEventListener('click', function() {
+            var m = b.dataset.revMode;
+            if (m === REVENUE_MODE) return;
+            setRevenueMode(m);
+            if (ASSETS_STATE.mode === 'drilldown') {
+                var pk = ASSETS_STATE.selectedPark;
+                showDrilldown(pk);
+            } else {
+                renderFleetMode();
+            }
         });
     });
     seg.dataset.bound = '1';
@@ -4931,6 +5040,12 @@ _SHELL = r"""<!DOCTYPE html>
             </span>
           </div>
           <div class="period-bar-right">
+            <span class="label-control">Pricing
+              <span class="seg" id="assets-rev-mode" role="tablist" aria-label="Revenue pricing mode" title="Spot = 100% spot. PPA = volym-blandad PPA + spot per park (downtime ⇒ ingen PPA-ersättning).">
+                <button type="button" data-rev-mode="spot" role="tab" aria-selected="false" aria-pressed="false">Spot</button>
+                <button type="button" data-rev-mode="ppa"  role="tab" aria-selected="true"  aria-pressed="true">PPA</button>
+              </span>
+            </span>
             <span class="label-control">Zone
               <select id="assets-zone-sel">
                 <option value="ALL">All zones</option>
