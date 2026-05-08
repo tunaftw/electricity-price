@@ -1,0 +1,45 @@
+name: Tests
+
+# Kör automatiskt vid push till main och vid pull requests.
+# Resultatet syns som en grön bock (eller röd kryss) på GitHub.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Pytest (Python 3.11)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Hämta koden
+        uses: actions/checkout@v4
+
+      - name: Installera Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Installera projektberoenden
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Kör snabba tester (parsing, capture, dashboard, failure-log)
+        run: |
+          pytest tests/test_storage.py \
+                 tests/test_processing.py \
+                 tests/test_capture.py \
+                 tests/test_dashboard_v2_data.py \
+                 tests/test_failure_log.py \
+                 tests/test_park_revenue.py \
+                 -v --tb=short
+
+      - name: Kör tunga dashboard-tester (kan ta några minuter)
+        run: |
+          pytest tests/test_unified_dashboard_data.py -v --tb=short
