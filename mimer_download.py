@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 from datetime import date
 
+from elpris.failure_log import log_chunk_failures, log_failure
 from elpris.mimer import (
     MIMER_EARLIEST_DATES,
     MIMER_ENDPOINTS,
@@ -81,18 +82,23 @@ def main():
                 verbose=True,
                 force=args.force,
             )
-            failed = len(result.get("failed_chunks", []))
-            total_failed += failed
+            chunks = result.get("failed_chunks", [])
+            if chunks:
+                total_failed += log_chunk_failures("mimer", product, chunks)
             print(f"Done: {result['total_records']} records")
         except Exception as e:
             total_failed += 1
+            log_failure("mimer", product, "whole-product", str(e))
             print(f"Error downloading {product}: {e}")
 
     print("\n" + "=" * 50)
     print("Download complete!")
     print("Data saved to: Resultat/marknadsdata/mimer/")
     if total_failed:
-        print(f"WARNING: {total_failed} chunk(s) failed — data has gaps. See log above.")
+        print(
+            f"WARNING: {total_failed} chunk(s) failed — data has gaps. "
+            f"See Resultat/logs/failed_chunks.csv for details."
+        )
         return 1
     return 0
 

@@ -19,6 +19,7 @@ from elpris.entsoe import (
     download_all_generation,
     download_generation,
 )
+from elpris.failure_log import log_chunk_failures
 
 
 def main():
@@ -104,11 +105,20 @@ def main():
     print("Download complete!")
     print()
     total = sum(r["total_records"] for r in results)
-    failed = sum(len(r.get("failed_chunks", [])) for r in results)
+    failed = 0
+    for r in results:
+        chunks = r.get("failed_chunks", [])
+        if chunks:
+            failed += log_chunk_failures(
+                "entsoe", f"{r['zone']}_{r['psr_type']}", chunks
+            )
     print(f"Total records: {total}")
     print("Data saved to: Resultat/marknadsdata/entsoe/generation/")
     if failed:
-        print(f"WARNING: {failed} chunk(s) failed — data has gaps. See log above.")
+        print(
+            f"WARNING: {failed} chunk(s) failed — data has gaps. "
+            f"See Resultat/logs/failed_chunks.csv for details."
+        )
         return 1
 
     return 0

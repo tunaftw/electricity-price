@@ -324,6 +324,29 @@ def main():
     print()
     print("Reports saved to: Resultat/rapporter/")
 
+    # Surface failed download chunks logged during this run.
+    # See elpris.failure_log — each downloader appends to
+    # Resultat/logs/failed_chunks.csv on per-chunk failure.
+    try:
+        from elpris.failure_log import recent_failures
+        chunk_failures = recent_failures(hours=2)
+        if chunk_failures:
+            print()
+            print(
+                f"WARNING: {len(chunk_failures)} download chunk(s) failed "
+                f"in the last 2h:"
+            )
+            # Group by source for readable summary
+            by_source: dict[str, int] = {}
+            for entry in chunk_failures:
+                key = f"{entry.get('source', '?')}/{entry.get('scope', '?')}"
+                by_source[key] = by_source.get(key, 0) + 1
+            for key, count in sorted(by_source.items()):
+                print(f"  {key}: {count} chunk(s)")
+            print("  Details: Resultat/logs/failed_chunks.csv")
+    except Exception as e:
+        print(f"  (Could not read failure log: {e})")
+
     # Surface real failures (not intentional skips) so cron / CI can alert
     if failures:
         print()
