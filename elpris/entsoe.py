@@ -10,16 +10,15 @@ from __future__ import annotations
 
 import csv
 import os
-import time
 import xml.etree.ElementTree as ET
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterator
 
 import requests
-from tenacity import retry, stop_after_attempt, wait_exponential
 
-from .config import DATA_DIR, ENTSOE_DATA_DIR, PROJECT_ROOT, REQUEST_DELAY
+from .config import DATA_DIR, ENTSOE_DATA_DIR, HTTP_TIMEOUT_DEFAULT, PROJECT_ROOT
+from .http_client import rate_limited, with_retry
 
 # ENTSO-E API configuration
 ENTSOE_BASE_URL = "https://web-api.tp.entsoe.eu/api"
@@ -123,23 +122,8 @@ def _format_date_range(start: date, end: date) -> tuple[str, str]:
     return _format_entsoe_date(start_dt), _format_entsoe_date(end_dt)
 
 
-def _rate_limited(func):
-    """Decorator to add rate limiting between API calls."""
-    last_call = [0.0]
-
-    def wrapper(*args, **kwargs):
-        elapsed = time.time() - last_call[0]
-        if elapsed < REQUEST_DELAY:
-            time.sleep(REQUEST_DELAY - elapsed)
-        result = func(*args, **kwargs)
-        last_call[0] = time.time()
-        return result
-
-    return wrapper
-
-
-@_rate_limited
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+@with_retry()
+@rate_limited()
 def fetch_entsoe_data(
     document_type: str,
     zone: str,
@@ -204,7 +188,7 @@ def fetch_entsoe_data(
         if psr_type and psr_type in PSR_TYPES:
             params["psrType"] = PSR_TYPES[psr_type]
 
-    response = requests.get(ENTSOE_BASE_URL, params=params, timeout=60)
+    response = requests.get(ENTSOE_BASE_URL, params=params, timeout=HTTP_TIMEOUT_DEFAULT)
 
     # Handle common error responses
     if response.status_code == 400:

@@ -14,7 +14,7 @@ from typing import Iterator
 
 import requests
 
-from .config import INSTALLED_DATA_DIR
+from .config import HTTP_TIMEOUT_DEFAULT, HTTP_TIMEOUT_QUICK, INSTALLED_DATA_DIR
 
 # PxWeb API base URL
 PXWEB_BASE = "https://pxexternal.energimyndigheten.se/api/v1/sv/Energimyndighetens_statistikdatabas/Officiell_energistatistik"
@@ -48,7 +48,7 @@ def fetch_table_metadata(table_key: str) -> dict:
         raise ValueError(f"Unknown table: {table_key}. Use: {list(TABLES.keys())}")
 
     url = f"{PXWEB_BASE}/{TABLES[table_key]}"
-    response = requests.get(url, timeout=30, verify=False)
+    response = requests.get(url, timeout=HTTP_TIMEOUT_QUICK, verify=False)
     response.raise_for_status()
     return response.json()
 
@@ -82,7 +82,7 @@ def fetch_wind_by_elarea(years: list[str] | None = None) -> str:
         "response": {"format": "csv"},
     }
 
-    response = requests.post(url, json=query, timeout=60, verify=False)
+    response = requests.post(url, json=query, timeout=HTTP_TIMEOUT_DEFAULT, verify=False)
     response.raise_for_status()
     return response.text
 
@@ -134,7 +134,7 @@ def fetch_solar_installations(years: list[str] | None = None) -> str:
         "response": {"format": "csv"},
     }
 
-    response = requests.post(url, json=query, timeout=60, verify=False)
+    response = requests.post(url, json=query, timeout=HTTP_TIMEOUT_DEFAULT, verify=False)
     response.raise_for_status()
     return response.text
 

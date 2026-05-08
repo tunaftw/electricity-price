@@ -16,9 +16,9 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import requests
-from tenacity import retry, stop_after_attempt, wait_exponential
 
-from .config import PARKS_PROFILE_DIR, PROJECT_ROOT, REQUEST_DELAY
+from .config import HTTP_TIMEOUT_DEFAULT, PARKS_PROFILE_DIR, PROJECT_ROOT, REQUEST_DELAY
+from .http_client import with_retry
 
 # Bazefield API configuration
 BAZEFIELD_BASE_URL = "https://sveasolar.bazefield.com/BazeField.Services/api"
@@ -189,7 +189,7 @@ def get_latest_synced_date(park_key: str) -> date | None:
     return None
 
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+@with_retry()
 def fetch_timeseries(
     object_id: str,
     points: list[str],
@@ -228,7 +228,7 @@ def fetch_timeseries(
         "Content-Type": "application/json",
     }
 
-    response = requests.post(url, json=payload, headers=headers, timeout=60)
+    response = requests.post(url, json=payload, headers=headers, timeout=HTTP_TIMEOUT_DEFAULT)
     response.raise_for_status()
 
     data = response.json()
@@ -689,7 +689,7 @@ def fetch_inverter_events(
 
         try:
             time.sleep(REQUEST_DELAY)
-            r = requests.post(url, json=payload, headers=headers, timeout=60)
+            r = requests.post(url, json=payload, headers=headers, timeout=HTTP_TIMEOUT_DEFAULT)
             r.raise_for_status()
             data = r.json()
         except Exception as e:

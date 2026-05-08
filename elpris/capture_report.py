@@ -7,11 +7,15 @@ from datetime import date, datetime
 from pathlib import Path
 
 from .capture import calculate_capture_by_period
-from .config import DATA_DIR, ZONES
+from .config import LEGACY_REPORTS_DIR, ZONES
 from .solar_profile import list_available_profiles
 
-# Directory for exported reports
-REPORTS_DIR = DATA_DIR / "reports"
+# Directory for exported reports.
+# Re-exported as REPORTS_DIR for backward compat with importers
+# (excel_export.py, battery_excel.py). New code should import
+# LEGACY_REPORTS_DIR (for data/reports) or REPORTS_DIR (for Resultat/rapporter)
+# directly from config.
+REPORTS_DIR = LEGACY_REPORTS_DIR
 
 
 def get_available_years(zone: str = "SE3") -> list[int]:

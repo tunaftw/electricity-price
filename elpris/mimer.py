@@ -8,15 +8,14 @@ from __future__ import annotations
 import csv
 import io
 import os
-import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Iterator
 
 import requests
-from tenacity import retry, stop_after_attempt, wait_exponential
 
-from .config import MIMER_DATA_DIR, REQUEST_DELAY
+from .config import HTTP_TIMEOUT_DEFAULT, MIMER_DATA_DIR
+from .http_client import rate_limited, with_retry
 
 # Mimer base URL
 MIMER_BASE_URL = "https://mimer.svk.se"
@@ -54,23 +53,8 @@ def _format_mimer_date(d: date) -> str:
     return f"{d.month:02d}/{d.day:02d}/{d.year} 00:00:00"
 
 
-def _rate_limited(func):
-    """Decorator to add rate limiting between API calls."""
-    last_call = [0.0]  # Mutable to allow modification in closure
-
-    def wrapper(*args, **kwargs):
-        elapsed = time.time() - last_call[0]
-        if elapsed < REQUEST_DELAY:
-            time.sleep(REQUEST_DELAY - elapsed)
-        result = func(*args, **kwargs)
-        last_call[0] = time.time()
-        return result
-
-    return wrapper
-
-
-@_rate_limited
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+@with_retry()
+@rate_limited()
 def fetch_mimer_data(
     product: str,
     start_date: date,
@@ -107,7 +91,7 @@ def fetch_mimer_data(
     else:
         params["ConstraintAreaId"] = constraint_area_id
 
-    response = requests.get(url, params=params, timeout=60)
+    response = requests.get(url, params=params, timeout=HTTP_TIMEOUT_DEFAULT)
     response.raise_for_status()
 
     return response.text

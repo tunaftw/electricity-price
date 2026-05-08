@@ -17,11 +17,26 @@ FIFTEEN_MIN_START = date(2025, 10, 1)  # When 15-minute data starts
 # Rate limiting
 REQUEST_DELAY = 0.5  # Seconds between API calls
 
+# HTTP timeouts (seconds). Used by elpris.http_client and individual clients.
+# DEFAULT for slow APIs (ENTSO-E, eSett, Mimer, Bazefield).
+# QUICK for fast APIs (elprisetjustnu, Nasdaq, Energimyndigheten metadata).
+HTTP_TIMEOUT_DEFAULT = 60
+HTTP_TIMEOUT_QUICK = 30
+
 # Paths
 PROJECT_ROOT = Path(__file__).parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
 RESULTAT_DIR = PROJECT_ROOT / "Resultat"
 QUARTERLY_DIR = DATA_DIR / "quarterly"
+
+# Reports output directory.
+# New code (generate_unified_dashboard.py, generate_performance_report.py)
+# writes to Resultat/rapporter — this is the standardized location.
+# Older code (capture_report.py, battery.py, excel_export.py, battery_excel.py)
+# still writes to data/reports for backward compat with existing files there;
+# import LEGACY_REPORTS_DIR from those modules.
+REPORTS_DIR = RESULTAT_DIR / "rapporter"
+LEGACY_REPORTS_DIR = DATA_DIR / "reports"
 
 
 def _resolve_data_path(symlink_path: Path, resultat_path: Path,

@@ -10,15 +10,14 @@ from __future__ import annotations
 
 import csv
 import os
-import time
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterator
 
 import requests
-from tenacity import retry, stop_after_attempt, wait_exponential
 
-from .config import ESETT_DATA_DIR, REQUEST_DELAY
+from .config import ESETT_DATA_DIR, HTTP_TIMEOUT_DEFAULT
+from .http_client import rate_limited, with_retry
 
 # eSett API configuration
 ESETT_BASE_URL = "https://api.opendata.esett.com"
@@ -83,23 +82,8 @@ def _format_esett_datetime(d: date, end_of_day: bool = False) -> str:
     return dt.strftime("%Y-%m-%dT%H:%M:%S.") + f"{dt.microsecond // 1000:03d}Z"
 
 
-def _rate_limited(func):
-    """Decorator to add rate limiting between API calls."""
-    last_call = [0.0]
-
-    def wrapper(*args, **kwargs):
-        elapsed = time.time() - last_call[0]
-        if elapsed < REQUEST_DELAY:
-            time.sleep(REQUEST_DELAY - elapsed)
-        result = func(*args, **kwargs)
-        last_call[0] = time.time()
-        return result
-
-    return wrapper
-
-
-@_rate_limited
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+@with_retry()
+@rate_limited()
 def fetch_imbalance_prices(
     zone: str,
     start_date: date,
@@ -130,7 +114,7 @@ def fetch_imbalance_prices(
         "end": end_str,
     }
 
-    response = requests.get(url, params=params, timeout=60)
+    response = requests.get(url, params=params, timeout=HTTP_TIMEOUT_DEFAULT)
 
     if response.status_code == 400:
         # Bad request - possibly no data for this period

@@ -18,13 +18,12 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import requests
-from tenacity import retry, stop_after_attempt, wait_exponential
 
-from .config import NASDAQ_DATA_DIR
+from .config import HTTP_TIMEOUT_QUICK, NASDAQ_DATA_DIR, REQUEST_DELAY
+from .http_client import with_retry
 
 # API configuration
 NASDAQ_BASE_URL = "https://api.nasdaq.com/api/nordic"
-REQUEST_DELAY = 0.5  # seconds between requests
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
@@ -51,14 +50,14 @@ CSV_FIELDS = [
 MAX_DAYS_PER_REQUEST = 90
 
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=10))
+@with_retry()
 def _api_get(endpoint: str, params: dict | None = None) -> dict:
     """Make a GET request to the Nasdaq API with retries.
 
     Raises requests.HTTPError on non-200 responses (after retries).
     """
     url = f"{NASDAQ_BASE_URL}/{endpoint}"
-    resp = requests.get(url, params=params, headers=HEADERS, timeout=30)
+    resp = requests.get(url, params=params, headers=HEADERS, timeout=HTTP_TIMEOUT_QUICK)
     resp.raise_for_status()
     return resp.json()
 
@@ -88,7 +87,14 @@ def get_price_history(
 
     Returns list of dicts with keys matching CSV_FIELDS.
     Automatically splits long date ranges into chunks.
+
+    HTTP 400 is silently swallowed because Nasdaq returns 400 for date
+    ranges that pre-date when the instrument started trading — that's
+    expected, not a failure. Any *other* error (5xx, network, parse) is
+    forwarded to ``failure_log`` so cron runs surface real outages.
     """
+    from .failure_log import log_failure
+
     all_rows = []
     chunk_start = from_date
 
@@ -107,9 +113,23 @@ def get_price_history(
             )
             rows = (data.get("data") or {}).get("priceHistory", {}).get("rows") or []
             all_rows.extend(rows)
-        except Exception:
-            # API returns 400 for date ranges before instrument started trading
-            pass
+        except requests.HTTPError as e:
+            # 400 = no data for this range (pre-trading); ignore.
+            # Anything else is a real failure worth logging.
+            if e.response is None or e.response.status_code != 400:
+                log_failure(
+                    "nasdaq",
+                    orderbook_id,
+                    f"{chunk_start}..{chunk_end}",
+                    str(e),
+                )
+        except Exception as e:
+            log_failure(
+                "nasdaq",
+                orderbook_id,
+                f"{chunk_start}..{chunk_end}",
+                str(e),
+            )
 
         chunk_start = chunk_end + timedelta(days=1)
         if chunk_start <= to_date:

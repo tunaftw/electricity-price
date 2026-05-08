@@ -16,13 +16,13 @@ from pathlib import Path
 from statistics import mean, stdev, median
 from typing import Optional
 
-from .config import QUARTERLY_DIR, RAW_DIR, ZONES, DATA_DIR
+from .config import LEGACY_REPORTS_DIR, QUARTERLY_DIR, RAW_DIR, ZONES
 
 # Battery parameters
 ROUND_TRIP_EFFICIENCY = 0.88  # 88% round-trip efficiency
 
-# Reports directory
-REPORTS_DIR = DATA_DIR / "reports"
+# Reports directory (legacy data/reports — see config.LEGACY_REPORTS_DIR docstring)
+REPORTS_DIR = LEGACY_REPORTS_DIR
 
 
 def read_price_data_by_day(zone: str, year: int | None = None) -> dict[date, list[dict]]:
