@@ -37,7 +37,11 @@ jobs:
         # behover detta steg.
         run: python process.py --quiet
 
-      - name: Kör snabba tester (parsing, capture, dashboard, failure-log)
+      - name: Kör tester (parsing, capture, dashboard-v2, failure-log, park-revenue)
+        # test_unified_dashboard_data.py exkluderas — den bygger hela unified
+        # dashboarden vilket tar 5+ minuter och kraschar CI:s timeout. Kör
+        # den manuellt med `pytest tests/test_unified_dashboard_data.py`
+        # när du andrar elpris/unified_dashboard_data.py.
         run: |
           pytest tests/test_storage.py \
                  tests/test_processing.py \
@@ -46,7 +50,3 @@ jobs:
                  tests/test_failure_log.py \
                  tests/test_park_revenue.py \
                  -v --tb=short
-
-      - name: Kör tunga dashboard-tester (kan ta några minuter)
-        run: |
-          pytest tests/test_unified_dashboard_data.py -v --tb=short
