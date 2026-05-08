@@ -30,6 +30,13 @@ jobs:
           pip install -r requirements.txt
           pip install pytest
 
+      - name: Generera quarterly-data fran raw spotpriser
+        # data/quarterly/ ar gitignored eftersom det ar berraknat fran
+        # Resultat/marknadsdata/spotpriser/ (som ar tracked). Tester som
+        # anvander 15-min spotpriser (test_park_revenue, unified dashboard)
+        # behover detta steg.
+        run: python process.py --quiet
+
       - name: Kör snabba tester (parsing, capture, dashboard, failure-log)
         run: |
           pytest tests/test_storage.py \
