@@ -10,6 +10,7 @@ Library-modul: ingen CLI / ingen `__main__`-block.
 
 from __future__ import annotations
 
+import calendar
 import sys
 from collections import defaultdict
 from datetime import date, datetime
@@ -31,7 +32,9 @@ PARK_KEYS: List[str] = [
     "skakelbacken", "stenstorp", "tangen", "bjorke",
 ]
 
-# Antal månader bakåt vi visar i assets-vyn (12 månader rullande + nuvarande)
+# Antal månader vi visar i assets-vyn (12 stängda + pågående månad).
+# Pågående månad pro-ratas mot dagar-hittills (se `_partial_month_factor`)
+# så vs_budget jämför MTD-actual mot MTD-budget i stället för full-month-budget.
 DEFAULT_HISTORY_MONTHS = 13
 
 # Antal månader bakåt vi inkluderar daglig data för (drill-down behöver det
@@ -65,19 +68,24 @@ def _park_display_name(park_key: str) -> str:
     return park_key.capitalize()
 
 
-def _latest_complete_month(today: Optional[date] = None) -> tuple[int, int]:
-    """Returnera (year, month) för senaste fullständiga månad."""
+def _latest_data_month(today: Optional[date] = None) -> tuple[int, int]:
+    """Returnera (year, month) för senaste månad vi vill visa.
+
+    Inkluderar pågående månad (MTD). Stängda månader visas i sin helhet,
+    pågående månad pro-ratas i `_build_park_months` så jämförelser mot
+    actual blir rättvisa. Om datat saknas helt för pågående månad
+    skippas raden — `_build_park_months` upptäcker det via tomt
+    `report.daily`.
+    """
     if today is None:
         today = date.today()
-    if today.month == 1:
-        return (today.year - 1, 12)
-    return (today.year, today.month - 1)
+    return (today.year, today.month)
 
 
 def _walk_months_back(num_months: int, today: Optional[date] = None) -> List[tuple[int, int]]:
     """Returnera lista [(year, month), ...] med num_months bakåt från
-    senaste fullständiga månad (äldst → nyast)."""
-    year, month = _latest_complete_month(today)
+    senaste månaden (inkl. pågående). Sorterad äldst → nyast."""
+    year, month = _latest_data_month(today)
     result: List[tuple[int, int]] = []
     for _ in range(num_months):
         result.append((year, month))
@@ -87,6 +95,33 @@ def _walk_months_back(num_months: int, today: Optional[date] = None) -> List[tup
         else:
             month -= 1
     return list(reversed(result))
+
+
+def _partial_month_factor(
+    report,
+    year: int,
+    month: int,
+    today: Optional[date] = None,
+) -> float:
+    """Pro-rata-faktor för pågående månad (1.0 för stängda månader).
+
+    Faktorn = `len(report.daily) / antal_dagar_i_månaden`. Används för
+    att skala budget-värden så jämförelse mot pågående månads MTD-actual
+    blir rättvis (t.ex. ~0 % i stället för ~-70 % den 9 maj). För stängda
+    månader (year/month < dagens) returneras 1.0 — ingen skalning.
+    Returnerar 0.0 om det är pågående månad utan dagliga data ännu.
+    """
+    if today is None:
+        today = date.today()
+    if (year, month) < (today.year, today.month):
+        return 1.0
+    if (year, month) > (today.year, today.month):
+        return 0.0
+    days_with_data = len(report.daily) if report.daily else 0
+    days_in_month = calendar.monthrange(year, month)[1]
+    if days_with_data <= 0 or days_in_month <= 0:
+        return 0.0
+    return min(days_with_data / days_in_month, 1.0)
 
 
 def _safe_round(value, decimals: int = 2):
@@ -155,6 +190,54 @@ def _losses_dict(losses) -> Optional[Dict[str, float]]:
         "curtailment_mwh": _safe_round(losses.curtailment_loss_mwh, 2),
         "irradiance_shortfall_mwh": _safe_round(losses.irradiance_shortfall_loss_mwh, 2),
         "availability_mwh": _safe_round(losses.availability_loss_mwh, 2),
+        "temperature_mwh": _safe_round(losses.temperature_loss_mwh, 2),
+        "other_mwh": _safe_round(losses.other_losses_mwh, 2),
+    }
+
+
+def _losses_dict_prorated(
+    losses,
+    factor: float,
+    actual_energy_mwh: float,
+    actual_irr_kwh_m2: Optional[float],
+    full_budget_irr_kwh_m2: Optional[float],
+) -> Optional[Dict[str, float]]:
+    """Som `_losses_dict` men skala budget-baserade fält för pågående månad.
+
+    Speglar `performance_report_data._calculate_loss_cascade` med
+    pro-ratade budget-termer:
+
+      irr_shortfall = budget_e * (1 - actual_irr / budget_irr)
+      avail_loss    = (oförändrad — beräknas per intervall, redan MTD)
+      unexplained   = budget_e − actual − irr_shortfall − avail_loss
+
+    Måste hållas i synk med `_calculate_loss_cascade` om den ändras.
+    """
+    if losses is None:
+        return None
+    if factor >= 1.0 - 1e-9:
+        return _losses_dict(losses)
+
+    prorated_budget_e = (losses.budget_energy_mwh or 0.0) * factor
+    prorated_budget_irr = (full_budget_irr_kwh_m2 or 0.0) * factor
+
+    if actual_irr_kwh_m2 is not None and prorated_budget_irr > 0:
+        irr_ratio = actual_irr_kwh_m2 / prorated_budget_irr
+        irr_shortfall = prorated_budget_e * (1.0 - irr_ratio)
+    else:
+        irr_shortfall = 0.0
+
+    avail_loss = losses.availability_loss_mwh or 0.0
+    unexplained = (
+        prorated_budget_e - actual_energy_mwh - irr_shortfall - avail_loss
+    )
+
+    return {
+        "budget_mwh": _safe_round(prorated_budget_e, 2),
+        "actual_mwh": _safe_round(actual_energy_mwh, 2),
+        "curtailment_mwh": _safe_round(unexplained, 2),
+        "irradiance_shortfall_mwh": _safe_round(irr_shortfall, 2),
+        "availability_mwh": _safe_round(avail_loss, 2),
         "temperature_mwh": _safe_round(losses.temperature_loss_mwh, 2),
         "other_mwh": _safe_round(losses.other_losses_mwh, 2),
     }
@@ -231,14 +314,26 @@ def _build_park_months(
             )
             continue
 
+        # Pro-rata-faktor för pågående månad (1.0 för stängda).
+        factor = _partial_month_factor(report, year, month)
+        is_partial = factor < 1.0 - 1e-9
+
+        # Skippa pågående månad om data saknas helt — undvik tomma rader
+        # som kan dyka upp första dagen efter månadsskifte innan nattens
+        # Bazefield-sync hunnit.
+        if is_partial and factor <= 0.0:
+            continue
+
         actual = report.actual_energy_mwh or 0.0
-        budget = report.budget_energy_mwh or 0.0
+        full_budget = report.budget_energy_mwh or 0.0
+        budget = full_budget * factor  # pro-ratad för pågående månad
         vs_budget = None
         if budget > 0:
             vs_budget = round((actual / budget - 1.0) * 100.0, 1)
 
         actual_irr = report.actual_irradiation_kwh_m2  # may be None
-        budget_irr = report.budget_irradiation_kwh_m2 or 0.0
+        full_budget_irr = report.budget_irradiation_kwh_m2 or 0.0
+        budget_irr = full_budget_irr * factor  # pro-ratad för pågående månad
         vs_budget_irr = None
         if budget_irr > 0 and actual_irr is not None:
             vs_budget_irr = round((actual_irr / budget_irr - 1.0) * 100.0, 1)
@@ -246,6 +341,7 @@ def _build_park_months(
         months_out.append({
             "year": year,
             "month": month,
+            "is_partial": is_partial,
             "energy_mwh": _safe_round(actual, 2),
             "budget_mwh": _safe_round(budget, 2),
             "vs_budget_pct": vs_budget,
@@ -257,7 +353,13 @@ def _build_park_months(
             "actual_irr_kwh_m2": _safe_round(actual_irr, 1),
             "budget_irr_kwh_m2": _safe_round(budget_irr, 1),
             "vs_budget_irr_pct": vs_budget_irr,
-            "losses": _losses_dict(report.losses),
+            "losses": _losses_dict_prorated(
+                report.losses,
+                factor,
+                actual,
+                actual_irr,
+                full_budget_irr,
+            ),
         })
 
         if (year, month) in daily_keys:
