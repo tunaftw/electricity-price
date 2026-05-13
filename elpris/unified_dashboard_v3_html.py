@@ -1484,11 +1484,11 @@ function captureRowDate(r, period) {
     var p = String(r.date).split('-');
     return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2]));
 }
-function captureLatestDateMs() {
-    var z = (DATA.data && DATA.data[CAPTURE_STATE.zone]) || {};
-    var period = CAPTURE_STATE.period;
+function captureLatestDateMs(state) {
+    var z = (DATA.data && DATA.data[state.zone]) || {};
+    var period = state.period;
     var maxMs = null;
-    CAPTURE_STATE.profiles.forEach(function(k) {
+    state.profiles.forEach(function(k) {
         var rows = z[k] && z[k][period];
         if (!rows || !rows.length) return;
         var ms = captureRowDate(rows[rows.length - 1], period).getTime();
@@ -1496,13 +1496,13 @@ function captureLatestDateMs() {
     });
     return maxMs;
 }
-function captureCurrentWindow() {
-    if (CAPTURE_STATE.range === 'all') return null;
-    var months = CAPTURE_RANGE_MONTHS[CAPTURE_STATE.range];
+function captureCurrentWindow(state) {
+    if (state.range === 'all') return null;
+    var months = CAPTURE_RANGE_MONTHS[state.range];
     if (!months) return null;
-    var latestMs = captureLatestDateMs();
+    var latestMs = captureLatestDateMs(state);
     if (latestMs == null) return null;
-    var endMs = CAPTURE_STATE.rangeEnd != null ? CAPTURE_STATE.rangeEnd : latestMs;
+    var endMs = state.rangeEnd != null ? state.rangeEnd : latestMs;
     if (endMs > latestMs) endMs = latestMs;
     var endDate = new Date(endMs);
     var startDate = new Date(endDate);
@@ -1522,20 +1522,17 @@ function captureWindowLabel(win) {
     var fmt = function(ms) { var d = new Date(ms); return months[d.getUTCMonth()] + ' ' + d.getUTCFullYear(); };
     return fmt(win.startMs) + ' – ' + fmt(win.endMs);
 }
-function captureNavRange(direction) {
-    var months = CAPTURE_RANGE_MONTHS[CAPTURE_STATE.range];
+function captureNavRange(state, direction) {
+    var months = CAPTURE_RANGE_MONTHS[state.range];
     if (!months) return;
-    var latestMs = captureLatestDateMs();
+    var latestMs = captureLatestDateMs(state);
     if (latestMs == null) return;
-    var endMs = CAPTURE_STATE.rangeEnd != null ? CAPTURE_STATE.rangeEnd : latestMs;
+    var endMs = state.rangeEnd != null ? state.rangeEnd : latestMs;
     var d = new Date(endMs);
     d.setUTCMonth(d.getUTCMonth() + direction * months);
     var newEnd = d.getTime();
     if (newEnd > latestMs) newEnd = latestMs;
-    CAPTURE_STATE.rangeEnd = newEnd;
-    renderCaptureRangeBar();
-    renderCaptureChart();
-    renderCaptureSpreadChart();
+    state.rangeEnd = newEnd;
 }
 function renderCaptureRangeBar() {
     var period = CAPTURE_STATE.period;
@@ -1557,7 +1554,7 @@ function renderCaptureRangeBar() {
             renderCaptureSpreadChart();
         };
     });
-    var win = captureCurrentWindow();
+    var win = captureCurrentWindow(CAPTURE_STATE);
     var nav = el('capture-range-nav');
     var prev = el('capture-range-prev');
     var next = el('capture-range-next');
@@ -1569,8 +1566,18 @@ function renderCaptureRangeBar() {
     } else {
         nav.style.visibility = 'visible';
         label.textContent = captureWindowLabel(win) + (win.atLatest ? ' · latest' : '');
-        prev.onclick = function() { captureNavRange(-1); };
-        next.onclick = function() { captureNavRange(+1); };
+        prev.onclick = function() {
+            captureNavRange(CAPTURE_STATE, -1);
+            renderCaptureRangeBar();
+            renderCaptureChart();
+            renderCaptureSpreadChart();
+        };
+        next.onclick = function() {
+            captureNavRange(CAPTURE_STATE, +1);
+            renderCaptureRangeBar();
+            renderCaptureChart();
+            renderCaptureSpreadChart();
+        };
         now.onclick  = function() {
             CAPTURE_STATE.rangeEnd = null;
             renderCaptureRangeBar();
@@ -1734,7 +1741,7 @@ function renderCaptureChart() {
     var zone = CAPTURE_STATE.zone;
     var z = (DATA.data && DATA.data[zone]) || {};
     var period = CAPTURE_STATE.period;
-    var win = captureCurrentWindow();
+    var win = captureCurrentWindow(CAPTURE_STATE);
     var traces = [];
     var unit = 'EUR/MWh';
 
@@ -1816,7 +1823,7 @@ function renderCaptureSpreadChart() {
     var zone = CAPTURE_STATE.zone;
     var z = (DATA.data && DATA.data[zone]) || {};
     var period = CAPTURE_STATE.period;
-    var win = captureCurrentWindow();
+    var win = captureCurrentWindow(CAPTURE_STATE);
     var traces = [];
     CAPTURE_STATE.profiles.filter(function(k) { return k !== 'baseload'; }).forEach(function(k) {
         var p = z[k];
