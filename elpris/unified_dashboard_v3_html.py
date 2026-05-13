@@ -1550,8 +1550,8 @@ function renderCaptureRangeBar() {
             CAPTURE_STATE.range = b.dataset.range;
             CAPTURE_STATE.rangeEnd = null;
             renderCaptureRangeBar();
-            renderCaptureChart();
-            renderCaptureSpreadChart();
+            renderCaptureChart(CAPTURE_STATE);
+            renderCaptureSpreadChart(CAPTURE_STATE);
         };
     });
     var win = captureCurrentWindow(CAPTURE_STATE);
@@ -1569,20 +1569,20 @@ function renderCaptureRangeBar() {
         prev.onclick = function() {
             captureNavRange(CAPTURE_STATE, -1);
             renderCaptureRangeBar();
-            renderCaptureChart();
-            renderCaptureSpreadChart();
+            renderCaptureChart(CAPTURE_STATE);
+            renderCaptureSpreadChart(CAPTURE_STATE);
         };
         next.onclick = function() {
             captureNavRange(CAPTURE_STATE, +1);
             renderCaptureRangeBar();
-            renderCaptureChart();
-            renderCaptureSpreadChart();
+            renderCaptureChart(CAPTURE_STATE);
+            renderCaptureSpreadChart(CAPTURE_STATE);
         };
         now.onclick  = function() {
             CAPTURE_STATE.rangeEnd = null;
             renderCaptureRangeBar();
-            renderCaptureChart();
-            renderCaptureSpreadChart();
+            renderCaptureChart(CAPTURE_STATE);
+            renderCaptureSpreadChart(CAPTURE_STATE);
         };
         next.disabled = !!win.atLatest;
         now.disabled  = !!win.atLatest;
@@ -1656,15 +1656,15 @@ function renderCapture() {
     });
 
     // KPI strip — latest baseload + each chosen profile latest capture
-    renderCaptureKPIs();
+    renderCaptureKPIs(CAPTURE_STATE);
     renderCaptureRangeBar();
-    renderCaptureChart();
-    renderCaptureSpreadChart();
-    renderHeatmap();
+    renderCaptureChart(CAPTURE_STATE);
+    renderCaptureSpreadChart(CAPTURE_STATE);
+    renderHeatmap(CAPTURE_STATE);
 }
 
-function renderCaptureKPIs() {
-    var zone = CAPTURE_STATE.zone;
+function renderCaptureKPIs(state) {
+    var zone = state.zone;
     var z = (DATA.data && DATA.data[zone]) || {};
     var latest = function(list) { return list && list.length ? list[list.length - 1] : null; };
     var monthlyBase = latest(z.baseload && z.baseload.monthly);
@@ -1677,7 +1677,7 @@ function renderCaptureKPIs() {
     tiles.push(kpiTile('Latest baseload · ' + zone, monthlyBase ? fmtNum(monthlyBase.baseload, 1) : '–', 'EUR/MWh', monthLabel + (change != null ? ' · ' + fmtPct(change) + ' MoM' : '')));
 
     // Capture for each chosen profile (latest monthly)
-    CAPTURE_STATE.profiles.filter(function(k) { return k !== 'baseload'; }).slice(0, 3).forEach(function(k) {
+    state.profiles.filter(function(k) { return k !== 'baseload'; }).slice(0, 3).forEach(function(k) {
         var p = z[k];
         if (!p || !p.monthly) return;
         var rec = latest(p.monthly);
@@ -1737,15 +1737,15 @@ function kpiTile(label, value, unit, sub) {
         '</div>';
 }
 
-function renderCaptureChart() {
-    var zone = CAPTURE_STATE.zone;
+function renderCaptureChart(state) {
+    var zone = state.zone;
     var z = (DATA.data && DATA.data[zone]) || {};
-    var period = CAPTURE_STATE.period;
-    var win = captureCurrentWindow(CAPTURE_STATE);
+    var period = state.period;
+    var win = captureCurrentWindow(state);
     var traces = [];
     var unit = 'EUR/MWh';
 
-    CAPTURE_STATE.profiles.forEach(function(k) {
+    state.profiles.forEach(function(k) {
         var p = z[k];
         if (!p || !p[period]) return;
         var rows = captureSliceRows(p[period], period, win);
@@ -1819,13 +1819,13 @@ function renderCaptureChart() {
     }), PLOTLY_CFG);
 }
 
-function renderCaptureSpreadChart() {
-    var zone = CAPTURE_STATE.zone;
+function renderCaptureSpreadChart(state) {
+    var zone = state.zone;
     var z = (DATA.data && DATA.data[zone]) || {};
-    var period = CAPTURE_STATE.period;
-    var win = captureCurrentWindow(CAPTURE_STATE);
+    var period = state.period;
+    var win = captureCurrentWindow(state);
     var traces = [];
-    CAPTURE_STATE.profiles.filter(function(k) { return k !== 'baseload'; }).forEach(function(k) {
+    state.profiles.filter(function(k) { return k !== 'baseload'; }).forEach(function(k) {
         var p = z[k];
         if (!p || !p[period]) return;
         var rows = captureSliceRows(p[period], period, win);
@@ -1860,8 +1860,8 @@ function renderCaptureSpreadChart() {
     }), PLOTLY_CFG);
 }
 
-function renderHeatmap() {
-    var zone = CAPTURE_STATE.zone;
+function renderHeatmap(state) {
+    var zone = state.zone;
     var hm = (DATA.heatmap && DATA.heatmap[zone] && DATA.heatmap[zone].all) || null;
     if (!hm || !hm.length) {
         Plotly.purge('capture-heatmap');
