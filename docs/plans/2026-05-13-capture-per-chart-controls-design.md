@@ -32,17 +32,23 @@ egna val. Detta är ett medvetet val över alternativen "synkade (delat
 state)" och "synkade + sticky global bar" — det ger maximal flexibilitet
 för sida-vid-sida-jämförelse (t.ex. SE3 monthly bredvid SE4 yearly).
 
-Initial state är identisk med dagens default på alla tre graferna:
+Initial state är identisk med dagens default på alla tre graferna. Dagens
+`CAPTURE_STATE` har `zone: null` (auto-väljs till första zonen i `DATA.zones`),
+`period: 'monthly'`, `range: 'all'`, `rangeEnd: null`, `profiles: ['baseload', 'sol_syd']`.
+Vi speglar det:
 
 ```js
-captureState = {
-  main:    { zone:'SE3', period:'monthly', range:'6m', windowIdx:0,
-             profiles:['solar_south','wind'] },
-  spread:  { zone:'SE3', period:'monthly', range:'6m', windowIdx:0,
-             profiles:['solar_south','wind'] },
-  heatmap: { zone:'SE3' }
+CAPTURE_STATES = {
+  main:    { zone: null, period:'monthly', range:'all', rangeEnd:null,
+             profiles:['baseload','sol_syd'] },
+  spread:  { zone: null, period:'monthly', range:'all', rangeEnd:null,
+             profiles:['baseload','sol_syd'] },
+  heatmap: { zone: null },
 };
 ```
+
+`zone: null` auto-fylls till `DATA.zones[0]` i respektive render-funktion vid
+första rendering (samma logik som idag).
 
 Det första intrycket av sidan är därmed identiskt med dagens — bara
 kontrollerna har flyttat plats.
@@ -102,9 +108,8 @@ renderCaptureSpread(state)
 renderCaptureHeatmap(state)
 ```
 
-`Plotly.react()` används istället för `Plotly.newPlot()` så att zoom och
-tooltip-positioner inte återställs vid varje liten kontrolländring. Detta
-verifieras mot dagens implementation och uppgraderas vid behov.
+Dagens render-funktioner använder redan `Plotly.react()` (verifierat via
+inventory) — vi behåller det och får zoom/tooltip-stabilitet gratis.
 
 En `wireCaptureCard(chartId, stateRef, renderFn)` binder klick på chips,
 range-nav och profiles-popover och kallar respektive render-funktion.
