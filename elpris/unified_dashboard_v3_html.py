@@ -1676,8 +1676,89 @@ var CAPTURE_PROFILE_GROUPS = [
     { label: 'Nuclear',   keys: ['nuclear'] },
 ];
 
-// Placeholder — full implementation in Task 7.
-function wireProfilesPopover(opts) { /* implemented in Task 7 */ }
+/**
+ * Profiles trigger button + popover for one Capture card.
+ *
+ * Reads/writes state.profiles. Re-renders the chart through opts.render() on
+ * toggle. The popover is opened on button click and closed by clicking
+ * outside, pressing Escape, or clicking the trigger again.
+ *
+ * Exposes opts.refreshPopover() so that callers (e.g. zone-change in
+ * wireCaptureCard) can re-render the chip list when the available profiles
+ * for the new zone differ.
+ */
+function wireProfilesPopover(opts) {
+    var p = opts.prefix;
+    var state = opts.state;
+    var btn = el(p + '-profiles-btn');
+    var pop = el(p + '-profiles-pop');
+    var labelSpan = el(p + '-profiles-label');
+    if (!btn || !pop) return;
+
+    function buildPopoverContent() {
+        var availableProfiles = Object.keys((DATA.data && DATA.data[state.zone]) || {});
+        return CAPTURE_PROFILE_GROUPS.map(function(g) {
+            var present = g.keys.filter(function(k) { return availableProfiles.indexOf(k) !== -1; });
+            if (!present.length) return '';
+            var btns = present.map(function(k) {
+                var lbl = (DATA.profiles && DATA.profiles[k]) || k;
+                var sel = state.profiles.indexOf(k) !== -1;
+                var color = profileColor(k) || '#999';
+                return '<button type="button" class="profile-chip" data-key="' + htmlEsc(k) + '" aria-pressed="' + sel + '" ' +
+                    'style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;border:1px solid var(--ink-5);background:' + (sel ? 'var(--surface-sunken)' : 'transparent') + ';font-size:var(--fs-xs);font-weight:600;color:var(--ink-1);letter-spacing:0.04em;margin:0 4px 4px 0">' +
+                    '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + htmlEsc(color) + '"></span>' +
+                    htmlEsc(lbl) + '</button>';
+            }).join('');
+            return '<div style="margin-bottom:8px"><span class="eyebrow" style="margin-right:10px">' + htmlEsc(g.label) + '</span>' + btns + '</div>';
+        }).join('') || '<span class="muted">No profiles available.</span>';
+    }
+
+    function refresh() {
+        // Compact label e.g. "Sol Syd, Baseload +1"
+        if (labelSpan) {
+            if (!state.profiles.length) {
+                labelSpan.textContent = 'Profiles';
+            } else {
+                var names = state.profiles.map(function(k) { return (DATA.profiles && DATA.profiles[k]) || k; });
+                var label = names.slice(0, 2).join(', ');
+                if (names.length > 2) label += ' +' + (names.length - 2);
+                labelSpan.textContent = label;
+            }
+        }
+        pop.innerHTML = buildPopoverContent();
+        pop.querySelectorAll('.profile-chip').forEach(function(chipBtn) {
+            chipBtn.onclick = function() {
+                var k = chipBtn.dataset.key;
+                var idx = state.profiles.indexOf(k);
+                if (idx === -1) state.profiles.push(k);
+                else state.profiles.splice(idx, 1);
+                refresh();
+                opts.render();
+            };
+        });
+    }
+
+    function open()  { pop.hidden = false; btn.setAttribute('aria-expanded', 'true'); }
+    function close() { pop.hidden = true;  btn.setAttribute('aria-expanded', 'false'); }
+
+    btn.onclick = function(e) {
+        e.stopPropagation();
+        if (pop.hidden) open();
+        else close();
+    };
+    // Outside click + Escape — listeners are scoped per popover and idempotent
+    // enough that re-running renderCapture won't break things.
+    document.addEventListener('click', function(e) {
+        if (!pop.hidden && !pop.contains(e.target) && e.target !== btn && !btn.contains(e.target)) close();
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && !pop.hidden) close();
+    });
+
+    // Initial label + content + expose refresh
+    refresh();
+    opts.refreshPopover = refresh;
+}
 
 /**
  * Mount per-chart controls (zone, period, range, range-nav) for a Capture card.
@@ -1790,13 +1871,17 @@ function renderCapture() {
         render: function() {
             renderCaptureChart(CAPTURE_STATES.main);
             renderCaptureKPIs(CAPTURE_STATES.main);   // KPI strip follows main
+            if (mainOpts.refreshPopover) mainOpts.refreshPopover();
         },
     };
     var spreadOpts = {
         prefix: 'capture-spread',
         state: CAPTURE_STATES.spread,
         controls: { period: true, range: true },
-        render: function() { renderCaptureSpreadChart(CAPTURE_STATES.spread); },
+        render: function() {
+            renderCaptureSpreadChart(CAPTURE_STATES.spread);
+            if (spreadOpts.refreshPopover) spreadOpts.refreshPopover();
+        },
     };
     var heatmapOpts = {
         prefix: 'capture-heatmap',
