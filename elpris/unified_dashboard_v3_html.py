@@ -1463,13 +1463,31 @@ function profileColor(k) {
     if (V3_COLOR_OVERRIDES[k]) return V3_COLOR_OVERRIDES[k];
     return (DATA.colors && DATA.colors[k]) || null;
 }
-var CAPTURE_STATE = {
-    zone: null,
-    period: 'monthly',     // 'yearly' | 'monthly' | 'daily'
-    profiles: ['baseload', 'sol_syd'],
-    range: 'all',          // 'all' | '10y' | '5y' | '2y' | '1y' | '6m' | '3m' | '1m'
-    rangeEnd: null,        // epoch ms anchor for window end; null = follow latest data
+// Per-chart state for the Capture tab. Each chart (main / spread / heatmap)
+// has its own zone / period / range / profiles so users can compare side-by-side.
+// Heatmap only uses zone.
+var CAPTURE_STATES = {
+    main: {
+        zone: null,
+        period: 'monthly',     // 'yearly' | 'monthly' | 'daily'
+        profiles: ['baseload', 'sol_syd'],
+        range: 'all',          // 'all' | '10y' | '5y' | '2y' | '1y' | '6m' | '3m' | '1m'
+        rangeEnd: null,        // epoch ms anchor for window end; null = follow latest data
+    },
+    spread: {
+        zone: null,
+        period: 'monthly',
+        profiles: ['baseload', 'sol_syd'],
+        range: 'all',
+        rangeEnd: null,
+    },
+    heatmap: {
+        zone: null,
+    },
 };
+// Legacy alias — points at the main chart's state. Removed in Task 9 once
+// wiring no longer relies on it.
+var CAPTURE_STATE = CAPTURE_STATES.main;
 var CAPTURE_RANGE_OPTIONS = {
     yearly:  ['all', '10y', '5y'],
     monthly: ['all', '5y', '2y', '1y', '6m'],
