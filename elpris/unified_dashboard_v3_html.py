@@ -1676,70 +1676,147 @@ var CAPTURE_PROFILE_GROUPS = [
     { label: 'Nuclear',   keys: ['nuclear'] },
 ];
 
+// Placeholder — full implementation in Task 7.
+function wireProfilesPopover(opts) { /* implemented in Task 7 */ }
+
+/**
+ * Mount per-chart controls (zone, period, range, range-nav) for a Capture card.
+ *
+ * opts = {
+ *   prefix:   'capture-main' | 'capture-spread' | 'capture-heatmap',
+ *   state:    state object (CAPTURE_STATES.main, etc.),
+ *   controls: { period: bool, range: bool }   // zone is always wired
+ *   render:   function() { ... }              // re-render this card's chart(s)
+ * }
+ *
+ * Re-renders both the chips for this card (to reflect the new aria-pressed
+ * state) and calls opts.render() to refresh the chart. No other cards are
+ * touched — per-card state is independent.
+ */
+function wireCaptureCard(opts) {
+    var p = opts.prefix;
+    var state = opts.state;
+    var controls = opts.controls || {};
+
+    // --- Zone chips (always present) ---
+    var zones = (DATA.zones || []);
+    if (!zones.length) return;
+    if (!state.zone || zones.indexOf(state.zone) === -1) state.zone = zones[0];
+    var zoneEl = el(p + '-zones');
+    if (zoneEl) {
+        zoneEl.innerHTML = zones.map(function(z) {
+            return '<button type="button" data-zone="' + htmlEsc(z) + '" aria-pressed="' + (z === state.zone) + '">' + htmlEsc(z) + '</button>';
+        }).join('');
+        zoneEl.querySelectorAll('button').forEach(function(b) {
+            b.onclick = function() {
+                state.zone = b.dataset.zone;
+                wireCaptureCard(opts);
+                opts.render();
+            };
+        });
+    }
+
+    // --- Period chips ---
+    if (controls.period) {
+        var periodEl = el(p + '-period');
+        if (periodEl) {
+            periodEl.innerHTML = ['yearly', 'monthly', 'daily'].map(function(per) {
+                return '<button type="button" data-period="' + per + '" aria-pressed="' + (per === state.period) + '">' + per + '</button>';
+            }).join('');
+            periodEl.querySelectorAll('button').forEach(function(b) {
+                b.onclick = function() {
+                    state.period = b.dataset.period;
+                    state.rangeEnd = null;
+                    wireCaptureCard(opts);
+                    opts.render();
+                };
+            });
+        }
+    }
+
+    // --- Range chips + nav ---
+    if (controls.range) {
+        var rangeEl = el(p + '-range');
+        var rangeOpts = CAPTURE_RANGE_OPTIONS[state.period] || ['all'];
+        if (rangeOpts.indexOf(state.range) === -1) { state.range = 'all'; state.rangeEnd = null; }
+        if (rangeEl) {
+            rangeEl.innerHTML = rangeOpts.map(function(r) {
+                return '<button type="button" data-range="' + r + '" aria-pressed="' + (r === state.range) + '">' + CAPTURE_RANGE_LABELS[r] + '</button>';
+            }).join('');
+            rangeEl.querySelectorAll('button').forEach(function(b) {
+                b.onclick = function() {
+                    state.range = b.dataset.range;
+                    state.rangeEnd = null;
+                    wireCaptureCard(opts);
+                    opts.render();
+                };
+            });
+        }
+
+        var win = captureCurrentWindow(state);
+        var nav = el(p + '-range-nav');
+        var prevBtn = el(p + '-range-prev');
+        var nextBtn = el(p + '-range-next');
+        var nowBtn  = el(p + '-range-now');
+        var labelEl = el(p + '-range-label');
+        if (nav) {
+            if (!win) {
+                nav.style.visibility = 'hidden';
+                if (labelEl) labelEl.textContent = 'All time';
+            } else {
+                nav.style.visibility = 'visible';
+                if (labelEl) labelEl.textContent = captureWindowLabel(win) + (win.atLatest ? ' · latest' : '');
+                if (prevBtn) prevBtn.onclick = function() { captureNavRange(state, -1); wireCaptureCard(opts); opts.render(); };
+                if (nextBtn) nextBtn.onclick = function() { captureNavRange(state, +1); wireCaptureCard(opts); opts.render(); };
+                if (nowBtn)  nowBtn.onclick  = function() { state.rangeEnd = null; wireCaptureCard(opts); opts.render(); };
+                if (nextBtn) nextBtn.disabled = !!win.atLatest;
+                if (nowBtn)  nowBtn.disabled  = !!win.atLatest;
+            }
+        }
+    }
+}
+
 function renderCapture() {
     var zones = (DATA.zones || []);
     if (!zones.length) {
         el('capture-content').innerHTML = '<div class="empty-note">No spot price data available.</div>';
         return;
     }
-    if (!CAPTURE_STATE.zone || zones.indexOf(CAPTURE_STATE.zone) === -1) {
-        CAPTURE_STATE.zone = zones[0];
-    }
-    // Build controls
-    var zoneOpts = zones.map(function(z) {
-        return '<button type="button" data-zone="' + htmlEsc(z) + '" aria-pressed="' + (z === CAPTURE_STATE.zone) + '">' + htmlEsc(z) + '</button>';
-    }).join('');
-    var periodOpts = ['yearly', 'monthly', 'daily'].map(function(p) {
-        return '<button type="button" data-period="' + p + '" aria-pressed="' + (p === CAPTURE_STATE.period) + '">' + p + '</button>';
-    }).join('');
 
-    el('capture-zones').innerHTML = zoneOpts;
-    el('capture-period').innerHTML = periodOpts;
+    var mainOpts = {
+        prefix: 'capture-main',
+        state: CAPTURE_STATES.main,
+        controls: { period: true, range: true },
+        render: function() {
+            renderCaptureChart(CAPTURE_STATES.main);
+            renderCaptureKPIs(CAPTURE_STATES.main);   // KPI strip follows main
+        },
+    };
+    var spreadOpts = {
+        prefix: 'capture-spread',
+        state: CAPTURE_STATES.spread,
+        controls: { period: true, range: true },
+        render: function() { renderCaptureSpreadChart(CAPTURE_STATES.spread); },
+    };
+    var heatmapOpts = {
+        prefix: 'capture-heatmap',
+        state: CAPTURE_STATES.heatmap,
+        controls: {},
+        render: function() { renderHeatmap(CAPTURE_STATES.heatmap); },
+    };
 
-    el('capture-zones').querySelectorAll('button').forEach(function(b) {
-        b.onclick = function() { CAPTURE_STATE.zone = b.dataset.zone; renderCapture(); };
-    });
-    el('capture-period').querySelectorAll('button').forEach(function(b) {
-        b.onclick = function() {
-            CAPTURE_STATE.period = b.dataset.period;
-            CAPTURE_STATE.rangeEnd = null;  // reset window anchor when granularity changes
-            renderCapture();
-        };
-    });
+    wireCaptureCard(mainOpts);
+    wireCaptureCard(spreadOpts);
+    wireCaptureCard(heatmapOpts);
 
-    // Build profile checkboxes by group
-    var availableProfiles = Object.keys((DATA.data && DATA.data[CAPTURE_STATE.zone]) || {});
-    var groupsHtml = CAPTURE_PROFILE_GROUPS.map(function(g) {
-        var present = g.keys.filter(function(k) { return availableProfiles.indexOf(k) !== -1; });
-        if (!present.length) return '';
-        var btns = present.map(function(k) {
-            var label = (DATA.profiles && DATA.profiles[k]) || k;
-            var sel = CAPTURE_STATE.profiles.indexOf(k) !== -1;
-            var color = profileColor(k) || '#999';
-            return '<button type="button" class="profile-chip" data-key="' + htmlEsc(k) + '" aria-pressed="' + sel + '" ' +
-                'style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;border:1px solid var(--ink-5);background:' + (sel ? 'var(--surface-sunken)' : 'transparent') + ';font-size:var(--fs-xs);font-weight:600;color:var(--ink-1);letter-spacing:0.04em;margin:0 4px 4px 0">' +
-                '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + htmlEsc(color) + '"></span>' +
-                htmlEsc(label) + '</button>';
-        }).join('');
-        return '<div style="margin-bottom:8px"><span class="eyebrow" style="margin-right:10px">' + htmlEsc(g.label) + '</span>' + btns + '</div>';
-    }).join('');
-    el('capture-profiles').innerHTML = groupsHtml || '<span class="muted">No profiles available.</span>';
-    el('capture-profiles').querySelectorAll('.profile-chip').forEach(function(b) {
-        b.onclick = function() {
-            var k = b.dataset.key;
-            var idx = CAPTURE_STATE.profiles.indexOf(k);
-            if (idx === -1) CAPTURE_STATE.profiles.push(k);
-            else CAPTURE_STATE.profiles.splice(idx, 1);
-            renderCapture();
-        };
-    });
+    wireProfilesPopover(mainOpts);
+    wireProfilesPopover(spreadOpts);
 
-    // KPI strip — latest baseload + each chosen profile latest capture
-    renderCaptureKPIs(CAPTURE_STATE);
-    renderCaptureRangeBar();
-    renderCaptureChart(CAPTURE_STATE);
-    renderCaptureSpreadChart(CAPTURE_STATE);
-    renderHeatmap(CAPTURE_STATE);
+    // Initial chart + KPI render
+    renderCaptureChart(CAPTURE_STATES.main);
+    renderCaptureSpreadChart(CAPTURE_STATES.spread);
+    renderHeatmap(CAPTURE_STATES.heatmap);
+    renderCaptureKPIs(CAPTURE_STATES.main);
 }
 
 function renderCaptureKPIs(state) {
