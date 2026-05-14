@@ -1546,9 +1546,6 @@ var CAPTURE_STATES = {
         zone: null,
     },
 };
-// Legacy alias — points at the main chart's state. Removed in Task 9 once
-// wiring no longer relies on it.
-var CAPTURE_STATE = CAPTURE_STATES.main;
 var CAPTURE_RANGE_OPTIONS = {
     yearly:  ['all', '10y', '5y'],
     monthly: ['all', '5y', '2y', '1y', '6m'],
@@ -1613,61 +1610,6 @@ function captureNavRange(state, direction) {
     if (newEnd > latestMs) newEnd = latestMs;
     state.rangeEnd = newEnd;
 }
-function renderCaptureRangeBar() {
-    var period = CAPTURE_STATE.period;
-    var opts = CAPTURE_RANGE_OPTIONS[period] || ['all'];
-    if (opts.indexOf(CAPTURE_STATE.range) === -1) {
-        CAPTURE_STATE.range = 'all';
-        CAPTURE_STATE.rangeEnd = null;
-    }
-    var rangeHtml = opts.map(function(r) {
-        return '<button type="button" data-range="' + r + '" aria-pressed="' + (r === CAPTURE_STATE.range) + '">' + CAPTURE_RANGE_LABELS[r] + '</button>';
-    }).join('');
-    el('capture-range').innerHTML = rangeHtml;
-    el('capture-range').querySelectorAll('button').forEach(function(b) {
-        b.onclick = function() {
-            CAPTURE_STATE.range = b.dataset.range;
-            CAPTURE_STATE.rangeEnd = null;
-            renderCaptureRangeBar();
-            renderCaptureChart(CAPTURE_STATE);
-            renderCaptureSpreadChart(CAPTURE_STATE);
-        };
-    });
-    var win = captureCurrentWindow(CAPTURE_STATE);
-    var nav = el('capture-range-nav');
-    var prev = el('capture-range-prev');
-    var next = el('capture-range-next');
-    var now  = el('capture-range-now');
-    var label = el('capture-range-label');
-    if (!win) {
-        nav.style.visibility = 'hidden';
-        label.textContent = 'All time';
-    } else {
-        nav.style.visibility = 'visible';
-        label.textContent = captureWindowLabel(win) + (win.atLatest ? ' · latest' : '');
-        prev.onclick = function() {
-            captureNavRange(CAPTURE_STATE, -1);
-            renderCaptureRangeBar();
-            renderCaptureChart(CAPTURE_STATE);
-            renderCaptureSpreadChart(CAPTURE_STATE);
-        };
-        next.onclick = function() {
-            captureNavRange(CAPTURE_STATE, +1);
-            renderCaptureRangeBar();
-            renderCaptureChart(CAPTURE_STATE);
-            renderCaptureSpreadChart(CAPTURE_STATE);
-        };
-        now.onclick  = function() {
-            CAPTURE_STATE.rangeEnd = null;
-            renderCaptureRangeBar();
-            renderCaptureChart(CAPTURE_STATE);
-            renderCaptureSpreadChart(CAPTURE_STATE);
-        };
-        next.disabled = !!win.atLatest;
-        now.disabled  = !!win.atLatest;
-    }
-}
-
 var CAPTURE_PROFILE_GROUPS = [
     { label: 'Reference', keys: ['baseload'] },
     { label: 'Solar PV',  keys: ['sol_syd', 'sol_ov', 'sol_tracker'] },
