@@ -763,6 +763,67 @@ select:focus, input:focus { outline: none; border-color: var(--accent-deep); box
   text-align: center;
 }
 
+/* Per-card chart controls (Capture) */
+.chart-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  margin: 0 0 var(--sp-4) 0;
+  padding-bottom: var(--sp-4);
+  border-bottom: 1px dashed var(--ink-5);
+}
+.chart-controls .label-control { margin-right: var(--sp-2); }
+.chart-controls .range-control {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+.chart-controls .range-control .range-nav { margin-left: var(--sp-2); }
+.chart-controls-compact { padding-bottom: var(--sp-3); }
+
+/* Profiles trigger button (top-right in card-head) */
+.profiles-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  color: var(--ink-2);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+.profiles-trigger:hover { background: var(--surface-base); border-color: var(--ink-5); }
+.profiles-trigger[aria-expanded="true"] { background: var(--surface-raised); border-color: var(--ink-4); }
+.profiles-trigger-caret { font-size: 10px; opacity: 0.7; }
+
+/* Profiles popover */
+.profiles-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 50;
+  min-width: 280px;
+  max-width: 360px;
+  padding: var(--sp-4);
+  background: var(--surface-raised);
+  border: 1px solid var(--ink-5);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+.profiles-popover[hidden] { display: none; }
+.profiles-popover-right { right: 0; left: auto; }
+
+/* Card-head hosts the popover; ensure it can position absolutely. */
+.capture-card .card-head { position: relative; }
+
 /* card */
 .card {
   background: var(--surface-raised);
