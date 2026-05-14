@@ -4810,52 +4810,71 @@ _SHELL = r"""<!DOCTYPE html>
           <h1 class="page-title">Capture Prices</h1>
           <p class="page-sub">Solar-weighted price realisation across the four Swedish bidding zones, by profile and time horizon.</p>
         </div>
-        <div class="page-controls">
-          <span class="label-control">Zone <div class="seg" id="capture-zones"></div></span>
-          <span class="label-control">Period <div class="seg" id="capture-period"></div></span>
-        </div>
       </header>
       <div id="capture-content">
         <div class="kpi-strip" id="capture-kpis"></div>
 
-        <div class="card">
-          <div class="card-head">
-            <div>
-              <div class="card-title">Profiles</div>
-              <div class="card-sub">Toggle technology profiles to overlay on the chart.</div>
-            </div>
-          </div>
-          <div id="capture-profiles"></div>
-        </div>
-
-        <div class="range-bar" id="capture-range-bar">
-          <span class="label-control">Range <div class="seg" id="capture-range"></div></span>
-          <span class="range-nav" id="capture-range-nav">
-            <button type="button" class="range-arrow" id="capture-range-prev" aria-label="Previous window">‹</button>
-            <span class="range-label" id="capture-range-label">All time</span>
-            <button type="button" class="range-arrow" id="capture-range-next" aria-label="Next window">›</button>
-            <button type="button" id="capture-range-now">Latest</button>
-          </span>
-        </div>
-
         <div class="grid-2">
-          <div class="card">
+          <!-- Price evolution -->
+          <div class="card capture-card">
             <div class="card-head">
               <div><div class="card-title">Price evolution</div><div class="card-sub">Baseload &amp; capture, EUR/MWh.</div></div>
+              <button type="button" class="profiles-trigger" id="capture-main-profiles-btn" aria-haspopup="true" aria-expanded="false">
+                <span class="profiles-trigger-label" id="capture-main-profiles-label">Profiles</span>
+                <span class="profiles-trigger-caret">▾</span>
+              </button>
+              <div class="profiles-popover" id="capture-main-profiles-pop" hidden></div>
+            </div>
+            <div class="chart-controls">
+              <span class="label-control">Zone <div class="seg" id="capture-main-zones"></div></span>
+              <span class="label-control">Period <div class="seg" id="capture-main-period"></div></span>
+              <span class="label-control range-control">
+                Range <div class="seg" id="capture-main-range"></div>
+                <span class="range-nav" id="capture-main-range-nav">
+                  <button type="button" class="range-arrow" id="capture-main-range-prev" aria-label="Previous window">‹</button>
+                  <span class="range-label" id="capture-main-range-label">All time</span>
+                  <button type="button" class="range-arrow" id="capture-main-range-next" aria-label="Next window">›</button>
+                  <button type="button" id="capture-main-range-now">Latest</button>
+                </span>
+              </span>
             </div>
             <div class="chart chart-tall" id="capture-main-chart"></div>
           </div>
-          <div class="card">
+
+          <!-- Capture spread -->
+          <div class="card capture-card">
             <div class="card-head">
               <div><div class="card-title">Capture spread</div><div class="card-sub">Capture price minus baseload, EUR/MWh. Positive = profile captures premium; negative = discount (cannibalisation).</div></div>
+              <button type="button" class="profiles-trigger" id="capture-spread-profiles-btn" aria-haspopup="true" aria-expanded="false">
+                <span class="profiles-trigger-label" id="capture-spread-profiles-label">Profiles</span>
+                <span class="profiles-trigger-caret">▾</span>
+              </button>
+              <div class="profiles-popover profiles-popover-right" id="capture-spread-profiles-pop" hidden></div>
+            </div>
+            <div class="chart-controls">
+              <span class="label-control">Zone <div class="seg" id="capture-spread-zones"></div></span>
+              <span class="label-control">Period <div class="seg" id="capture-spread-period"></div></span>
+              <span class="label-control range-control">
+                Range <div class="seg" id="capture-spread-range"></div>
+                <span class="range-nav" id="capture-spread-range-nav">
+                  <button type="button" class="range-arrow" id="capture-spread-range-prev" aria-label="Previous window">‹</button>
+                  <span class="range-label" id="capture-spread-range-label">All time</span>
+                  <button type="button" class="range-arrow" id="capture-spread-range-next" aria-label="Next window">›</button>
+                  <button type="button" id="capture-spread-range-now">Latest</button>
+                </span>
+              </span>
             </div>
             <div class="chart chart-tall" id="capture-spread-chart"></div>
           </div>
         </div>
 
-        <div class="card">
+        <!-- Heatmap -->
+        <div class="card capture-card">
           <div class="card-head">
             <div><div class="card-title">Hour × month heatmap</div><div class="card-sub">All-time mean spot price by hour of day &amp; month for the selected zone.</div></div>
+          </div>
+          <div class="chart-controls chart-controls-compact">
+            <span class="label-control">Zone <div class="seg" id="capture-heatmap-zones"></div></span>
           </div>
           <div class="chart chart-tall" id="capture-heatmap"></div>
         </div>
