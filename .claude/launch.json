@@ -1,0 +1,15 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "rapporter-server",
+      "runtimeExecutable": "/usr/bin/python3",
+      "runtimeArgs": [
+        "-I",
+        "-c",
+        "import os, http.server, socketserver; from functools import partial; DIR = '/private/tmp'; os.chdir(DIR); handler = partial(http.server.SimpleHTTPRequestHandler, directory=DIR); port = int(os.environ.get('PORT', 8000)); print(f'Serving {DIR} on http://localhost:{port}/', flush=True); socketserver.TCPServer(('', port), handler).serve_forever()"
+      ],
+      "autoPort": true
+    }
+  ]
+}
