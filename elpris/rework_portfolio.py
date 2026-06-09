@@ -245,13 +245,22 @@ def build_portfolio_overview(assets: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 def _front_year_label(forward: Optional[dict]) -> Optional[str]:
-    """Första årskontraktet i forwardkurvan (t.ex. 'YR-27')."""
+    """Nästa hela årskontrakt i forwardkurvan (t.ex. 'YR-27').
+
+    Föredrar första årskontrakt som ännu inte gått in i leverans
+    (start > settlement-datum) — rätt referens för hedge-jämförelse.
+    Faller tillbaka på första årskontraktet om inget sådant finns.
+    """
     if not forward:
         return None
-    for c in forward.get("contracts", []):
-        if c.get("type") == "year":
+    settlement = forward.get("settlement_date") or ""
+    year_contracts = [
+        c for c in forward.get("contracts", []) if c.get("type") == "year"
+    ]
+    for c in year_contracts:
+        if (c.get("start") or "") > settlement:
             return c.get("label")
-    return None
+    return year_contracts[0].get("label") if year_contracts else None
 
 
 def build_ppa_view(assets: dict, forward: Optional[dict]) -> dict:

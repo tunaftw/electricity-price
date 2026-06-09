@@ -21,6 +21,7 @@ from elpris.rework_market_analysis import (
     calculate_zone_spreads,
 )
 from elpris.rework_portfolio import (
+    _front_year_label,
     build_fleet_series,
     fmt_num,
     fmt_signed_pct,
@@ -267,6 +268,25 @@ def test_build_fleet_series_sums_parks():
     assert m["revenue_ppa_eur"] == 7500.0
     assert m["capture"] == pytest.approx(46.67, abs=0.01)
     assert m["is_partial"] is False
+
+
+def test_front_year_label_skips_in_delivery():
+    forward = {
+        "settlement_date": "2026-04-29",
+        "contracts": [
+            {"label": "Q3-26", "type": "quarter", "start": "2026-07-01"},
+            {"label": "YR-26", "type": "year", "start": "2026-01-01"},
+            {"label": "YR-27", "type": "year", "start": "2027-01-01"},
+        ],
+    }
+    # YR-26 är i leverans (start < settlement) → YR-27 är hedge-referensen
+    assert _front_year_label(forward) == "YR-27"
+    assert _front_year_label(None) is None
+    # Bara kontrakt i leverans → fall tillbaka på första
+    forward["contracts"] = [
+        {"label": "YR-26", "type": "year", "start": "2026-01-01"},
+    ]
+    assert _front_year_label(forward) == "YR-26"
 
 
 def test_fmt_num_swedish():
