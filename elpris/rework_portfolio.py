@@ -555,16 +555,25 @@ def build_insights(
             ),
             "tone": "neg",
         })
-    # Orientering: EUR/kWp senaste hela år
+    # Orientering: EUR/kWp — senaste HELA år (partiella år är
+    # säsongsskeva: sommartunga månader överdriver årssiffran).
     eur_kwp = orientation.get("eur_per_kwp", {}).get("SE4", [])
     prem = orientation.get("premium_vs_syd", {}).get("SE4", [])
     if eur_kwp and prem:
+        se4_complete = {
+            y["year"]
+            for y in zones_ma.get("SE4", {}).get("yearly", [])
+            if y.get("complete")
+        }
         years_w_data = [
             r for r in eur_kwp
             if r.get("syd") is not None and r.get("ov") is not None
         ]
-        if years_w_data:
-            r = years_w_data[-1]
+        complete_rows = [
+            r for r in years_w_data if r["year"] in se4_complete
+        ]
+        if complete_rows or years_w_data:
+            r = (complete_rows or years_w_data)[-1]
             p = next(
                 (x for x in prem if x["year"] == r["year"]), {}
             )
