@@ -34,6 +34,12 @@ electricity-price/
 │   ├── performance_report_html.py       # HTML-rendering månadsrapport
 │   ├── ppm_schedule.py                  # Underhållsschema (lazy-laddad)
 │   ├── processing.py                    # Tim → quarterly (15-min)
+│   ├── rework_capture_analysis.py       # Rework: cannibalisering + orientering
+│   ├── rework_dashboard_data.py         # Rework: komponerar + beskär payload
+│   ├── rework_dashboard_html.py         # Rework-renderaren (Nordic Clarity)
+│   ├── rework_imbalance.py              # Rework: eSett-obalansstatistik
+│   ├── rework_market_analysis.py        # Rework: duck curve, neg-timmar, spreadar
+│   ├── rework_portfolio.py              # Rework: portföljaggregat + klartext-insikter
 │   ├── solar_profile.py                 # PVsyst + ENTSO-E solprofiler
 │   ├── storage.py                       # CSV-läs/skriv för spotpriser
 │   ├── unified_dashboard_data.py        # Aggregerar all data till JSON
@@ -55,6 +61,7 @@ electricity-price/
 ├── installed_download.py                # Hämta installerad kapacitet
 ├── bazefield_download.py                # Synka Bazefield-solparker
 ├── generate_unified_dashboard.py        # Bygg unified dashboard (Track C)
+├── generate_rework_dashboard.py         # Bygg rework-dashboard (Nordic Clarity)
 ├── generate_performance_report.py       # Bygg per-park månadsrapport
 └── discover_inverters.py                # Maintenance: regenerera inverter_registry.py
 ```
@@ -161,6 +168,7 @@ Slash commands i `.claude/commands/`. Master-kommandot rekommenderas för rutink
 - `/elpris-capture` — Capture prices
 - `/elpris-excel` — Excel-rapporter (capture + battery arbitrage)
 - `/elpris-dashboard` — Unified dashboard (Track C — Nordic Editorial)
+- `/elpris-rework` — Rework-dashboard (Nordic Clarity — portfölj & marknad)
 - `/elpris-reports` — Per-park månadsrapport (alla 8 parker)
 
 ## Kommandon (CLI)
@@ -225,6 +233,24 @@ python3 generate_unified_dashboard.py
 Skapar `Resultat/rapporter/dashboard_unified_v3_YYYYMMDD.html` (~17 MB, fristående HTML med inbäddad data + Plotly.js via CDN). 4 flikar: **CAPTURE**, **BESS**, **FUTURES**, **ASSETS**.
 
 Backend: `elpris.unified_dashboard_data.build_unified_data` aggregerar all data till JSON. Renderaren `elpris.unified_dashboard_v3_html.render_track_c` bygger HTML.
+
+### Rework-dashboard (Nordic Clarity — portfölj & marknad)
+```bash
+python3 generate_rework_dashboard.py
+python3 generate_rework_dashboard.py --save-data /tmp/rework_data.json   # cacha data
+python3 generate_rework_dashboard.py --from-data /tmp/rework_data.json   # iterera på renderaren (sekunder)
+```
+Skapar `Resultat/rapporter/dashboard_rework_YYYYMMDD.html` (~0,5 MB, fristående HTML).
+Sex sektioner i rapport-läsordning med automatgenererade klartext-insikter:
+**Översikt**, **Marknaden** (duck curve, negativtimmar, zonspreadar),
+**Capture & cannibalisering** (installerad sol vs ratio, orientering EUR/kWp),
+**Parkerna** (league table + drilldown), **Risk & intäkt** (forward, PPA-bok,
+eSett-obalans), **Datakvalitet**. Byggd parallellt med Track C — ersätter den inte.
+
+Backend: `elpris.rework_dashboard_data.build_rework_data` (komponerar
+`build_unified_data()` + rework-analysmodulerna, beskär payloaden).
+Renderare: `elpris.rework_dashboard_html.render_rework`.
+Design: `docs/plans/2026-06-09-fable-rework-design.md`.
 
 ### Per-park månadsrapport
 ```bash
