@@ -39,6 +39,10 @@ def _prune_unused_daily(zone_data: Dict[str, Any]) -> Dict[str, Any]:
     Körs på en djupkopia av payloadens ``data`` (zon → profil → serie) precis
     före serialisering — efter att all månads-/årsaggregering redan skett — så
     inga interna beräkningar påverkas. Monthly/yearly/hourly lämnas orörda.
+
+    För profiler som BEHÅLLER daily strippas dessutom ``year``/``month`` ur
+    varje dagsrad: frontend härleder x-axeln ur ``date`` för daily (year/month
+    används bara för monthly/yearly), så de fälten är ren dödvikt där.
     """
     pruned: Dict[str, Any] = {}
     for zone, profiles in zone_data.items():
@@ -47,12 +51,17 @@ def _prune_unused_daily(zone_data: Dict[str, Any]) -> Dict[str, Any]:
             continue
         new_profiles: Dict[str, Any] = {}
         for key, series in profiles.items():
-            if (
-                key not in _DAILY_PROFILE_WHITELIST
-                and isinstance(series, dict)
-                and "daily" in series
-            ):
-                series = {k: v for k, v in series.items() if k != "daily"}
+            if isinstance(series, dict) and "daily" in series:
+                if key not in _DAILY_PROFILE_WHITELIST:
+                    series = {k: v for k, v in series.items() if k != "daily"}
+                else:
+                    series = dict(series)
+                    series["daily"] = [
+                        {k: v for k, v in row.items()
+                         if k not in ("year", "month")}
+                        if isinstance(row, dict) else row
+                        for row in series["daily"]
+                    ]
             new_profiles[key] = series
         pruned[zone] = new_profiles
     return pruned

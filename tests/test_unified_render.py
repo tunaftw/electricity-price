@@ -29,6 +29,20 @@ def _zone_data():
     }
 
 
+def _zone_data_records():
+    return {
+        "SE3": {
+            "baseload": {
+                "daily": [
+                    {"date": "2026-01-01", "year": 2026, "month": 1, "capture": 40.0},
+                    {"date": "2026-01-02", "year": 2026, "month": 1, "capture": 41.0},
+                ],
+                "monthly": [{"year": 2026, "month": 1, "capture": 40.5}],
+            },
+        }
+    }
+
+
 def test_prune_keeps_daily_for_whitelisted_profiles():
     out = _prune_unused_daily(_zone_data())
     assert out["SE3"]["baseload"]["daily"] == [1, 2]
@@ -54,3 +68,26 @@ def test_prune_does_not_mutate_input():
     _prune_unused_daily(data)
     # Originalet ska vara orört (funktionen bygger nya dictar)
     assert "daily" in data["SE3"]["arb_1h"]
+
+
+# --- D1c: strippa year/month ur kvarvarande daily-rader --------------------
+
+def test_prune_strips_year_month_from_kept_daily_rows():
+    out = _prune_unused_daily(_zone_data_records())
+    rows = out["SE3"]["baseload"]["daily"]
+    assert all("year" not in r and "month" not in r for r in rows)
+    # date + capture ska finnas kvar
+    assert rows[0]["date"] == "2026-01-01"
+    assert rows[0]["capture"] == 40.0
+
+
+def test_prune_keeps_year_month_in_monthly():
+    out = _prune_unused_daily(_zone_data_records())
+    m = out["SE3"]["baseload"]["monthly"][0]
+    assert m["year"] == 2026 and m["month"] == 1
+
+
+def test_prune_year_month_strip_does_not_mutate_input():
+    data = _zone_data_records()
+    _prune_unused_daily(data)
+    assert "year" in data["SE3"]["baseload"]["daily"][0]

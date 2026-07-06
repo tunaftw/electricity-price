@@ -17,10 +17,9 @@ from __future__ import annotations
 
 import csv
 from collections import defaultdict
-from datetime import date, datetime
 from pathlib import Path
 
-from .config import MIMER_DATA_DIR, ZONES
+from .config import MIMER_DATA_DIR, ZONES, parse_iso
 
 # ---------------------------------------------------------------------------
 # Profile definitions
@@ -175,7 +174,7 @@ def _aggregate_hourly_to_periods(
 
     for ts_str, price in hourly.items():
         try:
-            ts = datetime.fromisoformat(ts_str)
+            ts = parse_iso(ts_str)
         except ValueError:
             continue
         date_key = ts.strftime("%Y-%m-%d")

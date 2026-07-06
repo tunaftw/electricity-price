@@ -1,9 +1,19 @@
 """Configuration constants for the electricity price downloader."""
 
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Optional
 from zoneinfo import ZoneInfo
+
+
+def parse_iso(ts: str) -> datetime:
+    """Robust ISO-8601-parser som klarar 'Z'-suffix på Python 3.9.
+
+    ``datetime.fromisoformat('...Z')`` kastar ``ValueError`` på 3.9 (men inte
+    3.11). Normalisera 'Z' -> '+00:00' först så Z-suffixad data (t.ex. eSett)
+    parsas konsekvent istället för att krascha eller tyst droppas.
+    """
+    return datetime.fromisoformat(ts.replace("Z", "+00:00"))
 
 # API configuration
 BASE_URL = "https://www.elprisetjustnu.se/api/v1/prices"

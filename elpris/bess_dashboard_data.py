@@ -638,6 +638,24 @@ def _aggregate_sol_bess(daily_data: dict[str, dict]) -> dict[str, list]:
 # Main entry point
 # ---------------------------------------------------------------------------
 
+def _build_daily_prices(spot: dict[str, list[dict]]) -> dict[str, list[float]]:
+    """Bygg ``{date_key: [pris_h0..h23]}`` men BARA för kompletta UTC-dygn.
+
+    Ofullständiga dygn (första/sista dagen i historiken, innevarande partiella
+    dag, eller datagap) hoppas över. Annars nollfylls saknade timmar och
+    arbitrage-DP:n ser 0 EUR/MWh-luckor som gratis laddningsläge → fantom-
+    intäkt som läcker in i månads-/årssummor. Ett komplett UTC-dygn har alltid
+    timme 0..23 (ingen DST i UTC).
+    """
+    full = set(range(24))
+    daily_prices: dict[str, list[float]] = {}
+    for date_key in sorted(spot):
+        price_by_hour = {r["utc_hour"]: r["eur_mwh"] for r in spot[date_key]}
+        if set(price_by_hour) == full:
+            daily_prices[date_key] = [price_by_hour[h] for h in range(24)]
+    return daily_prices
+
+
 def calculate_bess_data(
     spot_prices_by_zone: dict[str, dict[str, list[dict]]],
     pvsyst_profiles: dict[str, dict[tuple[int, int, int], float]],
@@ -666,18 +684,10 @@ def calculate_bess_data(
         if not spot:
             continue
 
-        # Build daily_prices: {date_key: [price_h0, ..., price_h23]}
-        daily_prices: dict[str, list[float]] = {}
-        for date_key in sorted(spot):
-            hours = spot[date_key]
-            price_by_hour: dict[int, float] = {}
-            for h_rec in hours:
-                price_by_hour[h_rec["utc_hour"]] = h_rec["eur_mwh"]
-            # Build ordered list for hours 0..23
-            if price_by_hour:
-                max_h = max(price_by_hour.keys())
-                prices = [price_by_hour.get(h, 0.0) for h in range(max_h + 1)]
-                daily_prices[date_key] = prices
+        # Build daily_prices: {date_key: [price_h0, ..., price_h23]} — bara
+        # kompletta UTC-dygn (se _build_daily_prices) så nollfyllda luckor inte
+        # ger fantomintäkt i arbitrage-DP:n.
+        daily_prices = _build_daily_prices(spot)
 
         zone_data: dict[str, dict] = {}
 

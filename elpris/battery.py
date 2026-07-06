@@ -16,7 +16,7 @@ from pathlib import Path
 from statistics import mean, stdev, median
 from typing import Optional
 
-from .config import LEGACY_REPORTS_DIR, QUARTERLY_DIR, RAW_DIR, ZONES
+from .config import LEGACY_REPORTS_DIR, QUARTERLY_DIR, RAW_DIR, ZONES, parse_iso
 
 # Battery parameters
 ROUND_TRIP_EFFICIENCY = 0.88  # 88% round-trip efficiency
@@ -58,7 +58,7 @@ def read_price_data_by_day(zone: str, year: int | None = None) -> dict[date, lis
         with open(csv_file, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                ts = datetime.fromisoformat(row["time_start"])
+                ts = parse_iso(row["time_start"])
                 price_eur = float(row.get("EUR_per_kWh", 0)) * 1000  # Convert to EUR/MWh
                 price_sek = float(row.get("SEK_per_kWh", 0)) * 1000  # Convert to SEK/MWh
 

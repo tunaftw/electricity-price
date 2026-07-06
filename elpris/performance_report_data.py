@@ -219,6 +219,29 @@ def _swedish_weekday(date_str: str) -> str:
 # Daglig aggregering
 # ---------------------------------------------------------------------------
 
+def _meter_inverter_efficiency(records: list[dict]) -> Optional[float]:
+    """Verkningsgrad meter/inverter (%) över IDENTISK intervalluppsättning.
+
+    Täljare (mätare) och nämnare (invertersumma) summeras över samma intervall
+    — de där inverterdata finns OCH mätaren > 0 — så gles/trasig mätartäckning
+    inte biasar KPI:t nedåt (intervall med inverteroutput men mätare = 0 räknas
+    annars bara i nämnaren). ActivePower är ofta opålitlig; ligger resultatet
+    utanför 50–105 % är data broken → None. Returnerar rundat till 2 decimaler.
+    """
+    valid = [
+        r for r in records
+        if r.get("active_power_mw") is not None and r.get("power_mw", 0) > 0
+    ]
+    inv_total = sum((r.get("active_power_mw") or 0) for r in valid)
+    if inv_total <= 0:
+        return None
+    meter_total = sum(r["power_mw"] for r in valid)
+    eff = (meter_total / inv_total) * 100.0
+    if 50.0 <= eff <= 105.0:
+        return round(eff, 2)
+    return None
+
+
 def _aggregate_daily(
     records: list[dict],
     capacity_kwp: float,
@@ -273,22 +296,10 @@ def _aggregate_daily(
             if pi is not None:
                 pi *= 100.0
 
-        # Verkningsgrad (meter vs inverter)
-        # OBS: ActivePower (inverter sum) är ofta opålitlig pga icke-
-        # kommunicerande invertrar — om värdet är >100% eller <50% är
-        # det ett tecken på att data är broken, då sätter vi None.
+        # Verkningsgrad (meter vs inverter) — se _meter_inverter_efficiency.
         efficiency: Optional[float] = None
         if has_active_power:
-            inv_sum = sum(r.get("active_power_mw", 0) or 0 for r in day_records
-                         if r.get("active_power_mw") is not None)
-            meter_sum = sum(r["power_mw"] for r in day_records
-                           if r.get("active_power_mw") is not None
-                           and r["power_mw"] > 0)
-            if inv_sum > 0:
-                eff_raw = (meter_sum / inv_sum) * 100.0
-                # Sanity check: efficiency ska vara 90-100% i normalfall
-                if 50.0 <= eff_raw <= 105.0:
-                    efficiency = eff_raw
+            efficiency = _meter_inverter_efficiency(day_records)
 
         # Modultemperatur (Sandia NOCT-uppskattning)
         avg_mod_temp: Optional[float] = None
@@ -617,26 +628,10 @@ def generate_report(park_key: str, year: int, month: int) -> MonthlyReport:
         if pr_val is not None:
             pr = round(pr_val * 100.0, 2)
 
-    # Verkningsgrad: meter vs inverter sum.
-    # OBS: ActivePower är ofta opålitlig pga icke-kommunicerande invertrar.
-    # Om värdet är >100% eller <50% är data broken — sätt till None.
+    # Verkningsgrad: meter vs inverter sum — se _meter_inverter_efficiency.
     efficiency: Optional[float] = None
     if has_active_power:
-        inv_total = sum(
-            r.get("active_power_mw", 0) or 0
-            for r in month_records
-            if r.get("active_power_mw") is not None
-        )
-        meter_total = sum(
-            r["power_mw"]
-            for r in month_records
-            if r.get("active_power_mw") is not None
-            and r["power_mw"] > 0
-        )
-        if inv_total > 0:
-            eff_raw = (meter_total / inv_total) * 100.0
-            if 50.0 <= eff_raw <= 105.0:
-                efficiency = round(eff_raw, 2)
+        efficiency = _meter_inverter_efficiency(month_records)
 
     # Modultemperatur (medelvärde av dagliga)
     avg_mod_temp: Optional[float] = None
