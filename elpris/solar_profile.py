@@ -181,6 +181,10 @@ def get_pvsyst_weight(timestamp: datetime, profile_name: str) -> float:
     """
     profile = load_pvsyst_profile(profile_name)
     key = (timestamp.month, timestamp.day, timestamp.hour)
+    if key not in profile and timestamp.month == 2 and timestamp.day == 29:
+        # PVsyst TMY har 365 dagar (ingen 29 feb) — fall tillbaka på 28 feb
+        # så skottdagens produktion inte tappas i capture-viktningen.
+        key = (2, 28, timestamp.hour)
     return profile.get(key, 0.0)
 
 

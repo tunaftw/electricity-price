@@ -24,7 +24,9 @@ from typing import Any, Dict
 
 def render_rework(data: Dict[str, Any]) -> str:
     """Rendera rework-dashboarden som en HTML-sträng."""
-    data_json = json.dumps(data, default=str, ensure_ascii=False)
+    data_json = json.dumps(
+        data, default=str, ensure_ascii=False, separators=(",", ":")
+    )
     # Skydda mot '</script>' i datasträngar.
     data_json = data_json.replace("</", "<\\/")
 

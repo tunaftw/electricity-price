@@ -11,12 +11,8 @@ from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional
-from zoneinfo import ZoneInfo
 
-from .config import ENTSOE_DATA_DIR
-
-# Swedish timezone for proper UTC -> local time conversion
-SWEDEN_TZ = ZoneInfo("Europe/Stockholm")
+from .config import ENTSOE_DATA_DIR, SWEDEN_TZ
 
 # Directory for ENTSO-E generation data
 ENTSOE_DIR = ENTSOE_DATA_DIR / "generation"
@@ -155,6 +151,10 @@ def get_entsoe_weight(timestamp: datetime, zone: str, gen_type: str) -> float:
         return 0.0
 
     key = (timestamp.month, timestamp.day, timestamp.hour)
+    if key not in profile and timestamp.month == 2 and timestamp.day == 29:
+        # Om profilen saknar 29 feb (t.ex. data utan skottår) — fall
+        # tillbaka på 28 feb istället för att tappa skottdagens vikt.
+        key = (2, 28, timestamp.hour)
     return profile.get(key, 0.0)
 
 

@@ -23,11 +23,8 @@ import math
 from collections import defaultdict
 from datetime import datetime
 from typing import Dict, Iterable, Iterator, List, Optional
-from zoneinfo import ZoneInfo
 
-from .config import QUARTERLY_DIR, ZONES
-
-SWEDEN_TZ = ZoneInfo("Europe/Stockholm")
+from .config import QUARTERLY_DIR, SWEDEN_TZ, ZONES
 
 # Ett "komplett" år kräver minst ~360 dagars kvartersdata.
 _COMPLETE_YEAR_QUARTERS = 360 * 96

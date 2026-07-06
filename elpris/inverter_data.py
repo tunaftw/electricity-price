@@ -12,6 +12,7 @@ Strukturer:
 
 from __future__ import annotations
 
+import calendar
 import csv
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
@@ -228,7 +229,7 @@ def aggregate_alarm_stats(
     )[:10]
 
     # MTBA: dagar i månad / antal alarm
-    days_in_month = 31  # Approximation, OK för rapport
+    days_in_month = calendar.monthrange(year, month)[1]
     mtba_hours = (days_in_month * 24 / len(filtered)) if filtered else 0
 
     # Active at period end (alarms utan timeEnd)

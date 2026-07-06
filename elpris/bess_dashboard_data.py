@@ -12,7 +12,8 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import date, datetime
 from statistics import mean, quantiles
-from zoneinfo import ZoneInfo
+
+from .config import SWEDEN_TZ, UTC_TZ
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -378,13 +379,6 @@ def optimize_btm_hourly(
 
     return (round(revenue_direct, 2), round(revenue_with_battery, 2))
 
-
-# ---------------------------------------------------------------------------
-# Timezone constant
-# ---------------------------------------------------------------------------
-
-SWEDEN_TZ = ZoneInfo("Europe/Stockholm")
-UTC_TZ = ZoneInfo("UTC")
 
 
 # ---------------------------------------------------------------------------

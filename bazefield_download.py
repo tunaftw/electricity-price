@@ -128,6 +128,16 @@ def main():
 
     print_status()
 
+    # Failures loggas redan i download_park via failure_log; här avgör vi bara
+    # exit-koden så update_all/cron märker glapp (kontrakt: exit 1 vid delfel).
+    failed = sum(len(r.get("failed_chunks", [])) for r in results)
+    if failed:
+        print(
+            f"\nVARNING: {failed} chunk(s) misslyckades — data har glapp. "
+            f"Se Resultat/logs/failed_chunks.csv."
+        )
+        return 1
+
     return 0
 
 

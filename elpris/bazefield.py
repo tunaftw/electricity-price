@@ -937,7 +937,10 @@ def download_park(
     if verbose:
         print(f"  Period: {start_date} -> {end_date}")
 
+    from .failure_log import log_failure
+
     total_records = 0
+    failed_chunks: list[str] = []
     current = start_date
 
     # Download in 30-day chunks
@@ -961,8 +964,13 @@ def download_park(
                     print("ingen data")
 
         except Exception as e:
+            # Bazefield är portföljens största datakälla — ett tyst glapp
+            # här upptäcks annars först när en månadsrapport ser fel ut.
+            # Logga så update_all/cron kan larma på exit-kod + failed_chunks.csv.
             if verbose:
                 print(f"fel: {e}")
+            failed_chunks.append(f"{current}..{chunk_end}")
+            log_failure("bazefield", park_key, f"{current}..{chunk_end}", str(e))
 
         current = chunk_end
 
@@ -993,7 +1001,8 @@ def download_park(
         "start_date": start_date,
         "end_date": end_date,
         "total_records": total_records,
-        "status": "ok",
+        "failed_chunks": failed_chunks,
+        "status": "partial" if failed_chunks else "ok",
     }
 
 

@@ -35,6 +35,20 @@ FAILURE_LOG = LOG_DIR / "failed_chunks.csv"
 _FIELDS = ["recorded_at", "source", "scope", "chunk", "error"]
 _MAX_ERROR_LEN = 500
 
+# Process-lokal räknare över antal loggade fel. Låter download-scripts avgöra
+# exit-kod även när felen loggas djupt inne i en klient (t.ex. nasdaq
+# get_price_history) istället för att bubbla upp till main().
+_failure_count = 0
+
+
+def failure_count() -> int:
+    """Antal fel som loggats via log_failure/log_chunk_failures denna process.
+
+    Ta en snapshot före ett download-block och jämför efteråt för att avgöra
+    om något chunk misslyckades (delta > 0 → exit 1).
+    """
+    return _failure_count
+
 
 def log_failure(source: str, scope: str, chunk: str, error: str) -> None:
     """Append one failure record to the CSV log.
@@ -46,6 +60,8 @@ def log_failure(source: str, scope: str, chunk: str, error: str) -> None:
         chunk: Date range or identifier of the failed chunk.
         error: Error message; truncated to 500 chars.
     """
+    global _failure_count
+    _failure_count += 1
     LOG_DIR.mkdir(parents=True, exist_ok=True)
 
     is_new = not FAILURE_LOG.exists()

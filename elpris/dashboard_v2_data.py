@@ -16,18 +16,18 @@ import csv
 from collections import defaultdict
 from datetime import datetime, date, timedelta
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 from .bazefield import parse_bazefield_ts
-from .config import QUARTERLY_DIR, ENTSOE_DATA_DIR, NASDAQ_DATA_DIR, ZONES, RESULTAT_DIR
+from .config import (
+    QUARTERLY_DIR, ENTSOE_DATA_DIR, NASDAQ_DATA_DIR, ZONES, RESULTAT_DIR,
+    SWEDEN_TZ, UTC_TZ,
+)
 from .bess_dashboard_data import calculate_bess_data, BESS_PROFILE_META
 from .ancillary_dashboard_data import (
     calculate_ancillary_data,
     ANCILLARY_PROFILE_META,
 )
 
-SWEDEN_TZ = ZoneInfo("Europe/Stockholm")
-UTC_TZ = ZoneInfo("UTC")
 ENTSOE_GEN_DIR = ENTSOE_DATA_DIR / "generation"
 PROFILES_DIR = RESULTAT_DIR / "profiler" / "beraknade"
 PARKS_DIR = RESULTAT_DIR / "profiler" / "parker"

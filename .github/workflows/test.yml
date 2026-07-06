@@ -10,18 +10,25 @@ on:
 
 jobs:
   test:
-    name: Pytest (Python 3.11)
+    name: Pytest (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.9 = prod/dev-maskinen (fångar t.ex. datetime.fromisoformat('...Z')
+        # som kastar ValueError på 3.9 men inte 3.11). 3.11 = framåtkompat.
+        python-version: ["3.9", "3.11"]
 
     steps:
       - name: Hämta koden
         uses: actions/checkout@v4
 
-      - name: Installera Python 3.11
+      - name: Installera Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
           cache: pip
 
       - name: Installera projektberoenden
@@ -37,7 +44,7 @@ jobs:
         # behover detta steg.
         run: python process.py --quiet
 
-      - name: Kör tester (parsing, capture, dashboard-v2, failure-log, park-revenue)
+      - name: Kör tester (parsing, capture, dashboard-v2, analys, profiler)
         # test_unified_dashboard_data.py exkluderas — den bygger hela unified
         # dashboarden vilket tar 5+ minuter och kraschar CI:s timeout. Kör
         # den manuellt med `pytest tests/test_unified_dashboard_data.py`
@@ -49,4 +56,7 @@ jobs:
                  tests/test_dashboard_v2_data.py \
                  tests/test_failure_log.py \
                  tests/test_park_revenue.py \
+                 tests/test_rework_analysis.py \
+                 tests/test_solar_profile.py \
+                 tests/test_inverter_data.py \
                  -v --tb=short

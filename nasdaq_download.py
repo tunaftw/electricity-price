@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Download Nordic electricity futures from Nasdaq API.
+"""Download Nordic electricity futures history and current snapshot.
 
-Downloads settlement prices (daily fix) for:
+Downloads settlement prices for:
 - SYS Baseload (Nordic System Price)
 - EPAD SE1 Luleå, SE2 Sundsvall, SE3 Stockholm, SE4 Malmö
 
+Uses Nasdaq for history and Euronext/Nord Pool Power Futures for current
+snapshot settlements.
 Data is saved to Resultat/marknadsdata/nasdaq/futures/.
 """
 
@@ -13,6 +15,7 @@ from __future__ import annotations
 import argparse
 from datetime import date, timedelta
 
+from elpris.failure_log import failure_count
 from elpris.nasdaq import PRODUCTS, download_all_futures
 
 
@@ -41,13 +44,14 @@ def main():
     )
     args = parser.parse_args()
 
-    print(f"Nasdaq Nordic Futures Download")
+    print(f"Nordic Futures Download")
     print(f"Period: {args.start} -> {args.end}")
     if args.products:
         print(f"Products: {', '.join(args.products)}")
     else:
         print(f"Products: all ({len(PRODUCTS)} products)")
 
+    failures_before = failure_count()
     results = download_all_futures(args.start, args.end, args.products)
 
     print(f"\n{'='*60}")
@@ -56,6 +60,15 @@ def main():
     for name, count in results.items():
         print(f"  {name}: {count} rows")
 
+    failed = failure_count() - failures_before
+    if failed:
+        print(
+            f"\nWARNING: {failed} chunk(s) failed — data has gaps. "
+            f"See Resultat/logs/failed_chunks.csv for details."
+        )
+        return 1
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -249,11 +249,17 @@ def main():
     current_step += 1
     step(current_step, total_steps, "Calculating capture prices")
     # Run capture for each zone and print summary
+    capture_ok = True
     for zone in args.zones:
         capture_args = [zone, "--period", "year"]
-        run_script("capture.py", capture_args, quiet=True)
-    success_count += 1
-    print("  Done!")
+        if not run_script("capture.py", capture_args, quiet=True):
+            capture_ok = False
+            print(f"  Failed for {zone}")
+    if capture_ok:
+        success_count += 1
+        print("  Done!")
+    else:
+        failures.append(f"step {current_step}")
 
     # Step 9: Generate Excel reports
     current_step += 1

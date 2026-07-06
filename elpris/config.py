@@ -3,9 +3,15 @@
 from datetime import date
 from pathlib import Path
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 # API configuration
 BASE_URL = "https://www.elprisetjustnu.se/api/v1/prices"
+
+# Timezones — enda källa. Importera härifrån istället för att redeklarera.
+# Svensk lokaltid (CET/CEST) hanterar sommar/vintertid automatiskt.
+SWEDEN_TZ = ZoneInfo("Europe/Stockholm")
+UTC_TZ = ZoneInfo("UTC")
 
 # Swedish electricity zones
 ZONES = ["SE1", "SE2", "SE3", "SE4"]

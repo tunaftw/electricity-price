@@ -21,18 +21,16 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
-from zoneinfo import ZoneInfo
 
-from .config import PARK_CAPACITY_KWP, PARK_ZONES, PARKS_PROFILE_DIR
+from .config import (
+    PARK_CAPACITY_KWP,
+    PARK_ZONES,
+    PARKS_PROFILE_DIR,
+    SWEDEN_TZ,
+    UTC_TZ,
+)
 from .operations_dashboard_data import load_park_15min
 from .park_config import get_budget, get_park_metadata
-
-# ---------------------------------------------------------------------------
-# Konstanter
-# ---------------------------------------------------------------------------
-
-SWEDEN_TZ = ZoneInfo("Europe/Stockholm")
-UTC_TZ = ZoneInfo("UTC")
 
 # Weekday short names (0=Monday) — English for international audience
 _WEEKDAY_SV = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]

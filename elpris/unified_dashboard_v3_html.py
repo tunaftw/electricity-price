@@ -23,6 +23,41 @@ import json
 from typing import Any, Dict
 
 
+# Profiler vars per-dags-serie (``daily``) faktiskt ritas i frontend. Endast
+# CAPTURE-fliken läser profil-``daily``, och bara för nycklarna i JS-konstanten
+# ``CAPTURE_PROFILE_GROUPS`` (se längre ned i denna fil). Alla andra profilers
+# ``daily`` (BESS arb_*/sol_bess_*/spread/sol_only, ancillary anc_*, park_*)
+# bäddas in men ritas aldrig — ~13 MB dödvikt. Håll dessa i synk med grupperna.
+_DAILY_PROFILE_WHITELIST = frozenset({
+    "baseload", "sol_syd", "sol_ov", "sol_tracker", "wind", "hydro", "nuclear",
+})
+
+
+def _prune_unused_daily(zone_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Beskär ``daily`` från profiler som frontend aldrig ritar per dag.
+
+    Körs på en djupkopia av payloadens ``data`` (zon → profil → serie) precis
+    före serialisering — efter att all månads-/årsaggregering redan skett — så
+    inga interna beräkningar påverkas. Monthly/yearly/hourly lämnas orörda.
+    """
+    pruned: Dict[str, Any] = {}
+    for zone, profiles in zone_data.items():
+        if not isinstance(profiles, dict):
+            pruned[zone] = profiles
+            continue
+        new_profiles: Dict[str, Any] = {}
+        for key, series in profiles.items():
+            if (
+                key not in _DAILY_PROFILE_WHITELIST
+                and isinstance(series, dict)
+                and "daily" in series
+            ):
+                series = {k: v for k, v in series.items() if k != "daily"}
+            new_profiles[key] = series
+        pruned[zone] = new_profiles
+    return pruned
+
+
 # ---------------------------------------------------------------------------
 # Top-level renderer
 # ---------------------------------------------------------------------------
@@ -42,11 +77,15 @@ def render_track_c(data: Dict[str, Any]) -> str:
     # _merge_data convention so the same JS can work either way).
     market = data.get("market", {}) or {}
     payload: Dict[str, Any] = dict(market)
+    if isinstance(payload.get("data"), dict):
+        payload["data"] = _prune_unused_daily(payload["data"])
     payload["assets"] = data.get("assets", {})
     payload["meta"] = data.get("meta", {})
     payload["generated"] = data.get("generated", "")
 
-    data_json = json.dumps(payload, default=str, ensure_ascii=False)
+    data_json = json.dumps(
+        payload, default=str, ensure_ascii=False, separators=(",", ":")
+    )
     generated = data.get("generated", "")
 
     return _SHELL.format(
@@ -1423,7 +1462,7 @@ var TABS = ['capture', 'bess', 'futures', 'assets'];
 var TAB_TITLES = {
     capture: { eyebrow: 'Market', title: 'Capture Prices', sub: 'Solar-weighted price realisation across SE1–SE4 zones, profiles and time horizons.' },
     bess:    { eyebrow: 'Storage', title: 'Battery Economics', sub: 'Arbitrage revenue, sol-plus-storage capture and ancillary services revenue across battery durations.' },
-    futures: { eyebrow: 'Forward', title: 'Forward Curve', sub: 'Nasdaq settlement prices for SYS baseload and zonal EPADs, with realised spot for delivered contracts.' },
+    futures: { eyebrow: 'Forward', title: 'Forward Curve', sub: 'Nasdaq history plus Euronext/Nord Pool settlement snapshots for SYS baseload and zonal EPADs, with realised spot for delivered contracts.' },
     assets:  { eyebrow: 'Fleet',   title: 'Asset Performance', sub: 'Per-park energy, yield and budget variance across the SveaSolar utility-scale fleet.' },
 };
 
@@ -1586,7 +1625,7 @@ var CAPTURE_PROFILE_GROUPS = [
     { label: 'Reference', keys: ['baseload'] },
     { label: 'Solar PV',  keys: ['sol_syd', 'sol_ov', 'sol_tracker'] },
     { label: 'Wind',      keys: ['wind'] },
-    { label: 'Hydro',     keys: ['hydro_water_reservoir'] },
+    { label: 'Hydro',     keys: ['hydro'] },
     { label: 'Nuclear',   keys: ['nuclear'] },
 ];
 
@@ -2478,7 +2517,7 @@ function renderFuturesKPIs(fwd) {
     }
 
     var tiles = [];
-    tiles.push(kpiTile('Settlement date', htmlEsc(fwd.settlement_date || '–'), '', 'Latest Nasdaq daily fix'));
+    tiles.push(kpiTile('Settlement date', htmlEsc(fwd.settlement_date || '–'), '', 'Latest futures settlement snapshot'));
     tiles.push(kpiTile('SYS ' + (nextYr ? nextYr.label : ''), sysPrice != null ? fmtNum(sysPrice, 2) : '–', 'EUR/MWh', 'Nordic baseload future'));
     tiles.push(kpiTile('EPAD ' + zone, epadPrice != null ? fmtNum(epadPrice, 2) : '–', 'EUR/MWh', 'Zone differential'));
     tiles.push(kpiTile(zone + ' implied', zonePrice != null ? fmtNum(zonePrice, 2) : '–', 'EUR/MWh', 'SYS + EPAD'));
@@ -4935,7 +4974,7 @@ _SHELL = r"""<!DOCTYPE html>
         <div class="page-head-left">
           <div class="page-eyebrow">Forward</div>
           <h1 class="page-title">Forward Curve</h1>
-          <p class="page-sub">Nasdaq Nordic settlement prices for the SYS baseload future, EPAD differentials per Swedish zone, and realised spot for delivered contracts.</p>
+          <p class="page-sub">Nasdaq history plus Euronext/Nord Pool settlement snapshots for the SYS baseload future, EPAD differentials per Swedish zone, and realised spot for delivered contracts.</p>
         </div>
       </header>
       <div id="futures-content">

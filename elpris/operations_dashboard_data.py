@@ -13,7 +13,6 @@ import csv
 from collections import defaultdict
 from datetime import date, datetime
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 from .bazefield import parse_bazefield_ts
 from .config import (
@@ -22,10 +21,9 @@ from .config import (
     PARK_ZONES,
     PARKS_PROFILE_DIR,
     QUARTERLY_DIR,
+    SWEDEN_TZ,
+    UTC_TZ,
 )
-
-SWEDEN_TZ = ZoneInfo("Europe/Stockholm")
-UTC_TZ = ZoneInfo("UTC")
 
 
 # ---------------------------------------------------------------------------

@@ -23,9 +23,58 @@ from elpris.rework_market_analysis import (
 from elpris.rework_portfolio import (
     _front_year_label,
     build_fleet_series,
+    build_insights,
     fmt_num,
     fmt_signed_pct,
 )
+
+
+# ---------------------------------------------------------------------------
+# build_insights — intradagsspread-trend får inte jämföra partiellt år
+# ---------------------------------------------------------------------------
+
+def _spread_insight(insights):
+    """Plocka ut ev. intradagsspread-insikt ur marknads-sektionen."""
+    return [
+        i for i in insights["marknad"]
+        if "Intradagsspreaden" in i["text"]
+    ]
+
+
+def _market_analysis_with_spreads(yearly):
+    return {"zones": {"SE3": {"yearly": yearly, "monthly": []}}}
+
+
+def test_spread_insight_compares_complete_years_not_partial():
+    """Innevarande partiella år är säsongsskevt (vinter-tungt) och får inte
+    jämföras som strukturell trend. Insikten ska jämföra de två senaste
+    HELA åren."""
+    yearly = [
+        {"year": 2024, "intraday_spread": 20.0, "complete": True, "avg": 40},
+        {"year": 2025, "intraday_spread": 30.0, "complete": True, "avg": 45},
+        {"year": 2026, "intraday_spread": 12.0, "complete": False, "avg": 30},
+    ]
+    insights = build_insights(
+        {}, _market_analysis_with_spreads(yearly), {}, {}, {}, {}, "SE3"
+    )
+    spread = _spread_insight(insights)
+    assert len(spread) == 1
+    # Jämför 2024 (20) → 2025 (30): vidgas — inte "krymper" mot partiella 2026
+    assert "vidgas" in spread[0]["text"]
+    assert "2025" in spread[0]["text"] and "2024" in spread[0]["text"]
+    assert "2026" not in spread[0]["text"]
+
+
+def test_spread_insight_suppressed_without_two_complete_years():
+    """Med bara ett helt år (+ partiella) finns ingen trend att uttala sig om."""
+    yearly = [
+        {"year": 2025, "intraday_spread": 30.0, "complete": True, "avg": 45},
+        {"year": 2026, "intraday_spread": 12.0, "complete": False, "avg": 30},
+    ]
+    insights = build_insights(
+        {}, _market_analysis_with_spreads(yearly), {}, {}, {}, {}, "SE3"
+    )
+    assert _spread_insight(insights) == []
 
 
 # ---------------------------------------------------------------------------

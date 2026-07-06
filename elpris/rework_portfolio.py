@@ -502,24 +502,25 @@ def build_insights(
                 ),
                 "tone": _tone(neg_prev - neg_now),
             })
-    # Intradagsspread-trend
-    if len(yearly) >= 3:
-        spreads = [
-            (y["year"], y["intraday_spread"]) for y in yearly
-            if y.get("intraday_spread") is not None
-        ]
-        if len(spreads) >= 3:
-            (y1, s1), (y2, s2) = spreads[-2], spreads[-1]
-            riktning = "vidgas" if s2 > s1 else "krymper"
-            insights["marknad"].append({
-                "text": (
-                    f"Intradagsspreaden i {home_zone} {riktning}: "
-                    f"{fmt_num(s2, 1)} €/MWh {y2} mot {fmt_num(s1, 1)} "
-                    f"€/MWh {y1} — duck curve-dynamiken stärker värdet av "
-                    f"flex och öst-väst-profiler."
-                ),
-                "tone": "neutral",
-            })
+    # Intradagsspread-trend — bara HELA år. Innevarande partiella år är
+    # säsongsskevt (vinter/vår-tungt = strukturellt flackare) och får inte
+    # jämföras som trend.
+    spreads = [
+        (y["year"], y["intraday_spread"]) for y in yearly
+        if y.get("intraday_spread") is not None and y.get("complete")
+    ]
+    if len(spreads) >= 2:
+        (y1, s1), (y2, s2) = spreads[-2], spreads[-1]
+        riktning = "vidgas" if s2 > s1 else "krymper"
+        insights["marknad"].append({
+            "text": (
+                f"Intradagsspreaden i {home_zone} {riktning}: "
+                f"{fmt_num(s2, 1)} €/MWh {y2} mot {fmt_num(s1, 1)} "
+                f"€/MWh {y1} — duck curve-dynamiken stärker värdet av "
+                f"flex och öst-väst-profiler."
+            ),
+            "tone": "neutral",
+        })
 
     # --- Capture ------------------------------------------------------
     ratio_yearly = cannibalization.get("ratio_yearly", {}).get(home_zone, [])

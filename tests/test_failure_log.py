@@ -108,3 +108,21 @@ def test_recent_failures_empty_when_no_log(tmp_log: Path):
     # tmp_log finns inte ännu — fixturen pekar bara om sökvägen
     assert not tmp_log.exists()
     assert failure_log.recent_failures() == []
+
+
+# ---------------------------------------------------------------------------
+# Process-lokal räknare — så scripts kan avgöra exit-kod även när felen
+# loggas djupt inne i klienten (t.ex. nasdaq get_price_history).
+# ---------------------------------------------------------------------------
+
+def test_failure_count_tracks_log_failure_calls(tmp_log: Path):
+    before = failure_log.failure_count()
+    failure_log.log_failure("nasdaq", "SYSTO", "2026-01", "boom")
+    failure_log.log_failure("nasdaq", "SYLUL", "2026-01", "boom2")
+    assert failure_log.failure_count() - before == 2
+
+
+def test_failure_count_includes_chunk_failures(tmp_log: Path):
+    before = failure_log.failure_count()
+    failure_log.log_chunk_failures("esett", "SE1", ["a: x", "b: y"])
+    assert failure_log.failure_count() - before == 2
