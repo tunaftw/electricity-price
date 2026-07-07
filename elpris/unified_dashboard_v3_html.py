@@ -19,8 +19,9 @@ Google Fonts CDN, all other CSS/JS inlined).
 """
 from __future__ import annotations
 
-import json
 from typing import Any, Dict
+
+from .dashboard_common import esc, script_json
 
 
 # Profiler vars per-dags-serie (``daily``) faktiskt ritas i frontend. Endast
@@ -92,29 +93,15 @@ def render_track_c(data: Dict[str, Any]) -> str:
     payload["meta"] = data.get("meta", {})
     payload["generated"] = data.get("generated", "")
 
-    data_json = json.dumps(
-        payload, default=str, ensure_ascii=False, separators=(",", ":")
-    )
+    data_json = script_json(payload)
     generated = data.get("generated", "")
 
     return _SHELL.format(
         data_json=data_json,
-        generated=_html_escape(generated),
+        generated=esc(generated),
         css=_CSS,
         js=_JS,
     )
-
-
-def _html_escape(s: str) -> str:
-    """Defensive HTML escape for header text we splat into the shell."""
-    if s is None:
-        return ""
-    return (str(s)
-            .replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-            .replace('"', "&quot;")
-            .replace("'", "&#39;"))
 
 
 # ---------------------------------------------------------------------------

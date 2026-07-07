@@ -7,6 +7,7 @@ för en solparks månatliga prestanda. Enda externa beroende är Plotly CDN.
 import json
 from typing import Optional
 
+from .dashboard_common import script_json
 from .performance_report_data import (
     DailyData,
     DayDetail,
@@ -89,9 +90,9 @@ def _color_cell(value, positive_is_good: bool = True) -> str:
         return f'background-color: {_C["good_bg"]}' if value <= 0 else f'background-color: {_C["bad_bg"]}'
 
 
-def _safe_json(obj) -> str:
-    """JSON-serialisera med None → null."""
-    return json.dumps(obj, ensure_ascii=False)
+# JSON för inline <script>-block: kompakt, datum → str, '</'-escapad så
+# '</script>' i en datasträng inte kan terminera blocket (jfr K2).
+_safe_json = script_json
 
 
 def _plotly_config() -> str:
@@ -1725,7 +1726,7 @@ def _render_inverter_efficiency(report: MonthlyReport) -> tuple[str, str]:
 
     chart_id = "chart-inverter-efficiency"
     chart_html = f'<div id="{chart_id}" class="chart-container"></div>'
-    script = f"Plotly.newPlot('{chart_id}', {json.dumps(traces)}, {json.dumps(layout)}, {{responsive: true}});"
+    script = f"Plotly.newPlot('{chart_id}', {_safe_json(traces)}, {_safe_json(layout)}, {{responsive: true}});"
 
     # Heatmap-data: rows = invertrar, cols = dagar, values = CF%
     z_data = []
@@ -1768,7 +1769,7 @@ def _render_inverter_efficiency(report: MonthlyReport) -> tuple[str, str]:
 
     heatmap_id = "chart-inverter-efficiency-heatmap"
     heatmap_html = f'<div id="{heatmap_id}" class="chart-container"></div>'
-    heatmap_script = f"Plotly.newPlot('{heatmap_id}', [{json.dumps(heatmap_trace)}], {json.dumps(heatmap_layout)}, {{responsive: true}});"
+    heatmap_script = f"Plotly.newPlot('{heatmap_id}', [{_safe_json(heatmap_trace)}], {_safe_json(heatmap_layout)}, {{responsive: true}});"
 
     html = f'''<div class="section" id="{_section_id(15)}">
     <h2 class="section-title">15. Inverter Efficiency</h2>
@@ -1831,7 +1832,7 @@ def _render_alarm_summary(report: MonthlyReport) -> tuple[str, str]:
 
         timeline_id = "chart-alarm-timeline"
         timeline_html = f'<div id="{timeline_id}" class="chart-container"></div>'
-        timeline_script = f"Plotly.newPlot('{timeline_id}', [{json.dumps(timeline_trace)}], {json.dumps(timeline_layout)}, {{responsive: true}});"
+        timeline_script = f"Plotly.newPlot('{timeline_id}', [{_safe_json(timeline_trace)}], {_safe_json(timeline_layout)}, {{responsive: true}});"
     else:
         timeline_html = ""
         timeline_script = ""

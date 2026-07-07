@@ -18,30 +18,21 @@ IntersectionObserver så initial load är snabb trots ~25 grafer.
 
 from __future__ import annotations
 
-import json
 from typing import Any, Dict
+
+from .dashboard_common import esc, script_json
 
 
 def render_rework(data: Dict[str, Any]) -> str:
     """Rendera rework-dashboarden som en HTML-sträng."""
-    data_json = json.dumps(
-        data, default=str, ensure_ascii=False, separators=(",", ":")
-    )
-    # Skydda mot '</script>' i datasträngar.
-    data_json = data_json.replace("</", "<\\/")
+    data_json = script_json(data)
 
     html = _SHELL
-    html = html.replace("__GENERATED__", _esc(data.get("generated", "")))
+    html = html.replace("__GENERATED__", esc(data.get("generated", "")))
     html = html.replace("__CSS__", _CSS)
     html = html.replace("__DATA_JSON__", data_json)
     html = html.replace("__JS__", _JS)
     return html
-
-
-def _esc(s: Any) -> str:
-    return (str(s)
-            .replace("&", "&amp;").replace("<", "&lt;")
-            .replace(">", "&gt;").replace('"', "&quot;"))
 
 
 # ---------------------------------------------------------------------------
