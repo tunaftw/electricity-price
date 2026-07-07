@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from .dashboard_common import esc, script_json
+from .dashboard_common import JS_HELPERS, esc, script_json
 
 
 def render_rework(data: Dict[str, Any]) -> str:
@@ -31,7 +31,7 @@ def render_rework(data: Dict[str, Any]) -> str:
     html = html.replace("__GENERATED__", esc(data.get("generated", "")))
     html = html.replace("__CSS__", _CSS)
     html = html.replace("__DATA_JSON__", data_json)
-    html = html.replace("__JS__", _JS)
+    html = html.replace("__JS__", _JS.replace("__COMMON_HELPERS__", JS_HELPERS))
     return html
 
 
@@ -504,12 +504,13 @@ const C = {
           '#c25674','#8a98a4'],
 };
 const MONTHS_SV = ['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'];
+__COMMON_HELPERS__
 const nf = (d) => new Intl.NumberFormat('sv-SE', { minimumFractionDigits: d, maximumFractionDigits: d });
-const fmt = (x, d=0) => (x === null || x === undefined || Number.isNaN(x)) ? '–' : nf(d).format(x);
+const fmt = fmtNum;  /* delad sv-SE-formatterare (dashboard_common) */
 const fmtSign = (x, d=1) => (x === null || x === undefined) ? '–'
   : (x >= 0 ? '+' : '−') + nf(d).format(Math.abs(x)) + ' %';
 const mLabel = (ym) => { const [y, m] = ym.split('-'); return MONTHS_SV[+m-1] + ' ' + y.slice(2); };
-const esc = (s) => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const esc = htmlEsc;  /* delad HTML-escape (dashboard_common) */
 
 function baseLayout(over) {
   return Object.assign({

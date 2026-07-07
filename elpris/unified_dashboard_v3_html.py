@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from .dashboard_common import esc, script_json
+from .dashboard_common import JS_HELPERS, esc, script_json
 
 
 # Profiler vars per-dags-serie (``daily``) faktiskt ritas i frontend. Endast
@@ -100,7 +100,7 @@ def render_track_c(data: Dict[str, Any]) -> str:
         data_json=data_json,
         generated=esc(generated),
         css=_CSS,
-        js=_JS,
+        js=_JS.replace("__COMMON_HELPERS__", JS_HELPERS),
     )
 
 
@@ -1372,22 +1372,9 @@ _JS = r"""
 'use strict';
 
 // ============================================================
-//  Defensive helpers
+//  Defensive helpers (htmlEsc/fmtNum delas via dashboard_common)
 // ============================================================
-function htmlEsc(s) {
-    if (s === null || s === undefined) return '';
-    return String(s).replace(/[&<>"']/g, function(c) {
-        return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
-    });
-}
-function fmtNum(v, d) {
-    if (v === null || v === undefined || v === '' || isNaN(v)) return '–';
-    var n = Number(v);
-    return n.toLocaleString('sv-SE', {
-        minimumFractionDigits: d == null ? 0 : d,
-        maximumFractionDigits: d == null ? 0 : d,
-    }).replace(/ /g, ' ');
-}
+__COMMON_HELPERS__
 function fmtPct(v, d) {
     if (v === null || v === undefined || isNaN(v)) return '–';
     var sign = v >= 0 ? '+' : '';
