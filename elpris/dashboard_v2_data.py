@@ -588,7 +588,7 @@ def _calculate_solar_validation(
 
 
 # ---------------------------------------------------------------------------
-# Forward curve data (Nasdaq futures)
+# Forward curve data (Nasdaq history + Euronext snapshot)
 # ---------------------------------------------------------------------------
 
 def _parse_contract_period(symbol: str) -> tuple[str, str, str, str] | None:
@@ -621,7 +621,7 @@ def _parse_contract_period(symbol: str) -> tuple[str, str, str, str] | None:
 
 
 def _load_full_history(filepath: Path) -> dict[str, list[dict]]:
-    """Load full daily history per contract from a Nasdaq CSV.
+    """Load full daily history per contract from a futures CSV.
 
     Returns: {contract_symbol: [{"date": str, "price": float}, ...]} sorted by date.
     """
@@ -667,23 +667,31 @@ def load_forward_curve_data(spot_data: dict[str, dict]) -> dict | None:
     if not sys_file.exists():
         return None
 
-    # Load SYS baseload: get latest daily_fix per contract
+    # Load SYS baseload: get latest daily_fix per contract and remember
+    # which contracts are current for the newest available settlement date.
     sys_prices: dict[str, float] = {}
+    sys_price_dates: dict[str, str] = {}
     settlement_date = ""
     with open(sys_file, "r") as f:
         reader = csv.DictReader(f)
         for row in reader:
             fix = row.get("daily_fix_eur", "").strip()
-            if fix:
+            contract = row.get("contract", "").strip()
+            row_date = row.get("date", "").strip()
+            if fix and contract and row_date:
                 try:
-                    sys_prices[row["contract"]] = float(fix)
-                    if row["date"] > settlement_date:
-                        settlement_date = row["date"]
+                    price = float(fix)
                 except ValueError:
-                    pass
+                    continue
+                if row_date >= sys_price_dates.get(contract, ""):
+                    sys_prices[contract] = price
+                    sys_price_dates[contract] = row_date
+                if row_date > settlement_date:
+                    settlement_date = row_date
 
-    # Keep only the latest price per contract (last row wins since CSV is sorted)
-    # Already handled by overwriting in the loop above
+    # Keep only the latest price per contract. Only contracts updated on the
+    # newest settlement date are considered active; stale active-period rows
+    # remain available in forward_history but do not drive the current curve.
 
     # Load EPADs per zone
     epad_files = {
@@ -694,20 +702,27 @@ def load_forward_curve_data(spot_data: dict[str, dict]) -> dict | None:
     }
 
     epad_prices: dict[str, dict[str, float]] = {}
+    epad_price_dates: dict[str, dict[str, str]] = {}
     for zone, filename in epad_files.items():
         filepath = NASDAQ_DATA_DIR / filename
         if not filepath.exists():
             continue
         epad_prices[zone] = {}
+        epad_price_dates[zone] = {}
         with open(filepath, "r") as f:
             reader = csv.DictReader(f)
             for row in reader:
                 fix = row.get("daily_fix_eur", "").strip()
-                if fix:
+                contract = row.get("contract", "").strip()
+                row_date = row.get("date", "").strip()
+                if fix and contract and row_date:
                     try:
-                        epad_prices[zone][row["contract"]] = float(fix)
+                        price = float(fix)
                     except ValueError:
-                        pass
+                        continue
+                    if row_date >= epad_price_dates[zone].get(contract, ""):
+                        epad_prices[zone][contract] = price
+                        epad_price_dates[zone][contract] = row_date
 
     # Build contract list from SYS contracts
     contracts = []
@@ -726,10 +741,15 @@ def load_forward_curve_data(spot_data: dict[str, dict]) -> dict | None:
 
     contracts.sort(key=lambda c: c["sort_key"])
 
-    # Filter: only future/current periods (end date >= settlement_date)
-    # and skip quarters that overlap with year contracts already shown
+    # Filter: only future/current periods whose SYS fix is current for the
+    # newest settlement date. This prevents orphaned active contracts from
+    # stale sources from being mixed into a fresh forward curve.
     today_str = settlement_date or date.today().isoformat()
-    active_contracts = [c for c in contracts if c["end"] >= today_str]
+    active_contracts = [
+        c for c in contracts
+        if c["end"] >= today_str
+        and sys_price_dates.get(c["symbol"]) == settlement_date
+    ]
 
     # Build the final data
     sys_fwd: dict[str, float] = {}
@@ -751,7 +771,10 @@ def load_forward_curve_data(spot_data: dict[str, dict]) -> dict | None:
                 if parsed_e and parsed_e[0] == c["label"]:
                     epad_symbol = sym
                     break
-            if epad_symbol:
+            if (
+                epad_symbol
+                and epad_price_dates.get(zone, {}).get(epad_symbol) == settlement_date
+            ):
                 epad_fwd[zone][c["label"]] = round(
                     epad_prices[zone][epad_symbol], 2
                 )

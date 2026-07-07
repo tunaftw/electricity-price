@@ -1,18 +1,19 @@
-"""Nasdaq Nordic Commodities API client for electricity futures.
+"""Nordic electricity futures downloader.
 
-Downloads settlement prices (daily fix) for Nordic system price (SYS)
-baseload futures and EPAD (Electricity Price Area Differential) contracts
-for Swedish bidding zones.
+Downloads Nasdaq history and appends current Euronext/Nord Pool Power Futures
+snapshot settlements for Nordic system price (SYS) baseload futures and EPAD
+(Electricity Price Area Differential) contracts for Swedish bidding zones.
 
-API: Undocumented JSON API at api.nasdaq.com (no key required).
-Note: Trading moved to Euronext in March 2026 but Nasdaq continues
-publishing daily settlement prices.
+APIs: Nasdaq's undocumented JSON API at api.nasdaq.com and Euronext's live
+power-derivatives snapshot.
 """
 
 from __future__ import annotations
 
 import csv
+import html
 import os
+import re
 import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -24,6 +25,12 @@ from .http_client import with_retry
 
 # API configuration
 NASDAQ_BASE_URL = "https://api.nasdaq.com/api/nordic"
+EURONEXT_POWER_PAGE = (
+    "https://live.euronext.com/en/products/commodities/power-derivatives/contracts-list"
+)
+EURONEXT_POWER_AJAX_URL = (
+    "https://live.euronext.com/en/ajax/featured_derivatives_contracts/get_block_content"
+)
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
@@ -39,6 +46,24 @@ PRODUCTS = {
     "SYSTO": ("epad_se3_sto", "EPAD SE3 Stockholm"),
     "SYMAL": ("epad_se4_mal", "EPAD SE4 Malmö"),
 }
+
+EURONEXT_POWER_PRODUCTS = {
+    "Nordic System Price Electricity Base Load": ("sys_baseload.csv", "ENOFUTBL"),
+    "Nordic EPAD Electricity Base Load - Sweden LUL": ("epad_se1_lul.csv", "SYLULFUTBL"),
+    "Nordic EPAD Electricity Base Load - Sweden SUN": ("epad_se2_sun.csv", "SYSUNFUTBL"),
+    "Nordic EPAD Electricity Base Load - Sweden STO": ("epad_se3_sto.csv", "SYSTOFUTBL"),
+    "Nordic EPAD Electricity Base Load - Sweden MAL": ("epad_se4_mal.csv", "SYMALFUTBL"),
+}
+
+EURONEXT_POWER_GROUPS = [
+    ("Nordic System Price Electricity Base Load", "NSBQ-DAMS", "NSBY-DAMS"),
+    ("Nordic EPAD Electricity Base Load - Sweden LUL", "LLBQ-DAMS", "LLBY-DAMS"),
+    ("Nordic EPAD Electricity Base Load - Sweden SUN", "SUBQ-DAMS", "SUBY-DAMS"),
+    ("Nordic EPAD Electricity Base Load - Sweden STO", "STBQ-DAMS", "STBY-DAMS"),
+    ("Nordic EPAD Electricity Base Load - Sweden MAL", "MABQ-DAMS", "MABY-DAMS"),
+]
+
+EURONEXT_POWER_RANKS = range(1, 7)
 
 # CSV fields
 CSV_FIELDS = [
@@ -136,6 +161,177 @@ def get_price_history(
             time.sleep(REQUEST_DELAY)
 
     return all_rows
+
+
+def _strip_html(value: str) -> str:
+    """Convert a small HTML cell fragment to plain text."""
+    value = re.sub(r"<[^>]+>", "", value)
+    return html.unescape(value).replace("\xa0", " ").strip()
+
+
+def _euronext_snapshot_date(html_text: str) -> str:
+    # Euronext lägger ett &nbsp; (inte whitespace) mellan taggen och datumet,
+    # så \s* matchar aldrig — hoppa över alla icke-siffror fram till datumet.
+    match = re.search(r'class="fdc-dtu">[^\d]*(\d{2})/(\d{2})/(\d{4})', html_text)
+    if match:
+        day, month, year = match.groups()
+        return f"{year}-{month}-{day}"
+    return date.today().isoformat()
+
+
+def _euronext_delivery_suffix(row_type: str, delivery: str) -> str | None:
+    if row_type == "Quarter":
+        match = re.fullmatch(r"Q([1-4])\s+(\d{4})", delivery)
+        if not match:
+            return None
+        quarter, year = match.groups()
+        return f"Q{quarter}-{year[-2:]}"
+    if row_type == "Year":
+        match = re.fullmatch(r"(\d{4})", delivery)
+        if not match:
+            return None
+        return f"YR-{match.group(1)[-2:]}"
+    return None
+
+
+def parse_euronext_power_snapshot(html_text: str) -> dict[str, list[dict]]:
+    """Parse Euronext Nord Pool Power Futures snapshot HTML into CSV rows.
+
+    The Euronext quote snapshot is a current-state table, not a historical
+    price-history API. We store each settlement as one daily-fix row using the
+    page's own ``fdc-dtu`` update date.
+    """
+    snapshot_date = _euronext_snapshot_date(html_text)
+    rows_by_file: dict[str, list[dict]] = {}
+
+    table_pattern = re.compile(
+        r"<caption>(?P<caption>.*?)</caption>\s*<table[^>]*>(?P<table>.*?)</table>",
+        re.S,
+    )
+    for table_match in table_pattern.finditer(html_text):
+        caption = _strip_html(table_match.group("caption"))
+        product = EURONEXT_POWER_PRODUCTS.get(caption)
+        if not product:
+            continue
+        tbody_match = re.search(
+            r"<tbody[^>]*>(?P<tbody>.*?)</tbody>",
+            table_match.group("table"),
+            re.S,
+        )
+        if not tbody_match:
+            continue
+        filename, symbol_prefix = product
+        for row_html in re.findall(r"<tr[^>]*>(.*?)</tr>", tbody_match.group("tbody"), re.S):
+            cells = [_strip_html(cell) for cell in re.findall(r"<td[^>]*>(.*?)</td>", row_html, re.S)]
+            if len(cells) < 13:
+                continue
+            row_type, delivery, settlement, open_interest = (
+                cells[0],
+                cells[2],
+                cells[11],
+                cells[12],
+            )
+            if settlement in {"", "-"}:
+                continue
+            suffix = _euronext_delivery_suffix(row_type, delivery)
+            if not suffix:
+                continue
+            rows_by_file.setdefault(filename, []).append({
+                "date": snapshot_date,
+                "contract": f"{symbol_prefix}{suffix}",
+                "daily_fix_eur": settlement.replace(",", ""),
+                "bid_eur": "",
+                "ask_eur": "",
+                "high_eur": "",
+                "low_eur": "",
+                "open_interest": "" if open_interest in {"", "-"} else open_interest.replace(",", ""),
+            })
+
+    for rows in rows_by_file.values():
+        rows.sort(key=lambda r: (r["date"], r["contract"]))
+    return rows_by_file
+
+
+def _form_pairs(prefix: str, value) -> list[tuple[str, str]]:
+    """Serialize nested dict/list data like jQuery.param for Drupal Ajax."""
+    pairs: list[tuple[str, str]] = []
+    if isinstance(value, dict):
+        for key, child in value.items():
+            pairs.extend(_form_pairs(f"{prefix}[{key}]", child))
+    elif isinstance(value, list):
+        for idx, child in enumerate(value):
+            pairs.extend(_form_pairs(f"{prefix}[{idx}]", child))
+    else:
+        pairs.append((prefix, "" if value is None else str(value)))
+    return pairs
+
+
+def _euronext_content_data(rank: int) -> dict:
+    groups = []
+    for group_label, quarter_code, year_code in EURONEXT_POWER_GROUPS:
+        groups.append({
+            "field_fdc_group_label": [{"value": group_label}],
+            "field_fdc_group_rows": [
+                {
+                    "field_fdc_contract_code": [{"value": quarter_code}],
+                    "field_fdc_contract_label": [{"value": "Quarter"}],
+                    "field_fdc_contract_maturity_rank": [{"value": str(rank)}],
+                },
+                {
+                    "field_fdc_contract_code": [{"value": year_code}],
+                    "field_fdc_contract_label": [{"value": "Year"}],
+                    "field_fdc_contract_maturity_rank": [{"value": str(rank)}],
+                },
+            ],
+        })
+    return {
+        "field_fdc_contracts_type": [{"value": "FUT"}],
+        "field_fdc_data_layout": [{"value": "POWER"}],
+        "field_fdc_groups": groups,
+        "field_fdc_show_totals": [{"value": "1"}],
+        "field_fdc_switch_time": [{"value": "PWFUT"}],
+    }
+
+
+def fetch_euronext_power_snapshot(ranks=EURONEXT_POWER_RANKS) -> dict[str, list[dict]]:
+    """Fetch current Euronext Nord Pool Power Futures settlements."""
+    session = requests.Session()
+    session.get(EURONEXT_POWER_PAGE, headers=HEADERS, timeout=HTTP_TIMEOUT_QUICK)
+
+    rows_by_file: dict[str, list[dict]] = {}
+    for rank in ranks:
+        data = [("lang", "en/")]
+        data.extend(_form_pairs("content_data", _euronext_content_data(rank)))
+        response = session.post(
+            EURONEXT_POWER_AJAX_URL,
+            data=data,
+            headers={
+                **HEADERS,
+                "Referer": EURONEXT_POWER_PAGE,
+                "X-Requested-With": "XMLHttpRequest",
+            },
+            timeout=HTTP_TIMEOUT_QUICK,
+        )
+        response.raise_for_status()
+        for filename, rows in parse_euronext_power_snapshot(response.text).items():
+            rows_by_file.setdefault(filename, []).extend(rows)
+        time.sleep(REQUEST_DELAY)
+
+    for filename, rows in rows_by_file.items():
+        deduped = {(row["date"], row["contract"]): row for row in rows}
+        rows_by_file[filename] = sorted(deduped.values(), key=lambda r: (r["date"], r["contract"]))
+    return rows_by_file
+
+
+def update_euronext_power_snapshot() -> dict[str, int]:
+    """Append current Euronext power futures snapshot rows to local CSV files."""
+    rows_by_file = fetch_euronext_power_snapshot()
+    results: dict[str, int] = {}
+    for filename, rows in rows_by_file.items():
+        if not rows:
+            continue
+        results[filename] = save_to_csv(rows, NASDAQ_DATA_DIR / filename)
+    return results
 
 
 def discover_and_download(
@@ -291,5 +487,20 @@ def download_all_futures(
         else:
             print(f"  No data found")
             results[filename] = 0
+
+    try:
+        print(f"\n{'='*60}")
+        print("Updating Euronext Nord Pool Power Futures snapshot")
+        print(f"{'='*60}")
+        euronext_results = update_euronext_power_snapshot()
+        for filename, count in sorted(euronext_results.items()):
+            key = filename.replace(".csv", "")
+            results[key] = count
+            print(f"  Updated {filename}: {count} rows")
+    except Exception as e:
+        from .failure_log import log_failure
+
+        log_failure("euronext", "power_futures_snapshot", date.today().isoformat(), str(e))
+        print(f"  Warning: Euronext snapshot update failed: {e}")
 
     return results

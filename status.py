@@ -116,7 +116,7 @@ def print_gaps():
 
 
 def print_futures_health():
-    """Warn about Nasdaq forward contracts that are stale or near expiry.
+    """Warn about futures contracts that are stale or near expiry.
 
     - "Approaching expiry" — delivery starts within 14 days but the latest
       daily fix is older than 7 days, suggesting a sync is due.
@@ -160,7 +160,7 @@ def print_futures_health():
     YELLOW = "\033[33m"
     RESET = "\033[0m"
 
-    print("\nFUTURES HEALTH (Nasdaq forward coverage)")
+    print("\nFUTURES HEALTH (forward coverage)")
     print("=" * 60)
     if approaching:
         for label, start_iso, last_d, days_stale in approaching:
