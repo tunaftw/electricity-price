@@ -460,22 +460,22 @@ def get_latest_timestamp(product: str) -> datetime | None:
     if not year_files:
         return None
 
-    # Read the latest year file
-    latest_file = year_files[-1]
-    last_ts = None
-
-    with open(latest_file, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            last_ts = row["time_start"]
-
-    if last_ts:
-        # Parse timestamp (format: 2025-01-01T00:00:00)
-        try:
-            return datetime.fromisoformat(last_ts)
-        except ValueError:
-            # Try adding timezone if missing
-            return datetime.fromisoformat(last_ts + "+00:00")
+    # Walk newest → oldest until we find a file with data, so an empty
+    # (header-only) latest-year file doesn't force a full re-download
+    # (jfr storage.py).
+    for latest_file in reversed(year_files):
+        last_ts = None
+        with open(latest_file, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                last_ts = row["time_start"]
+        if last_ts:
+            # Parse timestamp (format: 2025-01-01T00:00:00)
+            try:
+                return datetime.fromisoformat(last_ts)
+            except ValueError:
+                # Try adding timezone if missing
+                return datetime.fromisoformat(last_ts + "+00:00")
 
     return None
 

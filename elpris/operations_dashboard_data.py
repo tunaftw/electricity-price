@@ -23,6 +23,7 @@ from .config import (
     QUARTERLY_DIR,
     SWEDEN_TZ,
     UTC_TZ,
+    local_year_month,
 )
 
 
@@ -180,7 +181,8 @@ def calculate_specific_yield() -> dict[str, list[dict]]:
         # report yield based on inverter readings.
         monthly: dict[tuple[int, int], float] = defaultdict(float)
         for rec in records:
-            monthly[(rec["year"], rec["month"])] += rec["effective_power_mw"] * 0.25
+            ym = local_year_month(rec["timestamp_utc"])
+            monthly[ym] += rec["effective_power_mw"] * 0.25
 
         park_data = []
         for (year, month), energy_mwh in sorted(monthly.items()):
@@ -236,7 +238,7 @@ def calculate_negative_price_exposure() -> dict[str, list[dict]]:
                 price = price_rec["eur_mwh"]
 
                 if price < 0 and power > 0:
-                    ym = (price_rec["timestamp_utc"].year, price_rec["timestamp_utc"].month)
+                    ym = local_year_month(price_rec["timestamp_utc"])
                     monthly[ym]["neg_hours"] += 0.25
                     monthly[ym]["neg_volume_mwh"] += power * 0.25
                     monthly[ym]["neg_revenue_eur"] += power * 0.25 * price

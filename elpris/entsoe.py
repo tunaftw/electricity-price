@@ -437,19 +437,19 @@ def get_latest_timestamp(zone: str, psr_type: str) -> datetime | None:
     if not year_files:
         return None
 
-    # Read the latest year file
-    latest_file = year_files[-1]
-    last_ts = None
-
-    with open(latest_file, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            last_ts = row["time_start"]
-
-    if last_ts:
-        # Parse ISO format timestamp (handles both Z and +00:00 formats)
-        ts_str = last_ts.replace("Z", "+00:00")
-        return datetime.fromisoformat(ts_str)
+    # Walk newest → oldest until we find a file with data, so an empty
+    # (header-only) latest-year file doesn't force a full re-download
+    # (jfr storage.py).
+    for latest_file in reversed(year_files):
+        last_ts = None
+        with open(latest_file, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                last_ts = row["time_start"]
+        if last_ts:
+            # Parse ISO format timestamp (handles both Z and +00:00 formats)
+            ts_str = last_ts.replace("Z", "+00:00")
+            return datetime.fromisoformat(ts_str)
 
     return None
 

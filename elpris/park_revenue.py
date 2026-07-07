@@ -15,7 +15,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Dict, List
 
-from .config import PARK_CAPACITY_KWP, PARK_ZONES
+from .config import PARK_CAPACITY_KWP, PARK_ZONES, local_year_month
 from .operations_dashboard_data import load_park_15min, load_spot_prices_15min
 from .park_config import get_ppa
 
@@ -97,7 +97,7 @@ def calculate_park_revenue_capture() -> Dict[str, List[dict]]:
                 exr = price_rec.get("sek_per_eur")
                 power = park_by_ts.get(ts_key, 0.0)
 
-                ym = (ts_utc.year, ts_utc.month)
+                ym = local_year_month(ts_utc)
                 bucket = m_data[ym]
                 bucket["spot_sum_eur"] += price
                 bucket["spot_n"] += 1

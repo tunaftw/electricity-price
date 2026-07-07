@@ -15,6 +15,18 @@ def parse_iso(ts: str) -> datetime:
     """
     return datetime.fromisoformat(ts.replace("Z", "+00:00"))
 
+
+def local_year_month(ts: datetime) -> tuple[int, int]:
+    """(år, månad) i svensk lokaltid för en tz-aware tidstämpel.
+
+    Den svenska elmarknaden bokförs i lokal tid (CET/CEST). Bucketa månader
+    på lokal tid så de första lokala timmarna av en månad (som ligger i
+    föregående UTC-månad) inte läcker till fel rapportmånad — märks särskilt
+    för negativpris-timmar och intäkt som inträffar dygnet runt.
+    """
+    local = ts.astimezone(SWEDEN_TZ)
+    return (local.year, local.month)
+
 # API configuration
 BASE_URL = "https://www.elprisetjustnu.se/api/v1/prices"
 

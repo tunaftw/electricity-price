@@ -56,19 +56,19 @@ def get_latest_timestamp(zone: str) -> datetime | None:
     if not year_files:
         return None
 
-    # Read last timestamp from the most recent year file
-    latest_file = year_files[-1]
-    last_ts = None
-
-    with open(latest_file, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            last_ts = row["time_start"]
-
-    if last_ts:
-        # eSett timestamps are like "2024-12-01T00:00:00Z"
-        ts_str = last_ts.replace("Z", "+00:00")
-        return datetime.fromisoformat(ts_str)
+    # Walk newest → oldest until we find a file with data. Protects against
+    # an empty (header-only) latest-year file — without this we'd return None
+    # and re-download the entire history unnecessarily (jfr storage.py).
+    for latest_file in reversed(year_files):
+        last_ts = None
+        with open(latest_file, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                last_ts = row["time_start"]
+        if last_ts:
+            # eSett timestamps are like "2024-12-01T00:00:00Z"
+            ts_str = last_ts.replace("Z", "+00:00")
+            return datetime.fromisoformat(ts_str)
 
     return None
 
