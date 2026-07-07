@@ -18,10 +18,14 @@ from typing import Iterator
 import requests
 
 from .config import DATA_DIR, ENTSOE_DATA_DIR, HTTP_TIMEOUT_DEFAULT, PROJECT_ROOT
-from .http_client import rate_limited, with_retry
+from .http_client import NonRetryableAPIError, rate_limited, with_retry
 
 # ENTSO-E API configuration
 ENTSOE_BASE_URL = "https://web-api.tp.entsoe.eu/api"
+
+
+class EntsoeAuthenticationError(NonRetryableAPIError):
+    """Raised when the ENTSO-E API rejects the configured security token."""
 
 
 def _load_env_file() -> dict[str, str]:
@@ -122,6 +126,19 @@ def _format_date_range(start: date, end: date) -> tuple[str, str]:
     return _format_entsoe_date(start_dt), _format_entsoe_date(end_dt)
 
 
+def _extract_acknowledgement_reason(xml_text: str) -> str | None:
+    """Extract ENTSO-E acknowledgement reason text from an error response."""
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        return None
+
+    for elem in root.iter():
+        if elem.tag.endswith("text") and elem.text:
+            return elem.text.strip()
+    return None
+
+
 @with_retry()
 @rate_limited()
 def fetch_entsoe_data(
@@ -191,6 +208,15 @@ def fetch_entsoe_data(
     response = requests.get(ENTSOE_BASE_URL, params=params, timeout=HTTP_TIMEOUT_DEFAULT)
 
     # Handle common error responses
+    if response.status_code in {401, 403}:
+        reason = _extract_acknowledgement_reason(response.text) or response.text.strip()
+        reason = reason.rstrip(".")
+        detail = f": {reason}" if reason else ""
+        raise EntsoeAuthenticationError(
+            "ENTSO-E authentication failed"
+            f"{detail}. Check ENTSOE_TOKEN in .env or pass --token."
+        )
+
     if response.status_code == 400:
         # No data available for this query
         if "No matching data found" in response.text:

@@ -12,9 +12,18 @@ import time
 from functools import wraps
 from typing import Callable
 
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import (
+    retry,
+    retry_if_not_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from .config import REQUEST_DELAY
+
+
+class NonRetryableAPIError(Exception):
+    """Base class for API errors that should fail fast instead of retrying."""
 
 
 def rate_limited(min_interval: float = REQUEST_DELAY) -> Callable:
@@ -62,6 +71,7 @@ def with_retry(
         def fetch(...): ...
     """
     return retry(
+        retry=retry_if_not_exception_type(NonRetryableAPIError),
         stop=stop_after_attempt(attempts),
         wait=wait_exponential(multiplier=1, min=min_wait, max=max_wait),
     )
