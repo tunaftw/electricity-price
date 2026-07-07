@@ -529,6 +529,15 @@ function plot(id, traces, layout) {
   const el = document.getElementById(id);
   if (el) Plotly.newPlot(el, traces, layout, PCONF);
 }
+/* Tona en hex-färg (parkColor m.fl.) till rgba med given alpha — för
+   pågående/partiella perioder, samma effekt som den hårdkodade
+   teal-toningen i fleetSeries men generisk per parkfärg. */
+function hexAlpha(hex, a) {
+  const h = String(hex).replace('#', '');
+  const r = parseInt(h.substring(0, 2), 16), g = parseInt(h.substring(2, 4), 16),
+    b = parseInt(h.substring(4, 6), 16);
+  return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+}
 
 /* Segmented control */
 function seg(containerId, options, def, onChange) {
@@ -679,14 +688,35 @@ RENDERERS.fleetSeries = function () {
   ], baseLayout({ yaxis: { title: { text: 'MWh' }, gridcolor: C.line, rangemode: 'tozero' } }));
 };
 
+/* YTD-intäkt (PPA-mix, fallback ren spot) per installerad MWp — samma
+   senaste-år-fönster som resten av park_ytd-raden. park_ytd saknar
+   intäkt (raden aggregeras separat i Python) så vi summerar direkt ur
+   PARKS[k].months här. */
+function ytdRevenuePerMwp(parkKey, capacityMwp) {
+  const p = PARKS[parkKey];
+  const months = (p || {}).months || [];
+  if (!months.length || !capacityMwp) return null;
+  const latestYear = Math.max(...months.map(m => m.year));
+  let sum = 0, any = false;
+  months.forEach(m => {
+    if (m.year !== latestYear) return;
+    const v = m.revenue_eur_ppa ?? m.revenue_eur;
+    if (v != null) { sum += v; any = true; }
+  });
+  return any ? sum / capacityMwp / 1000 : null;
+}
+
 function renderParkYtdTable() {
   const rows = PF.park_ytd || [];
   const el = document.getElementById('tbl-park-ytd');
   el.innerHTML = '<table><thead><tr>' +
     '<th>Park</th><th>Zon</th><th>MWp</th><th>MWh</th><th>vs budget</th>' +
-    '<th>kWh/kWp</th><th>Capture €/MWh</th><th>Neg.pris-MWh</th></tr></thead><tbody>' +
+    '<th>kWh/kWp</th><th>Capture €/MWh</th><th>Neg.pris-MWh</th>' +
+    '<th title="YTD intäkt (PPA-mix där kontrakt finns, annars ren spot) delat på installerad MWp">Intäkt k€/MWp</th>' +
+    '</tr></thead><tbody>' +
     rows.map(r => {
       const vs = r.vs_budget_pct;
+      const revMwp = ytdRevenuePerMwp(r.park, r.capacity_mwp);
       return '<tr><td data-v="' + esc(r.name) + '">' + esc(r.name) + '</td>' +
       '<td data-v="' + r.zone + '"><span class="zone-tag">' + r.zone + '</span></td>' +
       '<td data-v="' + r.capacity_mwp + '">' + fmt(r.capacity_mwp, 1) + '</td>' +
@@ -694,7 +724,9 @@ function renderParkYtdTable() {
       '<td data-v="' + (vs ?? -999) + '" class="' + ((vs ?? 0) >= 0 ? 'pos' : 'neg') + '">' + fmtSign(vs) + '</td>' +
       '<td data-v="' + (r.yield_kwh_kwp ?? -1) + '">' + fmt(r.yield_kwh_kwp) + '</td>' +
       '<td data-v="' + (r.capture ?? -1) + '">' + fmt(r.capture, 1) + '</td>' +
-      '<td data-v="' + (r.neg_volume_mwh ?? 0) + '">' + fmt(r.neg_volume_mwh, 1) + '</td></tr>';
+      '<td data-v="' + (r.neg_volume_mwh ?? 0) + '">' + fmt(r.neg_volume_mwh, 1) + '</td>' +
+      '<td data-v="' + (revMwp ?? -1) + '" title="PPA-mix ingår där kontrakt finns">' +
+      (revMwp == null ? '–' : fmt(revMwp)) + '</td></tr>';
     }).join('') + '</tbody></table>';
   makeSortable(el.querySelector('table'));
 }
@@ -1092,7 +1124,16 @@ function renderParkDetail(key) {
       '<div class="card"><div class="card-head"><h3>Produktion mot budget</h3></div><div class="chart" id="pd-prod"></div></div>' +
       '<div class="card"><div class="card-head"><h3>PR och tillgänglighet</h3></div><div class="chart" id="pd-pr"></div></div>' +
       '<div class="card"><div class="card-head"><h3>Realiserad capture mot baseload</h3></div><div class="chart" id="pd-capture"></div></div>' +
+      '<div class="card"><div class="card-head"><h3>Intäkt per månad</h3>' +
+        '<p>Staplar = intäkt med PPA-mix (k€), tonad för pågående månad. Linje = ren spotintäkt — gapet är PPA-effekten.</p></div>' +
+        '<div class="chart" id="pd-revenue"></div></div>' +
+      '<div class="card"><div class="card-head"><h3>Negativa pristimmar — exponering</h3>' +
+        '<p>Volym (MWh, vänster axel) och antal timmar (höger axel) med negativt spotpris.</p></div>' +
+        '<div class="chart" id="pd-negexp"></div></div>' +
       '<div class="card"><div class="card-head"><h3>Förlustvattenfall — senaste stängda månad</h3></div><div class="chart" id="pd-waterfall"></div></div>' +
+      '<div class="card span2"><div class="card-head"><h3>Väder eller teknik? — förlustdekomposition per månad</h3>' +
+        '<p>Avvikelse mot budget uppdelad: instrålning (väder — inget att åtgärda) mot tillgänglighet och curtailment (åtgärdbart). Stängda månader.</p></div>' +
+        '<div class="chart" id="pd-loss-decomp"></div></div>' +
       '<div class="card span2"><div class="card-head"><h3>Daglig produktion — senaste månaderna</h3></div><div class="chart" id="pd-daily"></div></div>' +
     '</div>';
 
@@ -1138,6 +1179,42 @@ function renderParkDetail(key) {
     yaxis: { title: { text: '€/MWh' }, gridcolor: C.line },
   }));
 
+  // Intäkt per månad — PPA-mix (stapel) mot ren spot (linje). Parker utan
+  // PPA saknar revenue_eur_ppa (null) och faller tillbaka på revenue_eur,
+  // så stapel och linje sammanfaller — korrekt, det finns ingen PPA-effekt.
+  plot('pd-revenue', [
+    { type: 'bar', name: 'Intäkt (PPA-mix)', x,
+      y: months.map(m => {
+        const v = m.revenue_eur_ppa ?? m.revenue_eur;
+        return v == null ? null : v / 1000;
+      }),
+      marker: { color: months.map(m => m.is_partial ? hexAlpha(parkColor[key], .35) : parkColor[key]) },
+      hovertemplate: '%{y:.0f} k€<extra>Intäkt (PPA-mix)</extra>' },
+    { type: 'scatter', mode: 'lines', name: 'Ren spotintäkt', x,
+      y: months.map(m => m.revenue_eur == null ? null : m.revenue_eur / 1000),
+      line: { color: C.faint, width: 1.6, dash: 'dash' },
+      hovertemplate: '%{y:.0f} k€<extra>Spot</extra>' },
+  ], baseLayout({ yaxis: { title: { text: 'k€' }, gridcolor: C.line, rangemode: 'tozero' } }));
+
+  // Negativpris-exponering — volym (MWh) som stapel, timmar som linje på egen axel.
+  plot('pd-negexp', [
+    { type: 'bar', name: 'Neg.pris-volym', x,
+      y: months.map(m => m.neg_price_volume_mwh ?? null),
+      marker: { color: C.coral }, yaxis: 'y',
+      hovertemplate: '%{y:.1f} MWh<extra>Volym</extra>' },
+    { type: 'scatter', mode: 'lines+markers', name: 'Neg.pris-timmar', x,
+      y: months.map(m => m.neg_price_hours ?? null),
+      line: { color: C.amber, width: 2 }, marker: { size: 5 }, yaxis: 'y2',
+      hovertemplate: '%{y:.0f} h<extra>Timmar</extra>' },
+  ], baseLayout({
+    margin: { l: 52, r: 54, t: 12, b: 40 },
+    yaxis: { title: { text: 'MWh' }, gridcolor: C.line, rangemode: 'tozero' },
+    yaxis2: { title: { text: 'timmar', standoff: 14 }, overlaying: 'y', side: 'right',
+      automargin: true, gridcolor: 'rgba(0,0,0,0)', zeroline: false, rangemode: 'tozero' },
+    legend: { orientation: 'h', y: 1.14, x: 0 },
+    hovermode: 'x',
+  }));
+
   // Waterfall för senaste stängda månad med förlustdata
   const closed = months.filter(m => !m.is_partial && m.losses && m.losses.budget_mwh);
   const wfm = closed[closed.length - 1];
@@ -1169,20 +1246,93 @@ function renderParkDetail(key) {
       '<p style="color:var(--muted);padding:20px">Ingen förlustdata för stängd månad.</p>';
   }
 
+  // Väder eller teknik? — förlustdekomposition över stängda månader.
+  // Samma komponenter som vattenfallet, men som tidsserie så trender syns
+  // (växande tillgänglighetsförlust = teknik att agera på; instrålning = väder).
+  const decompM = months.filter(m => !m.is_partial && m.losses && m.losses.budget_mwh);
+  if (decompM.length) {
+    const dxm = decompM.map(m => mLabel(m.year + '-' + String(m.month).padStart(2, '0')));
+    // Degenererad dekomposition: när POA-data saknas blir instrålnings-
+    // komponenten ~hela budgeten och residualen (curtailment) kraftigt
+    // negativ som kompensation. Visa då bara netto, inte komponenterna.
+    const isDegen = m => (m.losses.curtailment_mwh || 0) <
+                         -0.05 * (m.losses.budget_mwh || 0);
+    const net = m => (m.losses.actual_mwh || 0) - (m.losses.budget_mwh || 0);
+    const comp = [
+      { key: 'irradiance_shortfall_mwh', name: 'Instrålning (väder)', color: C.faint },
+      { key: 'availability_mwh',         name: 'Tillgänglighet',      color: C.coral },
+      { key: 'curtailment_mwh',          name: 'Curtailment/övrigt',  color: C.amber },
+      { key: 'temperature_mwh',          name: 'Temperatur',          color: C.navy },
+    ];
+    const decompTraces = comp.map(c => ({
+      type: 'bar', name: c.name, x: dxm,
+      y: decompM.map(m => isDegen(m) ? 0 : -(m.losses[c.key] || 0)),
+      marker: { color: c.color },
+      customdata: decompM.map(m => {
+        const b = m.losses.budget_mwh || 0;
+        return b > 0 ? (100 * (m.losses[c.key] || 0) / b) : 0;
+      }),
+      hovertemplate: '%{y:.0f} MWh (%{customdata:.1f} % av budget)<extra>' + c.name + '</extra>',
+    }));
+    // Överskott när faktisk > budget — positiv stapel.
+    decompTraces.push({
+      type: 'bar', name: 'Över budget', x: dxm,
+      y: decompM.map(m => isDegen(m) ? 0 : Math.max(0, net(m))),
+      marker: { color: C.green },
+      hovertemplate: '+%{y:.0f} MWh<extra>Över budget</extra>',
+    });
+    // Degenererade månader: en neutral nettostapel istället för komponenter.
+    decompTraces.push({
+      type: 'bar', name: 'Netto (osäker dekomposition)', x: dxm,
+      y: decompM.map(m => isDegen(m) ? net(m) : 0),
+      marker: { color: C.line },
+      hovertemplate: '%{y:.0f} MWh netto — komponenter otillförlitliga ' +
+        '(POA-datalucka)<extra>Osäker dekomposition</extra>',
+    });
+    // Nettolinje så helheten alltid är läsbar.
+    decompTraces.push({
+      type: 'scatter', mode: 'lines+markers', name: 'Netto mot budget', x: dxm,
+      y: decompM.map(net), line: { color: C.ink, width: 1.8, dash: 'dot' },
+      marker: { size: 5 },
+      hovertemplate: '%{y:.0f} MWh<extra>Netto</extra>',
+    });
+    plot('pd-loss-decomp', decompTraces, baseLayout({
+      barmode: 'relative',
+      yaxis: { title: { text: 'MWh mot budget' }, gridcolor: C.line },
+      legend: { orientation: 'h', y: 1.16, x: 0, font: { size: 10.5 } },
+    }));
+  } else {
+    document.getElementById('pd-loss-decomp').innerHTML =
+      '<p style="color:var(--muted);padding:20px">Ingen förlustdata för stängda månader.</p>';
+  }
+
   // Daglig produktion (senaste månaderna)
   const dbm = p.daily_by_month || {};
   const dKeys = Object.keys(dbm).sort();
-  const dx = [], dy = [], de = [];
+  const dx = [], dy = [], de = [], dpi = [], dmt = [];
   dKeys.forEach(mk => (dbm[mk] || []).forEach(d => {
     dx.push(d.date); dy.push(d.energy_mwh); de.push(d.expected_mwh);
+    dpi.push(d.pi_pct ?? null);
+    // Förformaterad suffix så hover-templaten blir ren när modultemp saknas
+    // (tomsträng ger inget extra segment, ingen "null °C"-artefakt).
+    dmt.push(d.module_temp_c != null ? (' · modul ' + fmt(d.module_temp_c, 1) + ' °C') : '');
   }));
   plot('pd-daily', [
     { type: 'bar', name: 'Produktion', x: dx, y: dy,
-      marker: { color: parkColor[key] }, hovertemplate: '%{y:.1f} MWh<extra>%{x}</extra>' },
+      marker: { color: parkColor[key] }, customdata: dmt,
+      hovertemplate: '%{y:.1f} MWh%{customdata}<extra>%{x}</extra>' },
     { type: 'scatter', mode: 'lines', name: 'Förväntat (POA × PR)', x: dx, y: de,
       line: { color: C.navy, width: 1.6, dash: 'dot' },
       hovertemplate: '%{y:.1f} MWh<extra>Förväntat</extra>' },
-  ], baseLayout({ yaxis: { title: { text: 'MWh/dag' }, gridcolor: C.line, rangemode: 'tozero' } }));
+    { type: 'scatter', mode: 'lines', name: 'PI %', x: dx, y: dpi, yaxis: 'y2',
+      line: { color: C.teal, width: 1 },
+      hovertemplate: '%{y:.1f} %<extra>PI</extra>' },
+  ], baseLayout({
+    margin: { l: 52, r: 46, t: 12, b: 40 },
+    yaxis: { title: { text: 'MWh/dag' }, gridcolor: C.line, rangemode: 'tozero' },
+    yaxis2: { title: { text: '%' }, overlaying: 'y', side: 'right', automargin: true,
+      gridcolor: 'rgba(0,0,0,0)', zeroline: false },
+  }));
 }
 
 /* ================= 5. Risk & intäkt ================= */
