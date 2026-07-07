@@ -32,6 +32,9 @@ data/reports/capture_prices_*.xlsx
 # Duplicate historical data (canonical copies live in marknadsdata/spotpriser/)
 Resultat/historik-nordpool/
 
+# Runtime logs (failure log written by download scripts / update_all.py)
+Resultat/logs/
+
 # Quarterly data is derived from raw via process.py — regenerate, don't track
 data/quarterly/*/*.csv
 
