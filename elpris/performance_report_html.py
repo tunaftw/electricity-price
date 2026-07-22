@@ -7,7 +7,7 @@ för en solparks månatliga prestanda. Enda externa beroende är Plotly CDN.
 import json
 from typing import Optional
 
-from .dashboard_common import script_json
+from .dashboard_common import esc, script_json
 from .performance_report_data import (
     DailyData,
     DayDetail,
@@ -1897,11 +1897,100 @@ def _render_alarm_summary(report: MonthlyReport) -> tuple[str, str]:
 
 
 def _render_incidents_placeholder() -> str:
-    """Sektion 17: Incident-platshållare (sektion 14, 15, 18 har egna funktioner nu)."""
+    """Sektion 17: platshållare när ingen incident-JSON finns för park/månad."""
     return _render_placeholder(
         17, "Incidents &amp; Work Orders", "🛠️",
-        "Incident and work log integration with maintenance system (e.g. QBO, ServiceNow). Contact the O&M team to activate."
+        "No incident log for this month. Data is read from "
+        "Resultat/operationsdata/incidenter/{park}_{YYYY-MM}.json — "
+        "see _template.json in that folder. Filled in manually by the O&amp;M/asset team."
     )
+
+
+def _duration_label(start: Optional[str], end: Optional[str]) -> str:
+    """Formatera "start–end" och, om möjligt, varaktighet i minuter."""
+    if not start and not end:
+        return "—"
+    start_short = (start[:16].replace("T", " ") if start else "—")
+    end_short = (end[:16].replace("T", " ") if end else "—")
+    label = f"{start_short} &ndash; {end_short}"
+    if start and end:
+        try:
+            from datetime import datetime as _dt
+            dt_start = _dt.fromisoformat(start)
+            dt_end = _dt.fromisoformat(end)
+            minutes = (dt_end - dt_start).total_seconds() / 60.0
+            if minutes >= 0:
+                label += f" ({minutes:,.0f} min)".replace(",", " ")
+        except ValueError:
+            pass
+    return label
+
+
+def _render_incidents(report: MonthlyReport) -> str:
+    """Sektion 17: Incidents & Work Orders — manuell JSON (Steg 7, Alternativ A)."""
+    if not report.has_incident_data:
+        return _render_incidents_placeholder()
+
+    # Incidents-tabell
+    if report.incidents:
+        incidents_rows = ""
+        for inc in sorted(report.incidents, key=lambda i: i.date):
+            gen_loss = (f"{inc.gen_loss_kwh:,.0f}".replace(",", " ")
+                        if inc.gen_loss_kwh is not None else "—")
+            incidents_rows += (
+                f"<tr>"
+                f"<td>{esc(inc.date)}</td>"
+                f"<td>{esc(inc.issue_id) if inc.issue_id is not None else '—'}</td>"
+                f"<td>{esc(inc.fault_type) or '—'}</td>"
+                f"<td>{esc(inc.equipment) or '—'}</td>"
+                f"<td>{esc(inc.description) or '—'}</td>"
+                f"<td>{_duration_label(inc.start, inc.end)}</td>"
+                f"<td>{esc(inc.priority) or '—'}</td>"
+                f"<td>{esc(inc.status) or '—'}</td>"
+                f'<td class="num">{gen_loss}</td>'
+                f"</tr>"
+            )
+        incidents_table = f'''<table class="alarm-detail-table">
+    <thead><tr>
+        <th>Date</th><th>ID</th><th>Fault Type</th><th>Equipment</th>
+        <th>Description</th><th>Start&ndash;End</th><th>Priority</th>
+        <th>Status</th><th>Gen. Loss (kWh)</th>
+    </tr></thead>
+    <tbody>{incidents_rows}</tbody>
+</table>'''
+    else:
+        incidents_table = '<p class="ph-msg">No incidents reported this month.</p>'
+
+    # Work Carried Out-tabell
+    if report.work_log:
+        work_rows = ""
+        for entry in sorted(report.work_log, key=lambda w: w.date):
+            work_rows += (
+                f"<tr>"
+                f"<td>{esc(entry.date)}</td>"
+                f"<td>{esc(entry.activity) or '—'}</td>"
+                f"<td>{esc(entry.status) or '—'}</td>"
+                f"<td>{esc(entry.remarks) or '—'}</td>"
+                f"</tr>"
+            )
+        work_table = f'''<table class="alarm-table">
+    <thead><tr><th>Date</th><th>Activity</th><th>Status</th><th>Remarks</th></tr></thead>
+    <tbody>{work_rows}</tbody>
+</table>'''
+    else:
+        work_table = '<p class="ph-msg">No maintenance activity logged this month.</p>'
+
+    return f'''<div class="section" id="{_section_id(17)}">
+    <h2 class="section-title">17. Incidents &amp; Work Orders</h2>
+    <div class="card">
+        <h3 style="margin-bottom:12px;">Incidents</h3>
+        {incidents_table}
+    </div>
+    <div class="card">
+        <h3 style="margin-bottom:12px;">Work Carried Out</h3>
+        {work_table}
+    </div>
+</div>'''
 
 
 # ---------------------------------------------------------------------------
@@ -2208,7 +2297,7 @@ def render_html(report: MonthlyReport) -> str:
     all_scripts.append(sec15_script)
 
     ppm_schedule_html = _render_ppm_schedule(report)
-    incidents_html = _render_incidents_placeholder()
+    incidents_html = _render_incidents(report)
 
     sec18_html, sec18_script = _render_alarm_summary(report)
     all_scripts.append(sec18_script)

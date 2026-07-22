@@ -16,6 +16,8 @@ Beräknar alla KPI:er för en park och en månad:
 from __future__ import annotations
 
 import csv
+import json
+import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -132,6 +134,34 @@ class MonthSummary:
 
 
 @dataclass
+class Incident:
+    """En incident-rad från manuell JSON (Resultat/operationsdata/incidenter/).
+
+    Bara ``date`` är obligatoriskt — övriga fält kan saknas i källfilen och
+    renderas då som "—".
+    """
+    date: str
+    issue_id: Optional[int] = None
+    fault_type: Optional[str] = None
+    equipment: Optional[str] = None
+    description: Optional[str] = None
+    start: Optional[str] = None
+    end: Optional[str] = None
+    priority: Optional[str] = None
+    status: Optional[str] = None
+    gen_loss_kwh: Optional[float] = None
+
+
+@dataclass
+class WorkLogEntry:
+    """En rad i "work carried out"-loggen från manuell JSON."""
+    date: str
+    activity: Optional[str] = None
+    status: Optional[str] = None
+    remarks: Optional[str] = None
+
+
+@dataclass
 class MonthlyReport:
     """Komplett månadsrapport för en park."""
     park_key: str
@@ -179,6 +209,10 @@ class MonthlyReport:
     has_alarm_data: bool = False
     # Intäkt + PPA (None om Bazefield × spot-join saknas för månaden)
     revenue: Optional[RevenueData] = None
+    # Incidents & work orders (manuell JSON, Steg 7 Alternativ A)
+    incidents: list = field(default_factory=list)          # list[Incident]
+    work_log: list = field(default_factory=list)           # list[WorkLogEntry]
+    has_incident_data: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -538,6 +572,78 @@ def _build_ytd(
 
 
 # ---------------------------------------------------------------------------
+# Incidents & Work Orders (Steg 7, Alternativ A — manuell JSON)
+# ---------------------------------------------------------------------------
+
+def load_incidents(
+    park_key: str, year: int, month: int
+) -> tuple[list[Incident], list[WorkLogEntry], bool]:
+    """Läs manuell incident/work-log JSON för en park och månad.
+
+    Fil: ``Resultat/operationsdata/incidenter/{park_key}_{YYYY-MM}.json``.
+    Se ``_template.json`` i samma katalog för formatet. Filerna fylls i
+    manuellt av O&M/asset-teamet — de finns inte för alla park-månader.
+
+    Returns:
+        (incidents, work_log, has_data) — ``has_data`` är True endast om
+        filen fanns och kunde tolkas som giltig JSON. Ett trasigt/ogiltigt
+        innehåll loggas via print() och behandlas som "ingen fil".
+    """
+    from .config import RESULTAT_DIR
+
+    path = (
+        RESULTAT_DIR / "operationsdata" / "incidenter"
+        / f"{park_key}_{year:04d}-{month:02d}.json"
+    )
+    if not path.exists():
+        return [], [], False
+
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        print(f"[performance_report] incidents {park_key} {year}-{month:02d}: "
+              f"could not parse {path} ({exc}) — falling back to placeholder",
+              file=sys.stderr)
+        return [], [], False
+
+    if not isinstance(raw, dict):
+        print(f"[performance_report] incidents {park_key} {year}-{month:02d}: "
+              f"{path} is not a JSON object — falling back to placeholder",
+              file=sys.stderr)
+        return [], [], False
+
+    incidents: list[Incident] = []
+    for entry in raw.get("incidents") or []:
+        if not isinstance(entry, dict) or "date" not in entry:
+            continue
+        incidents.append(Incident(
+            date=entry["date"],
+            issue_id=entry.get("issue_id"),
+            fault_type=entry.get("fault_type"),
+            equipment=entry.get("equipment"),
+            description=entry.get("description"),
+            start=entry.get("start"),
+            end=entry.get("end"),
+            priority=entry.get("priority"),
+            status=entry.get("status"),
+            gen_loss_kwh=entry.get("gen_loss_kwh"),
+        ))
+
+    work_log: list[WorkLogEntry] = []
+    for entry in raw.get("work_carried_out") or []:
+        if not isinstance(entry, dict) or "date" not in entry:
+            continue
+        work_log.append(WorkLogEntry(
+            date=entry["date"],
+            activity=entry.get("activity"),
+            status=entry.get("status"),
+            remarks=entry.get("remarks"),
+        ))
+
+    return incidents, work_log, True
+
+
+# ---------------------------------------------------------------------------
 # Huvudfunktion
 # ---------------------------------------------------------------------------
 
@@ -746,6 +852,9 @@ def generate_report(park_key: str, year: int, month: int) -> MonthlyReport:
     except ImportError:
         pass  # inverter_data inte tillgänglig — graceful degradation
 
+    # 12c. Incidents & work orders (manuell JSON, Steg 7 Alternativ A)
+    incidents, work_log, has_incident_data = load_incidents(park_key, year, month)
+
     # 13. Bygg rapport
     return MonthlyReport(
         park_key=park_key,
@@ -785,6 +894,9 @@ def generate_report(park_key: str, year: int, month: int) -> MonthlyReport:
         has_inverter_data=has_inverter_data,
         has_alarm_data=has_alarm_data,
         revenue=revenue,
+        incidents=incidents,
+        work_log=work_log,
+        has_incident_data=has_incident_data,
     )
 
 
