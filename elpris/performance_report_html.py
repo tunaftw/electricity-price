@@ -1959,7 +1959,10 @@ def _render_incidents(report: MonthlyReport) -> str:
     <tbody>{incidents_rows}</tbody>
 </table>'''
     else:
-        incidents_table = '<p class="ph-msg">No incidents reported this month.</p>'
+        incidents_table = (
+            f'<p style="color:{_C["muted"]}; font-size:13px;">'
+            f'No incidents reported this month.</p>'
+        )
 
     # Work Carried Out-tabell
     if report.work_log:
@@ -1978,7 +1981,10 @@ def _render_incidents(report: MonthlyReport) -> str:
     <tbody>{work_rows}</tbody>
 </table>'''
     else:
-        work_table = '<p class="ph-msg">No maintenance activity logged this month.</p>'
+        work_table = (
+            f'<p style="color:{_C["muted"]}; font-size:13px;">'
+            f'No maintenance activity logged this month.</p>'
+        )
 
     return f'''<div class="section" id="{_section_id(17)}">
     <h2 class="section-title">17. Incidents &amp; Work Orders</h2>
