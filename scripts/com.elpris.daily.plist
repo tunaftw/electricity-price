@@ -10,6 +10,7 @@
         <string>/usr/bin/python3</string>
         <string>/Users/pontusskog/Documents/Developer/electricity-price/update_all.py</string>
         <string>--quiet</string>
+        <string>--auto-reports</string>
     </array>
 
     <key>WorkingDirectory</key>

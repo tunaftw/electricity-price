@@ -4,9 +4,12 @@ Automation helpers for running the elpris pipeline on a schedule.
 
 ## Daily update on macOS (launchd)
 
-`com.elpris.daily.plist` runs `python3 update_all.py --quiet` every day at 06:00,
+`com.elpris.daily.plist` runs `python3 update_all.py --quiet --auto-reports` every day at 06:00,
 logs to `Resultat/logs/daily_update.{log,err}`, and exits non-zero on failure
 (so you can wire alerts later).
+
+The `--auto-reports` flag automatically generates the previous month's park performance reports
+once per month (if the HTML files don't already exist), enabling monthly report generation without manual intervention.
 
 ### Install
 
@@ -48,7 +51,7 @@ Adjust `StartCalendarInterval` in the plist (Hour/Minute), then `launchctl unloa
 If you prefer cron, add this to `crontab -e`:
 
 ```cron
-0 6 * * * cd /Users/pontusskog/Documents/Developer/electricity-price && /usr/bin/python3 update_all.py --quiet >> Resultat/logs/daily_update.log 2>&1
+0 6 * * * cd /Users/pontusskog/Documents/Developer/electricity-price && /usr/bin/python3 update_all.py --quiet --auto-reports >> Resultat/logs/daily_update.log 2>&1
 ```
 
 Cron has known issues on macOS (Full Disk Access needed for ~/Library, sleep

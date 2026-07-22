@@ -22,7 +22,7 @@ import argparse
 import os
 import subprocess
 import sys
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 # Project root
@@ -76,6 +76,48 @@ def step(number: int, total: int, description: str):
     print("-" * 50)
 
 
+def previous_month(today: date | None = None) -> str:
+    """Compute the previous full month relative to today.
+
+    Args:
+        today: Reference date (default: today's date)
+
+    Returns:
+        Month string in format "YYYY-MM"
+    """
+    if today is None:
+        today = date.today()
+
+    # First day of current month
+    first_of_current = today.replace(day=1)
+    # Subtract one day to get last day of previous month
+    last_of_previous = first_of_current - timedelta(days=1)
+    # Return "YYYY-MM" of the previous month
+    return last_of_previous.strftime("%Y-%m")
+
+
+def reports_exist_for_month(month_str: str) -> bool:
+    """Check whether all park performance reports exist for a given month.
+
+    Args:
+        month_str: Month in format "YYYY-MM"
+
+    Returns:
+        True if all park reports exist, False otherwise
+    """
+    from elpris.config import PARK_ZONES, RESULTAT_DIR
+
+    reports_dir = RESULTAT_DIR / "rapporter"
+
+    for park_key, zone in PARK_ZONES.items():
+        filename = f"performance_{park_key}_{zone}_{month_str}.html"
+        filepath = reports_dir / filename
+        if not filepath.exists():
+            return False
+
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Master update - download all data and generate reports"
@@ -121,6 +163,11 @@ def main():
         "--reports",
         action="store_true",
         help="Also regenerate park performance reports",
+    )
+    parser.add_argument(
+        "--auto-reports",
+        action="store_true",
+        help="Generate park performance reports for the previous month if missing (for daily automation)",
     )
     parser.add_argument(
         "--month",
@@ -298,7 +345,7 @@ def main():
         print("  Failed")
         failures.append(f"step {current_step}")
 
-    # Step 11: Park performance reports (conditional on --reports)
+    # Step 11: Park performance reports (conditional on --reports or --auto-reports)
     current_step += 1
     if args.reports:
         step(current_step, total_steps, "Generating park performance reports")
@@ -311,8 +358,22 @@ def main():
         else:
             print("  Failed")
             failures.append(f"step {current_step}")
+    elif args.auto_reports:
+        step(current_step, total_steps, "Generating park performance reports (auto)")
+        month_str = previous_month()
+        if reports_exist_for_month(month_str):
+            print(f"  Reports for {month_str} already exist — skipping")
+            success_count += 1
+        else:
+            report_args = ["--all", "--month", month_str]
+            if run_script("generate_performance_report.py", report_args, quiet=args.quiet):
+                success_count += 1
+                print("  Done!")
+            else:
+                print("  Failed")
+                failures.append(f"step {current_step}")
     else:
-        step(current_step, total_steps, "Park reports (SKIPPED — use --reports)")
+        step(current_step, total_steps, "Park reports (SKIPPED — use --reports or --auto-reports)")
 
     # Step 12: Show status
     current_step += 1
