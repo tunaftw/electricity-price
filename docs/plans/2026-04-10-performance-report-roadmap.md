@@ -1,7 +1,8 @@
 # Performance Report — Roadmap & Återstående arbete
 
 **Skapad:** 2026-04-10
-**Status:** MVP komplett, fas 2 förbereds
+**Uppdaterad:** 2026-07-22
+**Status:** Steg 1, 2, 5, 6 klara. Kvarvarande: steg 4, 7, 8, 9, 10 (+ steg 3 vid behov)
 **Relaterad plan:** `~/.claude/plans/synthetic-mixing-bee.md`
 
 ## Bakgrund
@@ -19,7 +20,10 @@ Output: `Resultat/rapporter/performance_{park}_{zone}_{YYYY-MM}.html`
 
 ---
 
-## Steg 1: Bazefield re-synk med utökat format
+## Steg 1: Bazefield re-synk med utökat format ✅ KLART
+
+**Genomfört:** Backfill körd; CSV:erna i `Resultat/profiler/parker/` har utökat format
+(`timestamp,power_mw,active_power_mw,irradiance_poa,availability`). PR/PI-sektionerna renderas.
 
 **Prioritet:** HÖG — låser upp ~5 sektioner som idag är delvis tomma
 
@@ -80,7 +84,11 @@ python generate_performance_report.py --park horby --month 2026-03
 
 ---
 
-## Steg 2: Fyll i parkmetadata
+## Steg 2: Fyll i parkmetadata ✅ KLART
+
+**Genomfört:** Metadata (modultyp, Wp, antal moduler/invertrar, tilt m.m.) fylls nu från
+Cowork SharePoint-extraktet via `elpris/park_product_data.py` — inga "TBD" kvar i
+`park_config.py`.
 
 **Prioritet:** MEDEL — kosmetiskt men viktigt för rapportens "Key Project Parameters"-tabell
 
@@ -210,7 +218,14 @@ Sedan i `performance_report_data.py:_compute_module_temp()`, ladda väderdata om
 
 ---
 
-## Steg 5: SCADA-integration för inverter-data
+## Steg 5: SCADA-integration för inverter-data ✅ KLART (löst via Bazefield)
+
+**Genomfört:** Löstes utan per-tillverkar-API:er — Bazefield exponerar inverter-nivådata.
+`bazefield_download.py --inverters` (+ `--backfill`) hämtar daglig yield + alarm-events för
+alla 200 invertrar till `Resultat/profiler/parker/inverters/`. Sektion 14 (Inverter Yield),
+15 (Inverter Efficiency) och 18 (Alarm & Fault Summary) renderas i rapporten.
+Inverter-ID:n hanteras av `elpris/inverter_registry.py` (regenereras med
+`discover_inverters.py`). Per-tillverkar-planen nedan behölls som referens men behövs ej.
 
 **Prioritet:** HÖG (på sikt) — låser upp 5 platshållarsektioner
 
@@ -344,7 +359,11 @@ Uppdatera `performance_report_html.py`:
 
 ---
 
-## Steg 6: PPM Schedule (statisk konfiguration)
+## Steg 6: PPM Schedule (statisk konfiguration) ✅ KLART
+
+**Genomfört:** `elpris/ppm_schedule.py` finns med generiskt PPM-schema
+(`PPM_TASKS_DEFAULT`); sektion 16 renderar kalendermatrisen. Parkspecifika overrides
+kan läggas till vid behov.
 
 **Prioritet:** LÅG — kosmetiskt, kan implementeras snabbt utan extern data
 
@@ -560,8 +579,8 @@ När alla steg är genomförda, jämför rapporten med referensen i `Reporting e
 
 ## Kvarvarande open questions
 
-1. **Vilka invertertillverkare har vi per park?** — viktigt för steg 5 (SCADA)
-2. **Har Svea Solar API-credentials hos Sungrow/SMA/Huawei iSolarCloud?** — kan ta veckor att få aktiverat
+1. ~~**Vilka invertertillverkare har vi per park?**~~ — BESVARAD: se inventarietabellen i steg 5 (Sineng/Huawei/Sungrow)
+2. ~~**Har Svea Solar API-credentials hos Sungrow/SMA/Huawei iSolarCloud?**~~ — EJ LÄNGRE RELEVANT: inverter-data hämtas via Bazefield
 3. **Vem äger PPM-schemat per park?** — extern OEM eller intern operations?
 4. **Var lagras incidentdata idag?** — Excel, mejl, ticketsystem?
 5. **Vilken målgrupp får rapporten?** — bara internt eller även externa ägare/banker? Påverkar branding och språk
