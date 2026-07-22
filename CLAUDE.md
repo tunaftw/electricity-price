@@ -287,7 +287,7 @@ i månadsrapporten — annars graceful "Begränsad data"-notis.
 
 ### Daglig automation (macOS launchd / cron)
 Färdig launchd-plist + installationsinstruktioner finns i [`scripts/README.md`](scripts/README.md).
-Kör `python3 update_all.py --quiet` dagligen 06:00, loggar till `Resultat/logs/`.
+Kör `python3 update_all.py --quiet --auto-reports` dagligen 06:00, loggar till `Resultat/logs/`.
 
 ## Viktiga koncept
 

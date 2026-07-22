@@ -12,7 +12,7 @@ This script runs the entire update pipeline:
  8. Calculate capture prices
  9. Generate Excel reports
 10. Generate Unified Dashboard (Track C — Nordic Editorial)
-11. Generate park performance reports (only with --reports)
+11. Generate park performance reports (only with --reports / --auto-reports)
 12. Show status
 """
 
