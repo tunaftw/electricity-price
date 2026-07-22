@@ -111,6 +111,52 @@ def test_missing_optional_fields_default_to_none(tmp_path, monkeypatch):
     assert work_log == [WorkLogEntry(date="2026-06-02")]
 
 
+def test_numeric_string_gen_loss_coerced_to_float(tmp_path, monkeypatch):
+    """Citerad siffra ("12.5") ska coercas till float — inte krascha rendering."""
+    monkeypatch.setattr(config, "RESULTAT_DIR", tmp_path)
+    d = _incidenter_dir(tmp_path)
+    payload = {"incidents": [
+        {"date": "2026-06-14", "gen_loss_kwh": "12.5", "issue_id": "574"},
+    ]}
+    (d / "horby_2026-06.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    incidents, _, has_data = load_incidents("horby", 2026, 6)
+
+    assert has_data is True
+    assert incidents[0].gen_loss_kwh == 12.5
+    assert isinstance(incidents[0].gen_loss_kwh, float)
+    assert incidents[0].issue_id == 574
+
+
+def test_invalid_typed_values_become_none_without_exception(tmp_path, monkeypatch):
+    """Typfel i övrigt giltig JSON (icke-numeriskt gen_loss, icke-sträng start,
+    numeriskt date) får inte krascha — coercas eller sätts till None."""
+    monkeypatch.setattr(config, "RESULTAT_DIR", tmp_path)
+    d = _incidenter_dir(tmp_path)
+    payload = {"incidents": [
+        {
+            "date": 20260614,                      # tal → coercas till str
+            "gen_loss_kwh": "not a number",        # ogiltig → None (+ varning)
+            "issue_id": {"nested": True},          # icke-int → None
+            "start": {"bad": "type"},              # icke-skalär → None
+            "end": 1234,                           # skalär → strängifieras
+            "fault_type": ["list"],                # icke-skalär → None
+        },
+    ]}
+    (d / "horby_2026-06.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    incidents, _, has_data = load_incidents("horby", 2026, 6)
+
+    assert has_data is True
+    inc = incidents[0]
+    assert inc.date == "20260614"
+    assert inc.gen_loss_kwh is None
+    assert inc.issue_id is None
+    assert inc.start is None
+    assert inc.end == "1234"
+    assert inc.fault_type is None
+
+
 def test_missing_top_level_keys_yield_empty_lists(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "RESULTAT_DIR", tmp_path)
     d = _incidenter_dir(tmp_path)

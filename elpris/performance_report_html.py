@@ -5,6 +5,7 @@ för en solparks månatliga prestanda. Enda externa beroende är Plotly CDN.
 """
 
 import json
+import sys
 from typing import Optional
 
 from .dashboard_common import esc, script_json
@@ -1921,16 +1922,32 @@ def _duration_label(start: Optional[str], end: Optional[str]) -> str:
             minutes = (dt_end - dt_start).total_seconds() / 60.0
             if minutes >= 0:
                 label += f" ({minutes:,.0f} min)".replace(",", " ")
+            else:
+                # Negativ varaktighet = troligen omkastade start/end i källan
+                # — visa ändå, med varningsmarkör, så datafelet syns.
+                label += f" ({minutes:,.0f} min ⚠)".replace(",", " ")
         except ValueError:
             pass
     return label
 
 
 def _render_incidents(report: MonthlyReport) -> str:
-    """Sektion 17: Incidents & Work Orders — manuell JSON (Steg 7, Alternativ A)."""
+    """Sektion 17: Incidents & Work Orders — manuell JSON (Steg 7, Alternativ A).
+
+    En trasig informationssektion får aldrig fälla de andra 19 sektionerna —
+    oväntade fel loggas och sektionen faller tillbaka på platshållaren.
+    """
     if not report.has_incident_data:
         return _render_incidents_placeholder()
+    try:
+        return _render_incidents_body(report)
+    except Exception as exc:
+        print(f"[performance_report] section 17 render failed: {exc} "
+              f"— falling back to placeholder", file=sys.stderr)
+        return _render_incidents_placeholder()
 
+
+def _render_incidents_body(report: MonthlyReport) -> str:
     # Incidents-tabell
     if report.incidents:
         incidents_rows = ""

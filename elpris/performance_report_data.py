@@ -575,6 +575,46 @@ def _build_ytd(
 # Incidents & Work Orders (Steg 7, Alternativ A — manuell JSON)
 # ---------------------------------------------------------------------------
 
+def _coerce_opt_str(value) -> Optional[str]:
+    """Str eller None. Skalärer (int/float/bool) strängifieras — manuellt
+    ifyllda filer skriver ibland t.ex. tal utan citattecken. Icke-skalära
+    värden (dict/list) → None."""
+    if value is None or isinstance(value, str):
+        return value
+    if isinstance(value, (int, float, bool)):
+        return str(value)
+    return None
+
+
+def _coerce_opt_float(value, warn_context: str) -> Optional[float]:
+    """Float eller None. Accepterar numeriska strängar ("12.5"). Ogiltiga
+    värden loggas till stderr och blir None — kraschar aldrig rendering."""
+    if value is None:
+        return None
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            pass
+    print(f"[performance_report] {warn_context}: ogiltigt numeriskt värde "
+          f"{value!r} — sätter None", file=sys.stderr)
+    return None
+
+
+def _coerce_opt_int(value) -> Optional[int]:
+    """Int eller None. Accepterar numeriska strängar ("574")."""
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            pass
+    return None
+
+
 def load_incidents(
     park_key: str, year: int, month: int
 ) -> tuple[list[Incident], list[WorkLogEntry], bool]:
@@ -612,21 +652,25 @@ def load_incidents(
               file=sys.stderr)
         return [], [], False
 
+    ctx = f"incidents {park_key} {year}-{month:02d}"
+
     incidents: list[Incident] = []
     for entry in raw.get("incidents") or []:
         if not isinstance(entry, dict) or "date" not in entry:
             continue
         incidents.append(Incident(
-            date=entry["date"],
-            issue_id=entry.get("issue_id"),
-            fault_type=entry.get("fault_type"),
-            equipment=entry.get("equipment"),
-            description=entry.get("description"),
-            start=entry.get("start"),
-            end=entry.get("end"),
-            priority=entry.get("priority"),
-            status=entry.get("status"),
-            gen_loss_kwh=entry.get("gen_loss_kwh"),
+            # date coercas alltid till str så sortering aldrig blandar typer
+            date=str(entry["date"]),
+            issue_id=_coerce_opt_int(entry.get("issue_id")),
+            fault_type=_coerce_opt_str(entry.get("fault_type")),
+            equipment=_coerce_opt_str(entry.get("equipment")),
+            description=_coerce_opt_str(entry.get("description")),
+            start=_coerce_opt_str(entry.get("start")),
+            end=_coerce_opt_str(entry.get("end")),
+            priority=_coerce_opt_str(entry.get("priority")),
+            status=_coerce_opt_str(entry.get("status")),
+            gen_loss_kwh=_coerce_opt_float(
+                entry.get("gen_loss_kwh"), f"{ctx} gen_loss_kwh"),
         ))
 
     work_log: list[WorkLogEntry] = []
@@ -634,10 +678,10 @@ def load_incidents(
         if not isinstance(entry, dict) or "date" not in entry:
             continue
         work_log.append(WorkLogEntry(
-            date=entry["date"],
-            activity=entry.get("activity"),
-            status=entry.get("status"),
-            remarks=entry.get("remarks"),
+            date=str(entry["date"]),
+            activity=_coerce_opt_str(entry.get("activity")),
+            status=_coerce_opt_str(entry.get("status")),
+            remarks=_coerce_opt_str(entry.get("remarks")),
         ))
 
     return incidents, work_log, True
