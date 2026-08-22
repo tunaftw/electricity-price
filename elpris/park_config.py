@@ -159,18 +159,185 @@ PARK_METADATA: dict[str, dict] = _build_metadata()
 #       }
 #   }
 #
-# Status: TOM idag — alla parker använder PVsyst-yield × profil-fördelning
-# som fallback. För att fylla i, kör Cowork-prompten som finns i
-# docs/plans/2026-04-10-cowork-monthly-budget-prompt.md och lägg in
-# resultatet här.
+# Status: IFYLLD 2026-08 för alla 8 parker med månadsvärden direkt ur
+# "Balances and main results"-tabellen i respektive PVsyst SRC Forecast-rapport
+# (SharePoint: Utilityhub / Asset Management Library / Projects in operation /
+# {park} / 03 - Technical Documentation / 01 - Yield Assessment / 01 - PVsyst).
+# Se docs/plans/2026-04-10-cowork-monthly-budget-prompt.md.
+#
+# Enheter (som de står i PDF:erna → som de lagras här):
+#   E_Grid   kWh      → energy_mwh          (dividerat med 1000)
+#   GlobInc  kWh/m²   → irradiation_kwh_m2  (oförändrat)
+#   PR       ratio    → pr_pct              (× 100)
+#
+# Alla rapporter är TMY-simuleringar (PVsyst "simuleringsår 1") utan kalenderår.
+# Nyckeln "2026-MM" betyder därför "typisk månad MM", inte "år 2026" — samma
+# värden gäller alla år tills en ny PVsyst-körning görs. Ingen degradering är
+# inbakad (se PARK_DEGRADATION_PCT_PER_YEAR nedan).
+#
+# OBS om månads-PR: PR är LÄGRE på vintern än på sommaren i samtliga åtta
+# rapporter (t.ex. Skäkelbacken 8,9 % i december mot 88,6 % i augusti). Det är
+# inte ett läsfel — PVsyst lägger tung smuts-/snöförlust på vintermånaderna
+# (Hova: 8 % i januari, 10 % i december) och lågljusförlusterna dominerar över
+# den temperaturvinst kalla moduler ger på nordliga breddgrader. Varje
+# månadsvärde är verifierat mot identiteten PR = E_Grid / (GlobInc × kWp)
+# (maxavvikelse 0,2 procentenheter, vilket är avrundningen i GlobInc).
 PARK_BUDGET_OVERRIDES: dict[str, dict[str, dict]] = {
-    # Exempel (inaktivt, bara för syntax-referens):
-    # "horby": {
-    #     "2026-01": {"energy_mwh": 195.0, "irradiation_kwh_m2": 14.0, "pr_pct": 79.5},
-    #     "2026-02": {"energy_mwh": 530.0, "irradiation_kwh_m2": 36.5, "pr_pct": 81.2},
-    #     "2026-03": {"energy_mwh": 1520.0, "irradiation_kwh_m2": 105.0, "pr_pct": 83.5},
-    # },
+    # Källa: 14102025_Hörby PVsyst_SRC Forecast 12 MW [SLC_weighted].pdf
+    #   PVsyst V7.4.8, variant "240307 - Hörby - Forecast SRC 12MW", TMY (Solcast).
+    "horby": {
+        "2026-01": {"energy_mwh": 202.349, "irradiation_kwh_m2": 18.6, "pr_pct": 59.9},
+        "2026-02": {"energy_mwh": 519.699, "irradiation_kwh_m2": 37.9, "pr_pct": 75.7},
+        "2026-03": {"energy_mwh": 1564.765, "irradiation_kwh_m2": 95.6, "pr_pct": 90.3},
+        "2026-04": {"energy_mwh": 2347.099, "irradiation_kwh_m2": 150.3, "pr_pct": 86.2},
+        "2026-05": {"energy_mwh": 2941.197, "irradiation_kwh_m2": 190.9, "pr_pct": 85.1},
+        "2026-06": {"energy_mwh": 2942.198, "irradiation_kwh_m2": 195.0, "pr_pct": 83.3},
+        "2026-07": {"energy_mwh": 2834.510, "irradiation_kwh_m2": 183.4, "pr_pct": 85.3},
+        "2026-08": {"energy_mwh": 2427.821, "irradiation_kwh_m2": 152.7, "pr_pct": 87.7},
+        "2026-09": {"energy_mwh": 1725.757, "irradiation_kwh_m2": 106.1, "pr_pct": 89.8},
+        "2026-10": {"energy_mwh": 862.046, "irradiation_kwh_m2": 54.8, "pr_pct": 86.8},
+        "2026-11": {"energy_mwh": 269.307, "irradiation_kwh_m2": 20.9, "pr_pct": 71.1},
+        "2026-12": {"energy_mwh": 133.948, "irradiation_kwh_m2": 12.3, "pr_pct": 60.2},
+    },
+    # Källa: 15102025_PVsyst Fjällskär SRC Forecast [SLC].pdf
+    #   PVsyst V7.4.8, variant "240502 - Fjällskär - SRC Forecast", TMY (Solcast).
+    "fjallskar": {
+        "2026-01": {"energy_mwh": 162.496, "irradiation_kwh_m2": 22.2, "pr_pct": 35.3},
+        "2026-02": {"energy_mwh": 578.672, "irradiation_kwh_m2": 44.4, "pr_pct": 62.9},
+        "2026-03": {"energy_mwh": 1906.061, "irradiation_kwh_m2": 109.2, "pr_pct": 84.1},
+        "2026-04": {"energy_mwh": 2653.532, "irradiation_kwh_m2": 152.3, "pr_pct": 84.0},
+        "2026-05": {"energy_mwh": 3219.227, "irradiation_kwh_m2": 186.0, "pr_pct": 83.4},
+        "2026-06": {"energy_mwh": 3287.933, "irradiation_kwh_m2": 189.9, "pr_pct": 83.4},
+        "2026-07": {"energy_mwh": 3039.040, "irradiation_kwh_m2": 176.7, "pr_pct": 82.9},
+        "2026-08": {"energy_mwh": 2634.446, "irradiation_kwh_m2": 148.2, "pr_pct": 85.7},
+        "2026-09": {"energy_mwh": 1915.975, "irradiation_kwh_m2": 105.5, "pr_pct": 87.5},
+        "2026-10": {"energy_mwh": 923.979, "irradiation_kwh_m2": 56.6, "pr_pct": 78.7},
+        "2026-11": {"energy_mwh": 272.215, "irradiation_kwh_m2": 22.2, "pr_pct": 59.2},
+        "2026-12": {"energy_mwh": 82.863, "irradiation_kwh_m2": 14.3, "pr_pct": 27.9},
+    },
+    # Källa: 15102025_PVsyst Björke Bifacial SRC Forecast 4MW [SLC].pdf
+    #   PVsyst V7.4.8, variant "240307 - Björke SRC Forecast - Bifacial cos(phi)",
+    #   TMY (Solcast). 4 MW-varianten vald — matchar parkens ac_capacity_mwac.
+    "bjorke": {
+        "2026-01": {"energy_mwh": 23.939, "irradiation_kwh_m2": 17.0, "pr_pct": 20.3},
+        "2026-02": {"energy_mwh": 146.345, "irradiation_kwh_m2": 38.7, "pr_pct": 54.5},
+        "2026-03": {"energy_mwh": 546.949, "irradiation_kwh_m2": 100.6, "pr_pct": 78.3},
+        "2026-04": {"energy_mwh": 832.705, "irradiation_kwh_m2": 146.1, "pr_pct": 82.1},
+        "2026-05": {"energy_mwh": 978.614, "irradiation_kwh_m2": 175.5, "pr_pct": 80.3},
+        "2026-06": {"energy_mwh": 971.119, "irradiation_kwh_m2": 179.6, "pr_pct": 77.9},
+        "2026-07": {"energy_mwh": 959.333, "irradiation_kwh_m2": 175.6, "pr_pct": 78.7},
+        "2026-08": {"energy_mwh": 769.660, "irradiation_kwh_m2": 139.3, "pr_pct": 79.6},
+        "2026-09": {"energy_mwh": 530.305, "irradiation_kwh_m2": 91.0, "pr_pct": 84.0},
+        "2026-10": {"energy_mwh": 268.796, "irradiation_kwh_m2": 50.1, "pr_pct": 77.2},
+        "2026-11": {"energy_mwh": 52.886, "irradiation_kwh_m2": 17.0, "pr_pct": 44.9},
+        "2026-12": {"energy_mwh": 8.749, "irradiation_kwh_m2": 11.4, "pr_pct": 11.0},
+    },
+    # Källa: 15102025_PVsyst Agerum SRC Forecast [SLC].pdf
+    #   PVsyst V7.4.8, variant "240307 - Agerum - Forecast 6MW", TMY (Solcast).
+    "agerum": {
+        "2026-01": {"energy_mwh": 106.864, "irradiation_kwh_m2": 20.9, "pr_pct": 57.8},
+        "2026-02": {"energy_mwh": 295.620, "irradiation_kwh_m2": 41.8, "pr_pct": 79.9},
+        "2026-03": {"energy_mwh": 773.464, "irradiation_kwh_m2": 99.6, "pr_pct": 87.8},
+        "2026-04": {"energy_mwh": 1126.752, "irradiation_kwh_m2": 151.8, "pr_pct": 83.9},
+        "2026-05": {"energy_mwh": 1437.539, "irradiation_kwh_m2": 189.8, "pr_pct": 85.6},
+        "2026-06": {"energy_mwh": 1385.689, "irradiation_kwh_m2": 188.0, "pr_pct": 83.3},
+        "2026-07": {"energy_mwh": 1365.583, "irradiation_kwh_m2": 179.6, "pr_pct": 85.9},
+        "2026-08": {"energy_mwh": 1153.807, "irradiation_kwh_m2": 151.5, "pr_pct": 86.1},
+        "2026-09": {"energy_mwh": 841.904, "irradiation_kwh_m2": 108.7, "pr_pct": 87.6},
+        "2026-10": {"energy_mwh": 445.026, "irradiation_kwh_m2": 59.1, "pr_pct": 85.1},
+        "2026-11": {"energy_mwh": 144.921, "irradiation_kwh_m2": 22.8, "pr_pct": 71.8},
+        "2026-12": {"energy_mwh": 65.181, "irradiation_kwh_m2": 13.3, "pr_pct": 55.4},
+    },
+    # Källa: 15102025_Hova_PVsyst SRC Forecast 5MW [SLC].pdf
+    #   (finns även lokalt i Resultat/sol-kalldata/)
+    #   PVsyst V7.4.8, variant "240423 - Hova - Forecast SRC 5MW", TMY (Solcast).
+    #   Enda parken med tracker → högst PR i portföljen.
+    "hova": {
+        "2026-01": {"energy_mwh": 62.550, "irradiation_kwh_m2": 14.4, "pr_pct": 73.3},
+        "2026-02": {"energy_mwh": 175.848, "irradiation_kwh_m2": 33.5, "pr_pct": 88.8},
+        "2026-03": {"energy_mwh": 569.748, "irradiation_kwh_m2": 102.2, "pr_pct": 94.2},
+        "2026-04": {"energy_mwh": 933.245, "irradiation_kwh_m2": 172.9, "pr_pct": 91.2},
+        "2026-05": {"energy_mwh": 1147.464, "irradiation_kwh_m2": 217.6, "pr_pct": 89.1},
+        "2026-06": {"energy_mwh": 1287.917, "irradiation_kwh_m2": 245.6, "pr_pct": 88.6},
+        "2026-07": {"energy_mwh": 1143.080, "irradiation_kwh_m2": 218.7, "pr_pct": 88.3},
+        "2026-08": {"energy_mwh": 873.457, "irradiation_kwh_m2": 164.7, "pr_pct": 89.6},
+        "2026-09": {"energy_mwh": 549.343, "irradiation_kwh_m2": 102.0, "pr_pct": 91.0},
+        "2026-10": {"energy_mwh": 267.636, "irradiation_kwh_m2": 50.8, "pr_pct": 89.0},
+        "2026-11": {"energy_mwh": 71.092, "irradiation_kwh_m2": 15.4, "pr_pct": 78.2},
+        "2026-12": {"energy_mwh": 29.132, "irradiation_kwh_m2": 8.5, "pr_pct": 57.8},
+    },
+    # Källa: 15102025_PVsyst Skakelbacken SRC Forecast [SLC].pdf
+    #   PVsyst V7.4.8, variant "Skakelbacken - 6.5MW_SRC", TMY (Solcast).
+    "skakelbacken": {
+        "2026-01": {"energy_mwh": 30.401, "irradiation_kwh_m2": 21.7, "pr_pct": 21.6},
+        "2026-02": {"energy_mwh": 162.626, "irradiation_kwh_m2": 43.7, "pr_pct": 57.3},
+        "2026-03": {"energy_mwh": 568.365, "irradiation_kwh_m2": 104.9, "pr_pct": 83.3},
+        "2026-04": {"energy_mwh": 819.426, "irradiation_kwh_m2": 144.5, "pr_pct": 87.2},
+        "2026-05": {"energy_mwh": 954.311, "irradiation_kwh_m2": 165.1, "pr_pct": 88.9},
+        "2026-06": {"energy_mwh": 994.117, "irradiation_kwh_m2": 173.2, "pr_pct": 88.3},
+        "2026-07": {"energy_mwh": 912.593, "irradiation_kwh_m2": 159.2, "pr_pct": 88.2},
+        "2026-08": {"energy_mwh": 754.096, "irradiation_kwh_m2": 131.0, "pr_pct": 88.6},
+        "2026-09": {"energy_mwh": 522.983, "irradiation_kwh_m2": 91.2, "pr_pct": 88.3},
+        "2026-10": {"energy_mwh": 270.860, "irradiation_kwh_m2": 53.3, "pr_pct": 78.2},
+        "2026-11": {"energy_mwh": 66.533, "irradiation_kwh_m2": 19.7, "pr_pct": 52.0},
+        "2026-12": {"energy_mwh": 8.315, "irradiation_kwh_m2": 14.3, "pr_pct": 8.9},
+    },
+    # Källa: 05052025_Stenstorp_Bifacial PVsyst RH SRC [MTNM]_Corrected.pdf
+    #   (ligger i .../08 - Stenstorp/.../01 - PVsyst/archive/)
+    #   PVsyst V7.4.8, variant "240605 - Stenstorp - GH - Bifacial_Corrected",
+    #   TMY (Meteonorm). Avviker från de övriga sju som alla är oktober-2025-
+    #   batchen med Solcast-väder.
+    #   VARFÖR den äldre rapporten: det är den som ligger bakom parkens
+    #   expected_annual_yield_kwh_kwp = 1008 och expected_pr_pct = 81.74 i
+    #   park_product_data. Nyare rapport finns —
+    #   "15102025_Stenstorp PVsyst Forecast Bifacial [SLC].pdf", variant
+    #   "240605 - Stenstorp - RH - Bifacial_Corrected" — men den ger 956
+    #   kWh/kWp och PR 82.50 %, dvs -5.2 % årsproduktion. Att använda den här
+    #   skulle göra budgeten inkonsistent med park_product_data. Uppdatera BÅDA
+    #   ställena samtidigt om portföljen ska byta till Solcast-underlaget.
+    "stenstorp": {
+        "2026-01": {"energy_mwh": 6.196, "irradiation_kwh_m2": 18.6, "pr_pct": 29.5},
+        "2026-02": {"energy_mwh": 27.683, "irradiation_kwh_m2": 43.2, "pr_pct": 56.5},
+        "2026-03": {"energy_mwh": 97.881, "irradiation_kwh_m2": 113.1, "pr_pct": 76.4},
+        "2026-04": {"energy_mwh": 149.141, "irradiation_kwh_m2": 149.4, "pr_pct": 88.1},
+        "2026-05": {"energy_mwh": 178.547, "irradiation_kwh_m2": 178.0, "pr_pct": 88.6},
+        "2026-06": {"energy_mwh": 180.342, "irradiation_kwh_m2": 182.2, "pr_pct": 87.4},
+        "2026-07": {"energy_mwh": 174.983, "irradiation_kwh_m2": 178.6, "pr_pct": 86.5},
+        "2026-08": {"energy_mwh": 145.496, "irradiation_kwh_m2": 146.3, "pr_pct": 87.8},
+        "2026-09": {"energy_mwh": 110.172, "irradiation_kwh_m2": 118.1, "pr_pct": 82.4},
+        "2026-10": {"energy_mwh": 54.638, "irradiation_kwh_m2": 68.5, "pr_pct": 70.4},
+        "2026-11": {"energy_mwh": 14.858, "irradiation_kwh_m2": 27.4, "pr_pct": 47.9},
+        "2026-12": {"energy_mwh": 2.324, "irradiation_kwh_m2": 10.2, "pr_pct": 20.1},
+    },
+    # Källa: 15102025_PVsyst Tången SRC Forecast [SLC].pdf
+    #   PVsyst V7.4.8, variant "250916 - As-built simulation_AM_SRC final",
+    #   TMY (Solcast). Enda rapporten som är en as-built-simulering.
+    "tangen": {
+        "2026-01": {"energy_mwh": 67.708, "irradiation_kwh_m2": 18.8, "pr_pct": 53.6},
+        "2026-02": {"energy_mwh": 187.147, "irradiation_kwh_m2": 38.7, "pr_pct": 71.9},
+        "2026-03": {"energy_mwh": 546.281, "irradiation_kwh_m2": 94.1, "pr_pct": 86.3},
+        "2026-04": {"energy_mwh": 885.187, "irradiation_kwh_m2": 148.6, "pr_pct": 88.5},
+        "2026-05": {"energy_mwh": 1086.176, "irradiation_kwh_m2": 187.1, "pr_pct": 86.3},
+        "2026-06": {"energy_mwh": 1062.814, "irradiation_kwh_m2": 188.3, "pr_pct": 83.9},
+        "2026-07": {"energy_mwh": 1029.536, "irradiation_kwh_m2": 178.8, "pr_pct": 85.6},
+        "2026-08": {"energy_mwh": 864.187, "irradiation_kwh_m2": 147.9, "pr_pct": 86.9},
+        "2026-09": {"energy_mwh": 633.828, "irradiation_kwh_m2": 106.1, "pr_pct": 88.8},
+        "2026-10": {"energy_mwh": 305.700, "irradiation_kwh_m2": 54.6, "pr_pct": 83.2},
+        "2026-11": {"energy_mwh": 99.910, "irradiation_kwh_m2": 20.8, "pr_pct": 71.6},
+        "2026-12": {"energy_mwh": 42.623, "irradiation_kwh_m2": 11.8, "pr_pct": 53.8},
+    },
 }
+
+
+# --- Modul-degradering ---
+# Årlig effektförlust efter COD, i procent av föregående års kapacitet.
+# 0,5 %/år är branschstandard för de N-typ TOPCon-moduler portföljen använder
+# och ligger i linje med degraderingsantagandena i PVsyst-rapporterna.
+#
+# ANVÄNDS INTE ÄNNU. PARK_BUDGET_OVERRIDES ovan är rena TMY-värden för
+# simuleringsår 1 — ingen degradering är inbakad. Konstanten ligger här för
+# nästa våg, där budgeten ska skalas med (1 - d)^(år sedan COD).
+PARK_DEGRADATION_PCT_PER_YEAR: float = 0.5
 
 
 # ---------------------------------------------------------------------------
