@@ -161,3 +161,38 @@ def test_all_configured_parks_have_overrides():
 
 def test_degradation_constant_is_sane():
     assert 0.0 < PARK_DEGRADATION_PCT_PER_YEAR < 2.0
+
+
+# ---------------------------------------------------------------------------
+# Degradering i get_budget — TMY-basår 2026, −0.5 %/år från 2027
+# ---------------------------------------------------------------------------
+
+def test_get_budget_2027_is_degraded_2026():
+    """2027 = (1 − 0.005)^1 × 2026-värdet för energi OCH PR."""
+    b26 = get_budget("horby", 2026, 7)
+    b27 = get_budget("horby", 2027, 7)
+    factor = (1.0 - PARK_DEGRADATION_PCT_PER_YEAR / 100.0)
+    assert b27["energy_mwh"] == pytest.approx(b26["energy_mwh"] * factor, rel=1e-6)
+    assert b27["pr_pct"] == pytest.approx(b26["pr_pct"] * factor, rel=1e-6)
+
+
+def test_get_budget_irradiation_not_degraded():
+    """Instrålning är väder, inte modul — skalas INTE."""
+    b26 = get_budget("horby", 2026, 7)
+    b28 = get_budget("horby", 2028, 7)
+    assert b28["irradiation_kwh_m2"] == b26["irradiation_kwh_m2"]
+
+
+def test_get_budget_2028_compounds_two_years():
+    b26 = get_budget("horby", 2026, 7)
+    b28 = get_budget("horby", 2028, 7)
+    factor = (1.0 - PARK_DEGRADATION_PCT_PER_YEAR / 100.0) ** 2
+    assert b28["energy_mwh"] == pytest.approx(b26["energy_mwh"] * factor, rel=1e-6)
+
+
+def test_get_budget_no_upscaling_before_base_year():
+    """Historiska år jämförs mot ograderad TMY-budget (faktor clampas till 1)."""
+    b25 = get_budget("horby", 2025, 7)
+    b26 = get_budget("horby", 2026, 7)
+    assert b25["energy_mwh"] == pytest.approx(b26["energy_mwh"], rel=1e-6)
+    assert b25["pr_pct"] == pytest.approx(b26["pr_pct"], rel=1e-6)

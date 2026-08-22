@@ -187,11 +187,11 @@ def _losses_dict(losses) -> Optional[Dict[str, float]]:
     return {
         "budget_mwh": _safe_round(losses.budget_energy_mwh, 2),
         "actual_mwh": _safe_round(losses.actual_energy_mwh, 2),
-        "curtailment_mwh": _safe_round(losses.curtailment_loss_mwh, 2),
+        "residual_mwh": _safe_round(losses.residual_loss_mwh, 2),
         "irradiance_shortfall_mwh": _safe_round(losses.irradiance_shortfall_loss_mwh, 2),
         "availability_mwh": _safe_round(losses.availability_loss_mwh, 2),
         "temperature_mwh": _safe_round(losses.temperature_loss_mwh, 2),
-        "other_mwh": _safe_round(losses.other_losses_mwh, 2),
+        "clipping_mwh": _safe_round(losses.clipping_loss_mwh, 2),
     }
 
 
@@ -208,8 +208,8 @@ def _losses_dict_prorated(
     pro-ratade budget-termer:
 
       irr_shortfall = budget_e * (1 - actual_irr / budget_irr)
-      avail_loss    = (oförändrad — beräknas per intervall, redan MTD)
-      unexplained   = budget_e − actual − irr_shortfall − avail_loss
+      avail/temp/clipping = (oförändrade — beräknas per intervall, redan MTD)
+      residual      = budget_e − actual − irr_shortfall − avail − temp − clipping
 
     Måste hållas i synk med `_calculate_loss_cascade` om den ändras.
     """
@@ -228,18 +228,21 @@ def _losses_dict_prorated(
         irr_shortfall = 0.0
 
     avail_loss = losses.availability_loss_mwh or 0.0
-    unexplained = (
-        prorated_budget_e - actual_energy_mwh - irr_shortfall - avail_loss
+    temp_loss = losses.temperature_loss_mwh or 0.0
+    clipping_loss = losses.clipping_loss_mwh or 0.0
+    residual = (
+        prorated_budget_e - actual_energy_mwh - irr_shortfall
+        - avail_loss - temp_loss - clipping_loss
     )
 
     return {
         "budget_mwh": _safe_round(prorated_budget_e, 2),
         "actual_mwh": _safe_round(actual_energy_mwh, 2),
-        "curtailment_mwh": _safe_round(unexplained, 2),
+        "residual_mwh": _safe_round(residual, 2),
         "irradiance_shortfall_mwh": _safe_round(irr_shortfall, 2),
         "availability_mwh": _safe_round(avail_loss, 2),
-        "temperature_mwh": _safe_round(losses.temperature_loss_mwh, 2),
-        "other_mwh": _safe_round(losses.other_losses_mwh, 2),
+        "temperature_mwh": _safe_round(temp_loss, 2),
+        "clipping_mwh": _safe_round(clipping_loss, 2),
     }
 
 

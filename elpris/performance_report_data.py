@@ -20,7 +20,8 @@ import json
 import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
+from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
@@ -32,7 +33,12 @@ from .config import (
     UTC_TZ,
 )
 from .operations_dashboard_data import load_park_15min
-from .park_config import get_budget, get_park_metadata
+from .park_config import (
+    PARK_TEMP_COEFF_PCT_PER_C,
+    get_budget,
+    get_park_metadata,
+)
+from .temperature import load_park_temperature_map, monthly_climatology
 
 # Weekday short names (0=Monday) — English for international audience
 _WEEKDAY_SV = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -43,12 +49,29 @@ _MONTH_SV = [
     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ]
 
-# Antagen genomsnittlig omgivningstemperatur (°C) i Sverige — används bara för att fylla
-# `avg_module_temp_c`-fältet i daglig statistik (display-värde), inte i förlustkaskaden.
-_DEFAULT_AMBIENT_TEMP_C = 10.0
-
 # Sandia NOCT-modell: T_module = T_ambient + 0.03 * POA (W/m²)
+# T_ambient kommer från ERA5-serierna i elpris.temperature — saknas data för
+# en timme rapporteras None (ärlig lucka), aldrig en påhittad konstant.
 _SANDIA_COEFF = 0.03
+
+
+@lru_cache(maxsize=16)
+def _cached_climatology(park_key: str) -> tuple:
+    """Månadsklimatologi som hashbar tuple (cachas — CSV:n är ~100k rader)."""
+    return tuple(sorted(monthly_climatology(park_key).items()))
+
+
+@lru_cache(maxsize=32)
+def _cached_temp_map(park_key: str, year: int) -> dict:
+    """Temperaturmapp {UTC-timme: °C} för ett helt kalenderår (cachad).
+
+    Laddas EN gång per park+år — generate_report anropas per månad av
+    unified-dashboarden, och utan cache skulle varje anrop läsa hela
+    ERA5-CSV:n. Returvärdet behandlas som read-only.
+    """
+    return load_park_temperature_map(
+        park_key, date(year, 1, 1), date(year, 12, 31)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -83,14 +106,19 @@ class DayDetail:
 
 @dataclass
 class LossCascade:
-    """Förlustanalys (waterfall)."""
+    """Förlustanalys (waterfall).
+
+    Identitet: budget − actual = irr_shortfall + availability + temperature
+    + clipping + residual. Residualen är "Övrigt (soiling, curtailment,
+    modellfel)" — den krymper i takt med att komponenter kan mätas.
+    """
     budget_energy_mwh: float
     actual_energy_mwh: float
-    curtailment_loss_mwh: float
+    residual_loss_mwh: float
     irradiance_shortfall_loss_mwh: float
     availability_loss_mwh: float
     temperature_loss_mwh: float
-    other_losses_mwh: float
+    clipping_loss_mwh: float
 
 
 @dataclass
@@ -120,7 +148,7 @@ class MonthSummary:
     capacity_mwp: float
     budget_energy_mwh: float
     actual_energy_mwh: float
-    curtailment_mwh: float
+    residual_mwh: float
     vs_budget_energy_mwh: float
     norm_yield_mwh_mwp: float
     wc_budget_mwh: float
@@ -276,14 +304,25 @@ def _meter_inverter_efficiency(records: list[dict]) -> Optional[float]:
     return None
 
 
+def _hour_key(rec: dict) -> datetime:
+    """UTC-timnyckel för temperaturuppslag (minut/sekund nollställda)."""
+    return rec["timestamp_utc"].replace(minute=0, second=0, microsecond=0)
+
+
 def _aggregate_daily(
     records: list[dict],
     capacity_kwp: float,
     standard_pr: float,
     has_irradiance: bool,
     has_active_power: bool,
+    temp_map: dict[datetime, float],
 ) -> list[DailyData]:
-    """Aggregera 15-min poster till daglig data."""
+    """Aggregera 15-min poster till daglig data.
+
+    ``temp_map`` är {UTC-timme: lufttemperatur °C} från
+    :func:`elpris.temperature.load_park_temperature_map`. Saknas temperatur
+    för en timme blir dagens temperaturfält None — ingen påhittad konstant.
+    """
     capacity_mw = capacity_kwp / 1000.0
 
     # Gruppera per dag
@@ -335,17 +374,26 @@ def _aggregate_daily(
         if has_active_power:
             efficiency = _meter_inverter_efficiency(day_records)
 
-        # Modultemperatur (Sandia NOCT-uppskattning)
+        # Modultemperatur (Sandia NOCT: T_mod = T_amb + 0.03 × POA) med riktig
+        # lufttemperatur per timme. Medelvärde över intervall med POA > 0 där
+        # temperaturdata finns; saknas temperatur helt → None.
         avg_mod_temp: Optional[float] = None
         avg_amb_temp: Optional[float] = None
-        if has_irradiance:
-            irr_for_temp = [r["irradiance_poa"] for r in day_records
-                            if r.get("irradiance_poa") is not None
-                            and r["irradiance_poa"] > 0]
-            if irr_for_temp:
-                avg_poa = sum(irr_for_temp) / len(irr_for_temp)
-                avg_amb_temp = _DEFAULT_AMBIENT_TEMP_C
-                avg_mod_temp = avg_amb_temp + _SANDIA_COEFF * avg_poa
+        if has_irradiance and temp_map:
+            amb_vals: list[float] = []
+            mod_vals: list[float] = []
+            for r in day_records:
+                poa = r.get("irradiance_poa")
+                if poa is None or poa <= 0:
+                    continue
+                t_amb = temp_map.get(_hour_key(r))
+                if t_amb is None:
+                    continue
+                amb_vals.append(t_amb)
+                mod_vals.append(t_amb + _SANDIA_COEFF * poa)
+            if amb_vals:
+                avg_amb_temp = sum(amb_vals) / len(amb_vals)
+                avg_mod_temp = sum(mod_vals) / len(mod_vals)
 
         daily_list.append(DailyData(
             day=day_num,
@@ -408,6 +456,74 @@ def _extract_day_detail(
 # Förlustanalys (waterfall)
 # ---------------------------------------------------------------------------
 
+def _interval_component_losses(
+    records: list[dict],
+    capacity_kwp: float,
+    standard_pr: float,
+    has_irradiance: bool,
+    has_availability: bool,
+    temp_map: dict[datetime, float],
+    climatology: dict[int, float],
+    temp_coeff_pct_per_c: Optional[float],
+    export_limit_mw: Optional[float],
+) -> tuple[float, float, float]:
+    """Intervallbaserade förlustkomponenter: (avail, temperatur, clipping).
+
+    Tillgänglighet: irr-baserad förväntad gen × (1 − availability), som förr.
+
+    Temperatur: AVVIKELSEN mot månadsklimatologin, inte mot 25 °C — TMY-
+    budgeten har redan normala temperatureffekter inbakade. Per intervall:
+    (−γ/100) × (T_amb(t) − T_clim(månad)) × E(t), där E(t) = effective_power
+    × 0.25. Sandia-POA-termen kancellerar mellan aktuell och referens, därför
+    räcker T_amb-anomalin. Positiv = varmare än normalt = förlust. Intervall
+    utan temperatur, klimatologi eller energi bidrar 0.
+
+    Clipping: bara när parken bevisligen ligger mot exporttaket — effekt
+    ≥ 97 % av gränsen OCH irr-baserad förväntad gen över gränsen; förlusten
+    är förväntad − gräns×0.25. Konservativt: intervall utan POA räknas inte.
+    """
+    avail_loss = 0.0
+    temp_loss = 0.0
+    clipping_loss = 0.0
+
+    gamma = temp_coeff_pct_per_c or 0.0
+    limit_interval_mwh = (
+        export_limit_mw * 0.25 if export_limit_mw else None
+    )
+
+    for rec in records:
+        irr = rec.get("irradiance_poa")
+        expected_interval: Optional[float] = None
+        if has_irradiance and irr is not None:
+            expected_interval = (
+                irr * 0.25 / 1000.0 * capacity_kwp * standard_pr / 1000.0
+            )
+
+        # 1. Tillgänglighetsförlust
+        if has_availability and expected_interval is not None:
+            avail = rec.get("availability")
+            if avail is not None and avail < 1.0:
+                avail_loss += expected_interval * (1.0 - avail)
+
+        energy_mwh = rec.get("effective_power_mw", rec.get("power_mw", 0)) * 0.25
+
+        # 2. Temperaturanomali mot klimatologi
+        if gamma and temp_map and climatology and energy_mwh > 0:
+            t_amb = temp_map.get(_hour_key(rec))
+            t_clim = climatology.get(rec["month"])
+            if t_amb is not None and t_clim is not None:
+                temp_loss += (-gamma / 100.0) * (t_amb - t_clim) * energy_mwh
+
+        # 3. Clipping mot exportgränsen
+        if (limit_interval_mwh is not None
+                and expected_interval is not None
+                and rec.get("effective_power_mw", 0) >= 0.97 * export_limit_mw
+                and expected_interval > limit_interval_mwh):
+            clipping_loss += expected_interval - limit_interval_mwh
+
+    return avail_loss, temp_loss, clipping_loss
+
+
 def _calculate_loss_cascade(
     budget_energy_mwh: float,
     actual_energy_mwh: float,
@@ -418,11 +534,12 @@ def _calculate_loss_cascade(
     records: list[dict],
     has_irradiance: bool,
     has_availability: bool,
-    avg_module_temp_c: Optional[float],
+    temp_map: dict[datetime, float],
+    climatology: dict[int, float],
+    temp_coeff_pct_per_c: Optional[float],
+    export_limit_mw: Optional[float],
 ) -> LossCascade:
     """Beräkna förlustanalys (waterfall) för månaden."""
-    capacity_mw = capacity_kwp / 1000.0
-
     # 1. Instrålningsbrist
     irr_shortfall = 0.0
     wc_budget = budget_energy_mwh  # Weather-corrected budget
@@ -432,36 +549,37 @@ def _calculate_loss_cascade(
         irr_ratio = actual_irr_kwh_m2 / budget_irr_kwh_m2
         wc_budget = budget_energy_mwh * irr_ratio
         irr_shortfall = budget_energy_mwh - wc_budget
-    else:
-        # Ingen instrålningsdata → sätt till 0
-        irr_shortfall = 0.0
 
-    # 2. Tillgänglighetsförlust
-    avail_loss = 0.0
-    if has_availability and has_irradiance:
-        for rec in records:
-            avail = rec.get("availability")
-            irr = rec.get("irradiance_poa")
-            if avail is not None and irr is not None and avail < 1.0:
-                # Förväntad gen för detta intervall
-                expected_interval = irr * 0.25 / 1000.0 * capacity_kwp * standard_pr / 1000.0
-                avail_loss += expected_interval * (1.0 - avail)
+    # 2-4. Tillgänglighet, temperatur (mot klimatologi), clipping
+    avail_loss, temp_loss, clipping_loss = _interval_component_losses(
+        records=records,
+        capacity_kwp=capacity_kwp,
+        standard_pr=standard_pr,
+        has_irradiance=has_irradiance,
+        has_availability=has_availability,
+        temp_map=temp_map,
+        climatology=climatology,
+        temp_coeff_pct_per_c=temp_coeff_pct_per_c,
+        export_limit_mw=export_limit_mw,
+    )
 
-    # 3. Oförklarat (residual)
-    # Allt som inte kan tillskrivas uppmätt instrålning eller availability hamnar här.
-    # Kan vara positiv (faktiska förluster: soiling, clipping, real curtailment, modellfel)
-    # eller negativ (parken slog TMY-budgeten — t.ex. vid klart väder, gynnsam temperatur,
-    # eller om PVsyst-budgeten är konservativ).
-    unexplained = budget_energy_mwh - actual_energy_mwh - irr_shortfall - avail_loss
+    # 5. Övrigt (residual): soiling, curtailment, modellfel.
+    # Allt som inte kan tillskrivas uppmätt instrålning, availability,
+    # temperaturanomali eller clipping hamnar här. Kan vara positiv (faktiska
+    # oförklarade förluster) eller negativ (parken slog TMY-budgeten).
+    residual = (
+        budget_energy_mwh - actual_energy_mwh
+        - irr_shortfall - avail_loss - temp_loss - clipping_loss
+    )
 
     return LossCascade(
         budget_energy_mwh=round(budget_energy_mwh, 4),
         actual_energy_mwh=round(actual_energy_mwh, 4),
-        curtailment_loss_mwh=round(unexplained, 4),
+        residual_loss_mwh=round(residual, 4),
         irradiance_shortfall_loss_mwh=round(irr_shortfall, 4),
         availability_loss_mwh=round(avail_loss, 4),
-        temperature_loss_mwh=0.0,
-        other_losses_mwh=0.0,
+        temperature_loss_mwh=round(temp_loss, 4),
+        clipping_loss_mwh=round(clipping_loss, 4),
     )
 
 
@@ -478,6 +596,10 @@ def _build_ytd(
     standard_pr: float,
     has_irradiance: bool,
     has_availability: bool,
+    temp_map: dict[datetime, float],
+    climatology: dict[int, float],
+    temp_coeff_pct_per_c: Optional[float],
+    export_limit_mw: Optional[float],
 ) -> list[MonthSummary]:
     """Bygg YTD-tabell för alla månader jan → up_to_month."""
     capacity_mw = capacity_kwp / 1000.0
@@ -524,22 +646,30 @@ def _build_ytd(
         if actual_irr is not None:
             vs_irr = round(budget_irr - actual_irr, 4)
 
-        # Tillgänglighetsförlust
-        avail_loss = 0.0
-        if has_availability and has_irradiance:
-            for rec in month_records:
-                avail = rec.get("availability")
-                irr = rec.get("irradiance_poa")
-                if avail is not None and irr is not None and avail < 1.0:
-                    expected_int = irr * 0.25 / 1000.0 * capacity_kwp * standard_pr / 1000.0
-                    avail_loss += expected_int * (1.0 - avail)
+        # Tillgänglighet, temperaturanomali och clipping — samma
+        # intervallberäkning som förlustkaskaden (_interval_component_losses)
+        # så YTD-residualen är konsistent med sektion 9/10.
+        avail_loss, temp_loss, clipping_loss = _interval_component_losses(
+            records=month_records,
+            capacity_kwp=capacity_kwp,
+            standard_pr=standard_pr,
+            has_irradiance=has_irradiance,
+            has_availability=has_availability,
+            temp_map=temp_map,
+            climatology=climatology,
+            temp_coeff_pct_per_c=temp_coeff_pct_per_c,
+            export_limit_mw=export_limit_mw,
+        )
 
-        # Oförklarat (residual). Inte clampad — negativt värde betyder att parken
-        # slog TMY-budgeten efter justering för uppmätt instrålning + availability.
+        # Övrigt (residual). Inte clampad — negativt värde betyder att parken
+        # slog TMY-budgeten efter justering för uppmätta komponenter.
         irr_shortfall = 0.0
         if actual_irr is not None and budget_irr > 0:
             irr_shortfall = budget_energy - wc_budget
-        unexplained = budget_energy - actual_energy - irr_shortfall - avail_loss
+        residual = (
+            budget_energy - actual_energy
+            - irr_shortfall - avail_loss - temp_loss - clipping_loss
+        )
 
         # Norm yield (kWh/kWp = MWh/MWp)
         norm_yield = actual_energy / capacity_mw if capacity_mw > 0 else 0.0
@@ -554,7 +684,7 @@ def _build_ytd(
             capacity_mwp=round(capacity_mw, 3),
             budget_energy_mwh=round(budget_energy, 2),
             actual_energy_mwh=round(actual_energy, 2),
-            curtailment_mwh=round(unexplained, 2),
+            residual_mwh=round(residual, 2),
             vs_budget_energy_mwh=round(budget_energy - actual_energy, 2),
             norm_yield_mwh_mwp=round(norm_yield, 2),
             wc_budget_mwh=round(wc_budget, 2),
@@ -739,6 +869,18 @@ def generate_report(park_key: str, year: int, month: int) -> MonthlyReport:
         month_records
     )
 
+    # 3b. Temperaturdata (ERA5) + klimatologi + parkkonstanter för kaskaden.
+    # Laddas EN gång per rapportkörning (cachad per park+år) — täcker både
+    # rapportmånaden och YTD-månaderna.
+    temp_map = _cached_temp_map(park_key, year)
+    climatology = dict(_cached_climatology(park_key))
+    temp_coeff = PARK_TEMP_COEFF_PCT_PER_C.get(park_key)
+    export_limit_share = meta.get("export_limit")
+    export_limit_mw = (
+        export_limit_share * capacity_kwp / 1000.0
+        if export_limit_share else None
+    )
+
     # 4. Dagliga aggregat
     daily = _aggregate_daily(
         month_records,
@@ -746,6 +888,7 @@ def generate_report(park_key: str, year: int, month: int) -> MonthlyReport:
         standard_pr,
         has_irradiance,
         has_active_power,
+        temp_map,
     )
 
     # 5. Månadstotaler
@@ -802,7 +945,10 @@ def generate_report(park_key: str, year: int, month: int) -> MonthlyReport:
         records=month_records,
         has_irradiance=has_irradiance,
         has_availability=has_availability,
-        avg_module_temp_c=avg_mod_temp,
+        temp_map=temp_map,
+        climatology=climatology,
+        temp_coeff_pct_per_c=temp_coeff,
+        export_limit_mw=export_limit_mw,
     )
 
     # 9. Bästa/sämsta dagar
@@ -838,6 +984,10 @@ def generate_report(park_key: str, year: int, month: int) -> MonthlyReport:
         standard_pr=standard_pr,
         has_irradiance=has_irradiance,
         has_availability=has_availability,
+        temp_map=temp_map,
+        climatology=climatology,
+        temp_coeff_pct_per_c=temp_coeff,
+        export_limit_mw=export_limit_mw,
     )
 
     # 12. Ladda inverter-data om det finns (Phase 6)
@@ -984,11 +1134,11 @@ def _empty_report(
         losses=LossCascade(
             budget_energy_mwh=budget["energy_mwh"],
             actual_energy_mwh=0.0,
-            curtailment_loss_mwh=0.0,
+            residual_loss_mwh=0.0,
             irradiance_shortfall_loss_mwh=0.0,
             availability_loss_mwh=0.0,
             temperature_loss_mwh=0.0,
-            other_losses_mwh=0.0,
+            clipping_loss_mwh=0.0,
         ),
         best_days=[],
         worst_days=[],

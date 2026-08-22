@@ -334,10 +334,34 @@ PARK_BUDGET_OVERRIDES: dict[str, dict[str, dict]] = {
 # 0,5 %/år är branschstandard för de N-typ TOPCon-moduler portföljen använder
 # och ligger i linje med degraderingsantagandena i PVsyst-rapporterna.
 #
-# ANVÄNDS INTE ÄNNU. PARK_BUDGET_OVERRIDES ovan är rena TMY-värden för
-# simuleringsår 1 — ingen degradering är inbakad. Konstanten ligger här för
-# nästa våg, där budgeten ska skalas med (1 - d)^(år sedan COD).
+# Appliceras centralt i get_budget(): energy_mwh och pr_pct skalas med
+# (1 − d/100)^(år − PVSYST_BASE_YEAR). Instrålning är väder — skalas inte.
 PARK_DEGRADATION_PCT_PER_YEAR: float = 0.5
+
+# Basår för PVsyst-budgeten. Rapporternas "2026-MM"-nycklar i
+# PARK_BUDGET_OVERRIDES är TMY-värden ("simuleringsår 1") som tolkas som
+# förväntan för 2026 — degradering börjar alltså slå igenom 2027
+# (faktor 0.995 för 2027, 0.995² för 2028 osv.). För år FÖRE basåret
+# clampas faktorn till 1: historiska år jämförs mot ograderad budget.
+PVSYST_BASE_YEAR: int = 2026
+
+
+# --- Temperaturkoefficient per park (%/°C på Pmpp) ---
+# Härledd ur PVsyst-rapporternas par Nominal(STC) vs Pmpp@50°C:
+#   γ ≈ (P50 − PSTC) / PSTC / 25.
+# Används i förlustkaskadens temperaturpost: förlust räknas mot parkens
+# MÅNADSKLIMATOLOGI (elpris.temperature.monthly_climatology), inte mot 25 °C,
+# eftersom PVsyst-TMY-budgeten redan har normala temperatureffekter inbakade.
+PARK_TEMP_COEFF_PCT_PER_C: dict[str, float] = {
+    "horby": -0.331,        # Trina TSM-650DEG21C.20
+    "fjallskar": -0.324,    # Trina TSM-640DEG21C.20
+    "hova": -0.302,         # Trina TSM-685NEG21C.20
+    "skakelbacken": -0.298, # Tongwei TWMNF-66HD695
+    "tangen": -0.338,       # Risen RSM132-8-660BMDG
+    "agerum": -0.331,       # ej läst ur PDF — samma Trina DEG21C-familj som Hörby
+    "stenstorp": -0.331,    # ej läst ur PDF — samma Trina DEG21C-familj som Hörby
+    "bjorke": -0.338,       # ej läst ur PDF — samma Risen-modul som Tången
+}
 
 
 # ---------------------------------------------------------------------------
@@ -537,15 +561,35 @@ def get_park_metadata(park_key: str) -> Optional[dict]:
     return result
 
 
+def _degradation_factor(year: int) -> float:
+    """Degraderingsfaktor relativt PVSYST_BASE_YEAR.
+
+    (1 − d/100)^(år − basår) för år efter basåret; clampas till 1.0 för
+    basåret och alla tidigare år (ingen uppskalning av historik).
+    """
+    years_after_base = year - PVSYST_BASE_YEAR
+    if years_after_base <= 0:
+        return 1.0
+    return (1.0 - PARK_DEGRADATION_PCT_PER_YEAR / 100.0) ** years_after_base
+
+
 def get_budget(park_key: str, year: int, month: int) -> dict:
     """Hämta månadsbudget för en park.
 
-    Kontrollerar först PARK_BUDGET_OVERRIDES, faller sedan tillbaka
-    på PVsyst TMY-beräkning med parkspecifik yield/PR.
+    Kontrollerar först PARK_BUDGET_OVERRIDES (exakt "YYYY-MM"-nyckel, sedan
+    TMY-basårets nyckel "2026-MM" — override-värdena är TMY-värden som gäller
+    alla år), faller sedan tillbaka på PVsyst TMY-beräkning med parkspecifik
+    yield/PR.
+
+    Degradering: energy_mwh och pr_pct skalas med
+    (1 − PARK_DEGRADATION_PCT_PER_YEAR/100)^(år − PVSYST_BASE_YEAR), clampat
+    till 1 för år ≤ basåret. Instrålning skalas INTE. En exakt årsspecifik
+    override (t.ex. en manuellt inlagd "2027-07") returneras som den är —
+    manuella per-år-värden antas redan ha degradering inbakad.
 
     Args:
         park_key: Parknyckel (t.ex. "horby")
-        year: År (används för budget-override-nyckel)
+        year: År (styr override-nyckel och degraderingsfaktor)
         month: Månad (1-12)
 
     Returns:
@@ -554,11 +598,21 @@ def get_budget(park_key: str, year: int, month: int) -> dict:
     Raises:
         ValueError: Om parken inte finns i konfigurationen
     """
-    # Kolla manuell överstyrning
+    factor = _degradation_factor(year)
+
+    # Kolla manuell överstyrning: exakt år först (returneras oskalad —
+    # årsspecifika värden är authoritativa), sedan TMY-basåret (skalas).
     overrides = PARK_BUDGET_OVERRIDES.get(park_key, {})
     month_key = f"{year:04d}-{month:02d}"
     if month_key in overrides:
         return dict(overrides[month_key])
+
+    base_key = f"{PVSYST_BASE_YEAR:04d}-{month:02d}"
+    if base_key in overrides:
+        budget = dict(overrides[base_key])
+        budget["energy_mwh"] = budget["energy_mwh"] * factor
+        budget["pr_pct"] = budget["pr_pct"] * factor
+        return budget
 
     # Hämta metadata (för att validera att parken finns)
     meta = PARK_METADATA.get(park_key)
@@ -574,7 +628,10 @@ def get_budget(park_key: str, year: int, month: int) -> dict:
             f"Kapacitet saknas för park {park_key!r} i PARK_CAPACITY_KWP"
         )
 
-    return _load_pvsyst_budget(park_key, capacity_kwp, month)
+    budget = _load_pvsyst_budget(park_key, capacity_kwp, month)
+    budget["energy_mwh"] = budget["energy_mwh"] * factor
+    budget["pr_pct"] = budget["pr_pct"] * factor
+    return budget
 
 
 def list_parks() -> list[str]:

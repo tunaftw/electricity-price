@@ -592,7 +592,7 @@ def _render_ytd(report: MonthlyReport) -> str:
     <td>{_fmt(ms.capacity_mwp, 2)}</td>
     <td>{_fmt(ms.budget_energy_mwh)}</td>
     <td>{_fmt(ms.actual_energy_mwh)}</td>
-    <td>{_fmt(ms.curtailment_mwh)}</td>
+    <td>{_fmt(ms.residual_mwh)}</td>
     <td style="{vs_energy_style}">{_fmt_delta(-ms.vs_budget_energy_mwh)}</td>
     <td>{_fmt(ms.norm_yield_mwh_mwp)}</td>
     <td>{_fmt(ms.wc_budget_mwh)}</td>
@@ -608,7 +608,7 @@ def _render_ytd(report: MonthlyReport) -> str:
     # Totals
     tot_budget = sum(m.budget_energy_mwh for m in ytd)
     tot_actual = sum(m.actual_energy_mwh for m in ytd)
-    tot_curt = sum(m.curtailment_mwh for m in ytd)
+    tot_curt = sum(m.residual_mwh for m in ytd)
     tot_losses = sum(m.losses_mwh for m in ytd)
     tot_avail = sum(m.availability_loss_mwh for m in ytd)
     tot_vs = tot_actual - tot_budget
@@ -624,7 +624,7 @@ def _render_ytd(report: MonthlyReport) -> str:
     table = f"""<div class="table-scroll"><table class="data-table">
 <thead><tr>
     <th>Month</th><th>Capacity (MWp)</th><th>Budget (MWh)</th><th>Actual (MWh)</th>
-    <th>Unexplained (MWh)</th><th>vs Budget</th><th>Norm Yield</th><th>WC Budget</th>
+    <th>Övrigt/residual (MWh)</th><th>vs Budget</th><th>Norm Yield</th><th>WC Budget</th>
     <th>Losses</th><th>Bud Irr</th><th>Act Irr</th><th>vs Irr</th>
     <th>Bud PR</th><th>Act PR</th><th>Avail Loss</th>
 </tr></thead><tbody>{rows}</tbody></table></div>"""
@@ -1138,17 +1138,21 @@ def _render_loss_cascade_mwh(report: MonthlyReport) -> str:
     lc = report.losses
 
     categories = [
-        "Budget", "Irradiance", "Availability", "Unexplained", "Actual"
+        "Budget", "Irradiance", "Availability", "Temperature",
+        "Clipping", "Övrigt", "Actual"
     ]
     values = [
         lc.budget_energy_mwh,
         -lc.irradiance_shortfall_loss_mwh,
         -lc.availability_loss_mwh,
-        -lc.curtailment_loss_mwh,
+        -lc.temperature_loss_mwh,
+        -lc.clipping_loss_mwh,
+        -lc.residual_loss_mwh,
         lc.actual_energy_mwh,
     ]
 
-    measure = ["absolute", "relative", "relative", "relative", "total"]
+    measure = ["absolute", "relative", "relative", "relative",
+               "relative", "relative", "total"]
 
     traces = [{
         "type": "waterfall",
@@ -1178,7 +1182,9 @@ def _render_loss_cascade_mwh(report: MonthlyReport) -> str:
         ("Budget (PVsyst TMY)", _fmt(lc.budget_energy_mwh)),
         ("Irradiance vs TMY (measured)", _fmt(-lc.irradiance_shortfall_loss_mwh)),
         ("Availability loss (measured)", _fmt(-lc.availability_loss_mwh)),
-        ("Unexplained (residual)", _fmt(-lc.curtailment_loss_mwh)),
+        ("Temperature vs climatology", _fmt(-lc.temperature_loss_mwh)),
+        ("Clipping at export limit", _fmt(-lc.clipping_loss_mwh)),
+        ("Övrigt (soiling, curtailment, modellfel)", _fmt(-lc.residual_loss_mwh)),
         ("<strong>Actual generation</strong>", f"<strong>{_fmt(lc.actual_energy_mwh)}</strong>"),
     ]
     table_html = '<table class="params-table"><tr><th>Category</th><th>MWh</th></tr>'
@@ -1209,16 +1215,20 @@ def _render_loss_cascade_pct(report: MonthlyReport) -> str:
         return round(v / budget * 100, 2)
 
     categories = [
-        "Budget", "Irradiance", "Availability", "Unexplained", "Actual"
+        "Budget", "Irradiance", "Availability", "Temperature",
+        "Clipping", "Övrigt", "Actual"
     ]
     values_pct = [
         100.0,
         -to_pct(lc.irradiance_shortfall_loss_mwh),
         -to_pct(lc.availability_loss_mwh),
-        -to_pct(lc.curtailment_loss_mwh),
+        -to_pct(lc.temperature_loss_mwh),
+        -to_pct(lc.clipping_loss_mwh),
+        -to_pct(lc.residual_loss_mwh),
         to_pct(lc.actual_energy_mwh),
     ]
-    measure = ["absolute", "relative", "relative", "relative", "total"]
+    measure = ["absolute", "relative", "relative", "relative",
+               "relative", "relative", "total"]
 
     traces = [{
         "type": "waterfall",
@@ -1248,7 +1258,9 @@ def _render_loss_cascade_pct(report: MonthlyReport) -> str:
         ("Budget (PVsyst TMY)", "100.0%"),
         ("Irradiance vs TMY (measured)", f"{-to_pct(lc.irradiance_shortfall_loss_mwh):.1f}%"),
         ("Availability loss (measured)", f"{-to_pct(lc.availability_loss_mwh):.1f}%"),
-        ("Unexplained (residual)", f"{-to_pct(lc.curtailment_loss_mwh):.1f}%"),
+        ("Temperature vs climatology", f"{-to_pct(lc.temperature_loss_mwh):.1f}%"),
+        ("Clipping at export limit", f"{-to_pct(lc.clipping_loss_mwh):.1f}%"),
+        ("Övrigt (soiling, curtailment, modellfel)", f"{-to_pct(lc.residual_loss_mwh):.1f}%"),
         ("<strong>Actual generation</strong>", f"<strong>{to_pct(lc.actual_energy_mwh):.1f}%</strong>"),
     ]
     table_html = '<table class="params-table"><tr><th>Category</th><th>% of Budget</th></tr>'
@@ -1271,17 +1283,17 @@ def _render_loss_cascade_pct(report: MonthlyReport) -> str:
 # Section 11: Curtailment & Irradiance Shortfall Loss Trend
 # ---------------------------------------------------------------------------
 
-def _render_curtailment_irr_trend(report: MonthlyReport) -> str:
+def _render_residual_irr_trend(report: MonthlyReport) -> str:
     ytd = report.ytd
     if not ytd:
-        return f'<div class="section" id="{_section_id(11)}"><h2 class="section-title">11. Curtailment &amp; Irradiance Shortfall</h2><div class="card"><p>No YTD data.</p></div></div>', ""
+        return f'<div class="section" id="{_section_id(11)}"><h2 class="section-title">11. Övrigt (Residual) &amp; Irradiance Shortfall</h2><div class="card"><p>No YTD data.</p></div></div>', ""
 
     months = [ms.month_name for ms in ytd]
 
-    # Unexplained residual MWh (can be negative — TMY budget too conservative)
-    curt_mwh = [round(ms.curtailment_mwh, 2) for ms in ytd]
-    # Unexplained residual as % of budget
-    curt_pct = [round(ms.curtailment_mwh / ms.budget_energy_mwh * 100, 1) if ms.budget_energy_mwh > 0 else 0 for ms in ytd]
+    # Residual "Övrigt" MWh (can be negative — TMY budget too conservative)
+    curt_mwh = [round(ms.residual_mwh, 2) for ms in ytd]
+    # Residual as % of budget
+    curt_pct = [round(ms.residual_mwh / ms.budget_energy_mwh * 100, 1) if ms.budget_energy_mwh > 0 else 0 for ms in ytd]
 
     # Irradiance shortfall (vs_budget_irr is budget - actual, positive = shortfall)
     irr_shortfall_kwh = [round(ms.vs_budget_irr, 2) if ms.vs_budget_irr is not None else 0 for ms in ytd]
@@ -1300,7 +1312,7 @@ def _render_curtailment_irr_trend(report: MonthlyReport) -> str:
         "margin": {"t": 30, "b": 40, "l": 50, "r": 30},
         "paper_bgcolor": "rgba(0,0,0,0)", "plot_bgcolor": "rgba(0,0,0,0)",
         "font": {"family": "'Segoe UI', system-ui, sans-serif", "size": 11, "color": _C["text"]},
-        "title": {"text": "Unexplained residual (MWh)", "font": {"size": 13}},
+        "title": {"text": "Övrigt / residual (MWh)", "font": {"size": 13}},
         "showlegend": False,
         "yaxis": {"gridcolor": "#e2e8f0"},
     }
@@ -1310,7 +1322,7 @@ def _render_curtailment_irr_trend(report: MonthlyReport) -> str:
          "marker": {"color": _C["accent"]}},
     ]
     layout_curt_pct = dict(layout_curt)
-    layout_curt_pct["title"] = {"text": "Unexplained residual (% of Budget)", "font": {"size": 13}}
+    layout_curt_pct["title"] = {"text": "Övrigt / residual (% of Budget)", "font": {"size": 13}}
 
     traces_irr = [
         {"x": months, "y": irr_shortfall_kwh, "type": "bar", "name": "kWh/m²",
@@ -1334,7 +1346,7 @@ Plotly.newPlot('chart-irr-short-pct', {_safe_json(traces_irr_pct)}, {_safe_json(
 """
 
     html = f"""<div class="section" id="{_section_id(11)}">
-    <h2 class="section-title">11. Unexplained Residual &amp; Irradiance Shortfall (YTD Trend)</h2>
+    <h2 class="section-title">11. Övrigt (Residual) &amp; Irradiance Shortfall (YTD Trend)</h2>
     <div class="side-by-side">
         <div>
             <div class="card"><div id="chart-curt-mwh" class="chart-container" style="min-height:280px;"></div></div>
@@ -2123,9 +2135,14 @@ def _render_executive_summary(report: MonthlyReport) -> str:
         loss_items.append(f"Irradiance shortfall (measured): {_fmt(lc.irradiance_shortfall_loss_mwh)} MWh")
     if lc.availability_loss_mwh > 0.1:
         loss_items.append(f"Availability loss (measured): {_fmt(lc.availability_loss_mwh)} MWh")
-    if abs(lc.curtailment_loss_mwh) > 0.1:
-        sign = "loss" if lc.curtailment_loss_mwh > 0 else "gain"
-        loss_items.append(f"Unexplained residual ({sign}): {_fmt(lc.curtailment_loss_mwh)} MWh")
+    if abs(lc.temperature_loss_mwh) > 0.1:
+        sign = "loss" if lc.temperature_loss_mwh > 0 else "gain"
+        loss_items.append(f"Temperature vs climatology ({sign}): {_fmt(lc.temperature_loss_mwh)} MWh")
+    if lc.clipping_loss_mwh > 0.1:
+        loss_items.append(f"Clipping at export limit: {_fmt(lc.clipping_loss_mwh)} MWh")
+    if abs(lc.residual_loss_mwh) > 0.1:
+        sign = "loss" if lc.residual_loss_mwh > 0 else "gain"
+        loss_items.append(f"Övrigt/residual ({sign}): {_fmt(lc.residual_loss_mwh)} MWh")
 
     losses_html = ""
     if loss_items:
@@ -2304,7 +2321,7 @@ def render_html(report: MonthlyReport) -> str:
     sec10_html, sec10_script = _render_loss_cascade_pct(report)
     all_scripts.append(sec10_script)
 
-    sec11_html, sec11_script = _render_curtailment_irr_trend(report)
+    sec11_html, sec11_script = _render_residual_irr_trend(report)
     all_scripts.append(sec11_script)
 
     sec12_html, sec12_script = _render_best_worst_day(report)

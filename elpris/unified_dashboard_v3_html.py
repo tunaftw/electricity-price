@@ -4357,7 +4357,8 @@ var DRILL_LOSS_MODE = 'mwh';
 
 function aggregateLosses(park, keys) {
     var fields = ['budget_mwh','actual_mwh','irradiance_shortfall_mwh',
-                  'availability_mwh','curtailment_mwh'];
+                  'availability_mwh','temperature_mwh','clipping_mwh',
+                  'residual_mwh'];
     var sums = {};
     fields.forEach(function(f) { sums[f] = 0; });
     var any = false;
@@ -4383,15 +4384,19 @@ function renderLossWaterfall(park, keys) {
         return;
     }
     var budget = sums.budget_mwh;
-    var labels = ['Budget', 'Instrålning', 'Tillgänglighet', 'Oförklarat', 'Faktisk'];
-    var measures = ['absolute', 'relative', 'relative', 'relative', 'total'];
+    var labels = ['Budget', 'Instrålning', 'Tillgänglighet', 'Temperatur',
+                  'Clipping', 'Övrigt', 'Faktisk'];
+    var measures = ['absolute', 'relative', 'relative', 'relative',
+                    'relative', 'relative', 'total'];
     var values, unit;
     if (DRILL_LOSS_MODE === 'mwh') {
         values = [
             budget,
             -sums.irradiance_shortfall_mwh,
             -sums.availability_mwh,
-            -sums.curtailment_mwh,
+            -sums.temperature_mwh,
+            -sums.clipping_mwh,
+            -sums.residual_mwh,
             sums.actual_mwh,
         ];
         unit = 'MWh';
@@ -4401,7 +4406,9 @@ function renderLossWaterfall(park, keys) {
             100,
             -pct(sums.irradiance_shortfall_mwh),
             -pct(sums.availability_mwh),
-            -pct(sums.curtailment_mwh),
+            -pct(sums.temperature_mwh),
+            -pct(sums.clipping_mwh),
+            -pct(sums.residual_mwh),
             pct(sums.actual_mwh),
         ];
         unit = '%';

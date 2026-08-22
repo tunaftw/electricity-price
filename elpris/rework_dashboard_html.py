@@ -1132,7 +1132,7 @@ function renderParkDetail(key) {
         '<div class="chart" id="pd-negexp"></div></div>' +
       '<div class="card"><div class="card-head"><h3>Förlustvattenfall — senaste stängda månad</h3></div><div class="chart" id="pd-waterfall"></div></div>' +
       '<div class="card span2"><div class="card-head"><h3>Väder eller teknik? — förlustdekomposition per månad</h3>' +
-        '<p>Avvikelse mot budget uppdelad: instrålning (väder — inget att åtgärda) mot tillgänglighet och curtailment (åtgärdbart). Stängda månader.</p></div>' +
+        '<p>Avvikelse mot budget uppdelad: instrålning (väder — inget att åtgärda) mot tillgänglighet, temperatur, clipping och övrigt (soiling, curtailment, modellfel). Stängda månader.</p></div>' +
         '<div class="chart" id="pd-loss-decomp"></div></div>' +
       '<div class="card span2"><div class="card-head"><h3>Daglig produktion — senaste månaderna</h3></div><div class="chart" id="pd-daily"></div></div>' +
     '</div>';
@@ -1222,12 +1222,13 @@ function renderParkDetail(key) {
     const L = wfm.losses;
     plot('pd-waterfall', [{
       type: 'waterfall', orientation: 'v',
-      measure: ['absolute', 'relative', 'relative', 'relative', 'total'],
-      x: ['Budget', 'Instrålning', 'Tillgänglighet', 'Övrigt/curtailment', 'Faktisk'],
+      measure: ['absolute', 'relative', 'relative', 'relative', 'relative', 'relative', 'total'],
+      x: ['Budget', 'Instrålning', 'Tillgänglighet', 'Temperatur', 'Clipping', 'Övrigt', 'Faktisk'],
       y: [L.budget_mwh, -(L.irradiance_shortfall_mwh || 0), -(L.availability_mwh || 0),
-          -(L.curtailment_mwh || 0), null],
+          -(L.temperature_mwh || 0), -(L.clipping_mwh || 0), -(L.residual_mwh || 0), null],
       text: [fmt(L.budget_mwh), fmt(-(L.irradiance_shortfall_mwh || 0)),
-             fmt(-(L.availability_mwh || 0)), fmt(-(L.curtailment_mwh || 0)), fmt(L.actual_mwh)],
+             fmt(-(L.availability_mwh || 0)), fmt(-(L.temperature_mwh || 0)),
+             fmt(-(L.clipping_mwh || 0)), fmt(-(L.residual_mwh || 0)), fmt(L.actual_mwh)],
       textposition: 'outside',
       connector: { line: { color: C.line } },
       increasing: { marker: { color: C.green } },
@@ -1253,16 +1254,17 @@ function renderParkDetail(key) {
   if (decompM.length) {
     const dxm = decompM.map(m => mLabel(m.year + '-' + String(m.month).padStart(2, '0')));
     // Degenererad dekomposition: när POA-data saknas blir instrålnings-
-    // komponenten ~hela budgeten och residualen (curtailment) kraftigt
+    // komponenten ~hela budgeten och residualen kraftigt
     // negativ som kompensation. Visa då bara netto, inte komponenterna.
-    const isDegen = m => (m.losses.curtailment_mwh || 0) <
+    const isDegen = m => (m.losses.residual_mwh || 0) <
                          -0.05 * (m.losses.budget_mwh || 0);
     const net = m => (m.losses.actual_mwh || 0) - (m.losses.budget_mwh || 0);
     const comp = [
       { key: 'irradiance_shortfall_mwh', name: 'Instrålning (väder)', color: C.faint },
       { key: 'availability_mwh',         name: 'Tillgänglighet',      color: C.coral },
-      { key: 'curtailment_mwh',          name: 'Curtailment/övrigt',  color: C.amber },
+      { key: 'residual_mwh',             name: 'Övrigt (soiling, curtailment, modellfel)', color: C.amber },
       { key: 'temperature_mwh',          name: 'Temperatur',          color: C.navy },
+      { key: 'clipping_mwh',             name: 'Clipping',            color: C.tealDeep },
     ];
     const decompTraces = comp.map(c => ({
       type: 'bar', name: c.name, x: dxm,
