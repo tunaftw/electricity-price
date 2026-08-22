@@ -87,7 +87,17 @@ PARK_WEATHER_STATIONS = {
 
 # Data points to fetch per object type
 PARK_POINTS = ["ActivePowerMeter", "ActivePower", "IrradiancePOA", "Availability"]
-WEATHER_POINTS = ["IrradianceGHI", "WindSpeed", "Humidity"]
+# TempAmbient finns på 7 av 8 väderstationer (Tången saknar den — dess
+# Temperature7/TempPanelAvg är paneltemperatur). Serien är opålitlig:
+# sentinelvärden runt 6537-6553, NaN-perioder och start först under 2025.
+# Den sparas som `temp_air` för korsvalidering, men temperaturkorrigerad PR
+# ska använda ERA5-serierna i elpris/temperature.py.
+WEATHER_POINTS = ["IrradianceGHI", "WindSpeed", "Humidity", "TempAmbient"]
+
+# Rimlighetsintervall för lufttemperatur (°C) — filtrerar Bazefields
+# sentinelvärden (~6553) och NaN från väderstationsgivarna.
+TEMP_AIR_MIN_C = -60.0
+TEMP_AIR_MAX_C = 50.0
 
 # Per-park irradiance source override (POA workaround)
 # Bazefield's IrradiancePOA on the park object averages multiple sensors,
@@ -318,7 +328,11 @@ def fetch_weather_data(
 ) -> list[dict]:
     """Fetch weather station data for a park.
 
-    Returns list of {timestamp, ghi, wind_speed, humidity}.
+    Returns list of {timestamp, ghi, wind_speed, humidity, temp_air}.
+
+    `temp_air` (Bazefield TempAmbient) sanity-filtreras: NaN och värden
+    utanför TEMP_AIR_MIN_C..TEMP_AIR_MAX_C hoppas över, annars skulle
+    sentinelvärdena runt 6553 hamna i CSV:en.
     """
     ws_id = PARK_WEATHER_STATIONS.get(park_key)
     if not ws_id:
@@ -332,13 +346,20 @@ def fetch_weather_data(
             "IrradianceGHI": "ghi",
             "WindSpeed": "wind_speed",
             "Humidity": "humidity",
+            "TempAmbient": "temp_air",
         }
         field = field_map.get(point_name, point_name)
         for rec in records:
+            value = rec["value"]
+            if field == "temp_air":
+                if value != value:  # NaN
+                    continue
+                if not (TEMP_AIR_MIN_C <= value <= TEMP_AIR_MAX_C):
+                    continue
             ts = rec["timestamp"]
             if ts not in by_ts:
                 by_ts[ts] = {"timestamp": ts}
-            by_ts[ts][field] = rec["value"]
+            by_ts[ts][field] = value
 
     return [by_ts[ts] for ts in sorted(by_ts)]
 
@@ -453,7 +474,7 @@ def save_park_data(park_key: str, records: list[dict]) -> int:
     return len(new_records)
 
 
-WEATHER_CSV_FIELDS = ["timestamp", "ghi", "wind_speed", "humidity"]
+WEATHER_CSV_FIELDS = ["timestamp", "ghi", "wind_speed", "humidity", "temp_air"]
 
 def get_weather_csv_path(park_key: str) -> Path:
     """Get CSV path for weather station data."""
@@ -461,23 +482,43 @@ def get_weather_csv_path(park_key: str) -> Path:
     return PARKS_PROFILE_DIR / f"{park_key}_{park['zone']}_weather.csv"
 
 def save_weather_data(park_key: str, records: list[dict]) -> int:
-    """Save weather data to CSV, avoiding duplicates."""
+    """Save weather data to CSV, avoiding duplicates.
+
+    Filer skrivna innan `temp_air` lades till saknar kolumnen. Att appenda
+    5-fältsrader till en 4-kolumnsfil skulle skapa trasig CSV, så en fil med
+    gammal header skrivs om med den nya kolumnuppsättningen (befintliga rader
+    får tomt `temp_air`).
+    """
     if not records:
         return 0
 
     csv_path = get_weather_csv_path(park_key)
     PARKS_PROFILE_DIR.mkdir(parents=True, exist_ok=True)
 
+    existing_rows: list[dict] = []
+    existing_fields: list[str] = []
     existing_timestamps: set[str] = set()
     if csv_path.exists():
         with open(csv_path, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
+            existing_fields = reader.fieldnames or []
             for row in reader:
+                existing_rows.append(row)
                 existing_timestamps.add(row["timestamp"])
 
     new_records = [r for r in records if r["timestamp"] not in existing_timestamps]
     if not new_records:
         return 0
+
+    if existing_fields and set(existing_fields) != set(WEATHER_CSV_FIELDS):
+        # Gammalt format — skriv om filen med utökade kolumner
+        all_rows = existing_rows + new_records
+        all_rows.sort(key=lambda r: r["timestamp"])
+        with open(csv_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=WEATHER_CSV_FIELDS, extrasaction="ignore")
+            writer.writeheader()
+            writer.writerows(all_rows)
+        return len(new_records)
 
     write_header = not csv_path.exists()
     with open(csv_path, "a", newline="", encoding="utf-8") as f:

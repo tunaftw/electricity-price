@@ -4,16 +4,17 @@
 This script runs the entire update pipeline:
  1. Update spot prices (elprisetjustnu.se)
  2. Sync Bazefield solar park data (if API key available)
- 3. Update ENTSO-E generation data (if token available)
- 4. Update Mimer regulation prices (SVK)
- 5. Update Nasdaq Nordic futures
- 6. Update eSett imbalance prices
- 7. Process raw data to quarterly format
- 8. Calculate capture prices
- 9. Generate Excel reports
-10. Generate Unified Dashboard (Track C — Nordic Editorial)
-11. Generate park performance reports (only with --reports / --auto-reports)
-12. Show status
+ 3. Update park air temperature (Open-Meteo ERA5)
+ 4. Update ENTSO-E generation data (if token available)
+ 5. Update Mimer regulation prices (SVK)
+ 6. Update Nasdaq Nordic futures
+ 7. Update eSett imbalance prices
+ 8. Process raw data to quarterly format
+ 9. Calculate capture prices
+10. Generate Excel reports
+11. Generate Unified Dashboard (Track C — Nordic Editorial)
+12. Generate park performance reports (only with --reports / --auto-reports)
+13. Show status
 """
 
 from __future__ import annotations
@@ -155,6 +156,11 @@ def main():
         help="Skip Bazefield solar park sync",
     )
     parser.add_argument(
+        "--skip-temperature",
+        action="store_true",
+        help="Skip park air temperature download (Open-Meteo ERA5)",
+    )
+    parser.add_argument(
         "--skip-excel",
         action="store_true",
         help="Skip Excel report generation",
@@ -190,7 +196,7 @@ def main():
     print(f"Bazefield key: {'Found' if BAZEFIELD_API_KEY else 'Not found'}")
     print("=" * 60)
 
-    total_steps = 12
+    total_steps = 13
     current_step = 0
     success_count = 0
     failures: list[str] = []
@@ -224,7 +230,20 @@ def main():
             print("  Failed or no updates needed")
             failures.append(f"step {current_step}")
 
-    # Step 3: Update ENTSO-E (if token available and not skipped)
+    # Step 3: Update park air temperature (Open-Meteo ERA5, no API key)
+    current_step += 1
+    if args.skip_temperature:
+        step(current_step, total_steps, "Park air temperature (SKIPPED)")
+    else:
+        step(current_step, total_steps, "Updating park air temperature (Open-Meteo ERA5)")
+        if run_script("temperature_download.py", quiet=args.quiet):
+            success_count += 1
+            print("  Done!")
+        else:
+            print("  Failed or no updates needed")
+            failures.append(f"step {current_step}")
+
+    # Step 4: Update ENTSO-E (if token available and not skipped)
     current_step += 1
     if args.skip_entsoe:
         step(current_step, total_steps, "ENTSO-E data (SKIPPED - user request)")
@@ -241,7 +260,7 @@ def main():
             print("  Failed or no updates needed")
             failures.append(f"step {current_step}")
 
-    # Step 4: Update Mimer regulation prices
+    # Step 5: Update Mimer regulation prices
     current_step += 1
     if args.skip_mimer:
         step(current_step, total_steps, "Mimer regulation prices (SKIPPED)")
@@ -254,7 +273,7 @@ def main():
             print("  Failed or no updates needed")
             failures.append(f"step {current_step}")
 
-    # Step 5: Update Nasdaq futures
+    # Step 6: Update Nasdaq futures
     current_step += 1
     if args.skip_nasdaq:
         step(current_step, total_steps, "Nasdaq futures (SKIPPED)")
@@ -267,7 +286,7 @@ def main():
             print("  Failed or no updates needed")
             failures.append(f"step {current_step}")
 
-    # Step 6: Update eSett imbalance prices
+    # Step 7: Update eSett imbalance prices
     current_step += 1
     if args.skip_esett:
         step(current_step, total_steps, "eSett imbalance prices (SKIPPED)")
@@ -281,7 +300,7 @@ def main():
             print("  Failed or no updates needed")
             failures.append(f"step {current_step}")
 
-    # Step 7: Process to quarterly format
+    # Step 8: Process to quarterly format
     current_step += 1
     step(current_step, total_steps, "Processing data to quarterly format")
     process_args = ["--zones"] + args.zones
@@ -292,7 +311,7 @@ def main():
         print("  Failed")
         failures.append(f"step {current_step}")
 
-    # Step 8: Calculate capture prices
+    # Step 9: Calculate capture prices
     current_step += 1
     step(current_step, total_steps, "Calculating capture prices")
     # Run capture for each zone and print summary
@@ -308,7 +327,7 @@ def main():
     else:
         failures.append(f"step {current_step}")
 
-    # Step 9: Generate Excel reports
+    # Step 10: Generate Excel reports
     current_step += 1
     if args.skip_excel:
         step(current_step, total_steps, "Excel reports (SKIPPED)")
@@ -335,7 +354,7 @@ def main():
             print(f"  Error generating Excel: {e}")
             failures.append(f"step {current_step}")
 
-    # Step 10: Generate Unified Dashboard (Track C — Nordic Editorial)
+    # Step 11: Generate Unified Dashboard (Track C — Nordic Editorial)
     current_step += 1
     step(current_step, total_steps, "Generating Unified Dashboard (Track C)")
     if run_script("generate_unified_dashboard.py", quiet=args.quiet):
@@ -345,7 +364,7 @@ def main():
         print("  Failed")
         failures.append(f"step {current_step}")
 
-    # Step 11: Park performance reports (conditional on --reports or --auto-reports)
+    # Step 12: Park performance reports (conditional on --reports or --auto-reports)
     current_step += 1
     if args.reports:
         step(current_step, total_steps, "Generating park performance reports")
@@ -375,7 +394,7 @@ def main():
     else:
         step(current_step, total_steps, "Park reports (SKIPPED — use --reports or --auto-reports)")
 
-    # Step 12: Show status
+    # Step 13: Show status
     current_step += 1
     step(current_step, total_steps, "Data status")
     run_script("status.py", quiet=False)
