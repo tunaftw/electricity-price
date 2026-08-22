@@ -48,7 +48,7 @@ electricity-price/
 ├── Resultat/                            # All nedladdad data + analyser (se nedan)
 ├── data/                                # Symlinks till Resultat/ (delvis — se nedan)
 ├── docs/                                # Insikter + planer (active vs archive)
-├── update_all.py                        # Master pipeline (12 steg)
+├── update_all.py                        # Master pipeline (14 steg)
 ├── download.py                          # Spotpriser, full historik
 ├── update.py                            # Spotpriser, inkrementellt
 ├── process.py                           # Konvertera tim → quarterly
@@ -63,6 +63,7 @@ electricity-price/
 ├── generate_unified_dashboard.py        # Bygg unified dashboard (Track C)
 ├── generate_rework_dashboard.py         # Bygg rework-dashboard (Nordic Clarity)
 ├── generate_performance_report.py       # Bygg per-park månadsrapport
+├── generate_puls.py                     # Daglig puls (avvikelsedetektion + digest)
 └── discover_inverters.py                # Maintenance: regenerera inverter_registry.py
 ```
 
@@ -151,7 +152,7 @@ Resultat/
 Slash commands i `.claude/commands/`. Master-kommandot rekommenderas för rutinkörningar.
 
 ### Master Update (rekommenderad)
-- `/elpris-update-all` — Hela pipelinen (12 steg: spotpriser → Bazefield → ENTSO-E → Mimer → Nasdaq → eSett → process → capture → Excel → unified dashboard → status). Lägg till `--reports` för per-park månadsrapport.
+- `/elpris-update-all` — Hela pipelinen (14 steg: spotpriser → Bazefield → temperatur → ENTSO-E → Mimer → Nasdaq → eSett → process → capture → Excel → unified dashboard → parkrapporter → daglig puls → status). Lägg till `--reports` för per-park månadsrapport.
 
 ### Datakällor
 - `/elpris-download` — Spotpriser, full historik
@@ -261,6 +262,24 @@ python3 generate_performance_report.py --park horby                  # senaste f
 Skapar `Resultat/rapporter/performance_<park>_<zone>_YYYY-MM.html` med 19 sektioner: KPI, YTD, daglig produktion, PR, PI, förlustanalys (waterfall), bästa/sämsta dagar + platshållare för inverter/alarm.
 
 **Parkbudget:** PVsyst TMY som default. Manuella overrides i `PARK_BUDGET_OVERRIDES` i `elpris/park_config.py`.
+
+### Daglig puls (Insikt — avvikelsedetektion)
+```bash
+python3 generate_puls.py                     # igår (svensk lokaltid)
+python3 generate_puls.py --date 2026-04-27   # valfritt dygn
+python3 generate_puls.py --no-html           # bara terminal-sammanfattning
+```
+Kör sex detektorer över ett dygn och rapporterar bara det som avviker:
+inverter-underprestation (< 70 % av parkmedianen ≥ 3 dagar), fastnad
+nattsignal (POA ≤ 5 W/m² men inverter-effekt), saknad/tunn parkdata,
+yield-avvikelse mot parkens egna 30 dagar (väderjusterad via POA),
+alarmspik/ny alarmtyp och släpande marknadsdatakällor.
+Tom dag ⇒ en lugn rad, ingen rapport-spam. Exit-kod alltid 0.
+
+Skriver `Resultat/rapporter/puls/puls_YYYY-MM-DD.html` (~5 kB, ingen JS).
+Backend: `elpris/insikt/puls.py` — alla trösklar är namngivna modulkonstanter,
+detektorerna är rena funktioner (data in, fynd ut). Ingår som steg 13 i
+`update_all.py` (hoppas över med `--skip-puls`).
 
 ### Inverter registry (maintenance)
 ```bash

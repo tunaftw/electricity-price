@@ -14,7 +14,8 @@ This script runs the entire update pipeline:
 10. Generate Excel reports
 11. Generate Unified Dashboard (Track C — Nordic Editorial)
 12. Generate park performance reports (only with --reports / --auto-reports)
-13. Show status
+13. Daily puls (anomaly digest for yesterday)
+14. Show status
 """
 
 from __future__ import annotations
@@ -166,6 +167,11 @@ def main():
         help="Skip Excel report generation",
     )
     parser.add_argument(
+        "--skip-puls",
+        action="store_true",
+        help="Skip daily puls (anomaly digest)",
+    )
+    parser.add_argument(
         "--reports",
         action="store_true",
         help="Also regenerate park performance reports",
@@ -196,7 +202,7 @@ def main():
     print(f"Bazefield key: {'Found' if BAZEFIELD_API_KEY else 'Not found'}")
     print("=" * 60)
 
-    total_steps = 13
+    total_steps = 14
     current_step = 0
     success_count = 0
     failures: list[str] = []
@@ -394,7 +400,22 @@ def main():
     else:
         step(current_step, total_steps, "Park reports (SKIPPED — use --reports or --auto-reports)")
 
-    # Step 13: Show status
+    # Step 13: Daily puls (anomaly digest for yesterday)
+    # Runs after reports so it sees the freshly synced data. Findings are not
+    # process failures — generate_puls.py always exits 0 — so this step only
+    # counts as failed if the script itself crashes.
+    current_step += 1
+    if args.skip_puls:
+        step(current_step, total_steps, "Daglig puls (SKIPPED)")
+    else:
+        step(current_step, total_steps, "Daglig puls (avvikelsedetektion)")
+        if run_script("generate_puls.py", quiet=False):
+            success_count += 1
+        else:
+            print("  Failed")
+            failures.append(f"step {current_step}")
+
+    # Step 14: Show status
     current_step += 1
     step(current_step, total_steps, "Data status")
     run_script("status.py", quiet=False)
