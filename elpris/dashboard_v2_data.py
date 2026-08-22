@@ -620,6 +620,77 @@ def _parse_contract_period(symbol: str) -> tuple[str, str, str, str] | None:
     )
 
 
+# Handeln i ett kontrakt upphör dagarna före leveransstart. En final som
+# ligger inom det här fönstret räknas som fullständigt fångad historik.
+CLEAN_FINAL_GRACE_DAYS = 7
+# Hur nära leveransstart ett aktivt kontrakt får komma innan en gammal fix
+# ska larma, och hur gammal fixen då måste vara.
+EXPIRY_WARNING_DAYS = 14
+STALE_FIX_DAYS = 7
+
+
+def is_clean_final(final_settlement_date: str, delivery_start: str) -> bool:
+    """Är sista daily_fix fångad tillräckligt nära leveransstart?
+
+    True när ``final_settlement_date`` ligger högst
+    ``CLEAN_FINAL_GRACE_DAYS`` dagar före ``delivery_start``. False betyder
+    att historiken har en lucka — kontraktet slutade synas i källan långt
+    innan det gick till leverans (jfr Q1-26, sista fix 2025-03-28).
+    """
+    cutoff = (
+        datetime.fromisoformat(delivery_start).date()
+        - timedelta(days=CLEAN_FINAL_GRACE_DAYS)
+    )
+    return final_settlement_date >= cutoff.isoformat()
+
+
+def build_forward_health(
+    contracts: list[dict], today: date | None = None
+) -> dict[str, list[dict]]:
+    """Bygg forward_health ur kontrakt med leveransperiod och sista fix.
+
+    Args:
+        contracts: dictar med nycklarna ``label``, ``start``, ``end``,
+            ``last_fix`` (alla ISO-datumsträngar utom label).
+        today: överstyr dagens datum (för tester).
+
+    Returns:
+        {"stale_finals": [...], "approaching_expiry": [...]} — samma data
+        som ``status.py`` skriver ut som varningar.
+    """
+    today = today or date.today()
+    health: dict[str, list[dict]] = {"stale_finals": [], "approaching_expiry": []}
+
+    for c in contracts:
+        start_d = datetime.fromisoformat(c["start"]).date()
+        end_d = datetime.fromisoformat(c["end"]).date()
+        last_fix = c["last_fix"]
+        last_fix_d = datetime.fromisoformat(last_fix).date()
+
+        # Stale final: kontraktet är levererat men sista fix ligger mer än
+        # grace-fönstret före leveransstart — historiken är ofullständig.
+        if end_d < today and not is_clean_final(last_fix, c["start"]):
+            health["stale_finals"].append({
+                "contract": c["label"],
+                "expected_near": (start_d - timedelta(days=1)).isoformat(),
+                "last_fix": last_fix,
+            })
+
+        # Approaching expiry: leverans startar snart och fixen är gammal —
+        # synka innan kontraktet försvinner ur källan.
+        days_to_delivery = (start_d - today).days
+        days_stale = (today - last_fix_d).days
+        if 0 <= days_to_delivery <= EXPIRY_WARNING_DAYS and days_stale > STALE_FIX_DAYS:
+            health["approaching_expiry"].append({
+                "contract": c["label"],
+                "delivery_start": c["start"],
+                "last_fix": last_fix,
+                "days_stale": days_stale,
+            })
+
+    return health
+
+
 def _load_full_history(filepath: Path) -> dict[str, list[dict]]:
     """Load full daily history per contract from a futures CSV.
 
@@ -832,9 +903,10 @@ def load_forward_curve_data(spot_data: dict[str, dict]) -> dict | None:
     ]
 
     # ------------------------------------------------------------------
-    # forward_history: full daily settlement series per contract.
-    # Includes every contract that ever appeared in CSV, so the frontend
-    # convergence view can render delivered, in-delivery and pending alike.
+    # forward_history: full daglig settlement-serie per kontrakt.
+    # Endast levererade eller pågående kontrakt tas med — de som ännu inte
+    # gått till leverans har inget utfall att jämföras mot och ligger redan
+    # i `contracts`/`sys`/`epad`. Filtret håller också payloaden nere.
     # ------------------------------------------------------------------
     sys_history = _load_full_history(sys_file)
     epad_history: dict[str, dict[str, list[dict]]] = {}
@@ -843,17 +915,14 @@ def load_forward_curve_data(spot_data: dict[str, dict]) -> dict | None:
 
     forward_history: dict[str, dict] = {}
     today = date.today()
-    for c in contracts:
+    in_delivery = [c for c in contracts if c["start"] <= today.isoformat()]
+    for c in in_delivery:
         symbol = c["symbol"]
         sys_series = sys_history.get(symbol, [])
         if not sys_series:
             continue
         final_date = sys_series[-1]["date"]
-        delivery_start = c["start"]
-        # 7-day grace window before delivery counts as "clean" final fix
-        is_clean = final_date >= (
-            datetime.fromisoformat(delivery_start).date() - timedelta(days=7)
-        ).isoformat()
+        is_clean = is_clean_final(final_date, c["start"])
 
         # Realised spot per zone over the contract delivery period.
         realised = {}
@@ -893,39 +962,23 @@ def load_forward_curve_data(spot_data: dict[str, dict]) -> dict | None:
         }
 
     # ------------------------------------------------------------------
-    # forward_health: stale finals + approaching expiry (for status.py)
+    # forward_health: stale finals + approaching expiry.
+    # Täcker alla kontrakt (även ännu ej levererade — det är just de som
+    # kan hinna försvinna ur källan). Samma data som status.py varnar om.
     # ------------------------------------------------------------------
-    forward_health = {"stale_finals": [], "approaching_expiry": []}
-    today_iso = today.isoformat()
-    for c in contracts:
-        sys_series = sys_history.get(c["symbol"], [])
-        if not sys_series:
-            continue
-        final_date = sys_series[-1]["date"]
-        delivery_start_d = datetime.fromisoformat(c["start"]).date()
-        delivery_end_d = datetime.fromisoformat(c["end"]).date()
-        last_fix_d = datetime.fromisoformat(final_date).date()
-
-        # Stale final: contract has delivered but last fix is > 7 days
-        # before delivery_start (incomplete capture).
-        if delivery_end_d < today and last_fix_d < delivery_start_d - timedelta(days=7):
-            forward_health["stale_finals"].append({
-                "contract": c["label"],
-                "expected_near": (delivery_start_d - timedelta(days=1)).isoformat(),
-                "last_fix": final_date,
-            })
-
-        # Approaching expiry: delivery_start within 14 days, last fix > 7 days old.
-        if (
-            0 <= (delivery_start_d - today).days <= 14
-            and (today - last_fix_d).days > 7
-        ):
-            forward_health["approaching_expiry"].append({
-                "contract": c["label"],
-                "delivery_start": c["start"],
-                "last_fix": final_date,
-                "days_stale": (today - last_fix_d).days,
-            })
+    forward_health = build_forward_health(
+        [
+            {
+                "label": c["label"],
+                "start": c["start"],
+                "end": c["end"],
+                "last_fix": sys_history[c["symbol"]][-1]["date"],
+            }
+            for c in contracts
+            if sys_history.get(c["symbol"])
+        ],
+        today=today,
+    )
 
     return {
         "settlement_date": settlement_date,

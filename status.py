@@ -129,34 +129,36 @@ def print_futures_health():
       than 7 days before delivery_start, indicating an old coverage gap
       whose historical settlement data is incomplete.
     """
-    from datetime import date, datetime, timedelta
     from elpris.config import NASDAQ_DATA_DIR
-    from elpris.dashboard_v2_data import _load_full_history, _parse_contract_period
+    from elpris.dashboard_v2_data import (
+        EXPIRY_WARNING_DAYS,
+        _load_full_history,
+        _parse_contract_period,
+        build_forward_health,
+    )
 
     sys_file = NASDAQ_DATA_DIR / "sys_baseload.csv"
     if not sys_file.exists():
         return
 
-    history = _load_full_history(sys_file)
-    today = date.today()
-
-    approaching = []
-    stale = []
-    for symbol, series in history.items():
+    contracts = []
+    for symbol, series in _load_full_history(sys_file).items():
         if not series:
             continue
         parsed = _parse_contract_period(symbol)
         if not parsed:
             continue
         label, _ctype, start_iso, end_iso = parsed
-        start_d = datetime.fromisoformat(start_iso).date()
-        end_d = datetime.fromisoformat(end_iso).date()
-        last_d = datetime.fromisoformat(series[-1]["date"]).date()
+        contracts.append({
+            "label": label,
+            "start": start_iso,
+            "end": end_iso,
+            "last_fix": series[-1]["date"],
+        })
 
-        if 0 <= (start_d - today).days <= 14 and (today - last_d).days > 7:
-            approaching.append((label, start_iso, last_d, (today - last_d).days))
-        if end_d < today and last_d < start_d - timedelta(days=7):
-            stale.append((label, start_iso, last_d))
+    health = build_forward_health(contracts)
+    approaching = health["approaching_expiry"]
+    stale = health["stale_finals"]
 
     if not approaching and not stale:
         return
@@ -168,15 +170,15 @@ def print_futures_health():
     print("\nFUTURES HEALTH (forward coverage)")
     print("=" * 60)
     if approaching:
-        for label, start_iso, last_d, days_stale in approaching:
-            print(f"{RED}⚠ {label} expires in <14 days (delivery {start_iso}); "
-                  f"last fix {last_d} ({days_stale} days stale).{RESET}")
+        for row in approaching:
+            print(f"{RED}⚠ {row['contract']} expires in <{EXPIRY_WARNING_DAYS} days "
+                  f"(delivery {row['delivery_start']}); last fix {row['last_fix']} "
+                  f"({row['days_stale']} days stale).{RESET}")
         print("  Run: python3 nasdaq_download.py")
     if stale:
-        for label, start_iso, last_d in stale:
-            expected_near = (datetime.fromisoformat(start_iso).date() - timedelta(days=1))
-            print(f"{YELLOW}⚠ {label}: last fix {last_d}, expected near "
-                  f"{expected_near}. Possible coverage gap — historical "
+        for row in stale:
+            print(f"{YELLOW}⚠ {row['contract']}: last fix {row['last_fix']}, expected "
+                  f"near {row['expected_near']}. Possible coverage gap — historical "
                   f"settlement may be missing.{RESET}")
     print("=" * 60)
 

@@ -1,7 +1,9 @@
 # Futures historical tracking + Forward-vs-realised split
 
 **Datum:** 2026-05-03
-**Status:** Design godkänd, ej påbörjad
+**Status:** Shippad 2026-08-22. Steg 1–4 levererade; steg 5 (backfill) utfört som
+experiment med negativt utfall — `--backfill-expired` implementerades aldrig.
+Se "Utfall backfill-experiment 2026-08-22" nedan.
 **Berör:** FUTURES-fliken på unified dashboard, `dashboard_v2_data.py`, `nasdaq_download.py`, `status.py`
 
 ## Bakgrund
@@ -67,6 +69,10 @@ Endast levererade eller pågående kontrakt (de aktiva ligger redan i `contracts
 Storleksuppskattning: ~600 dagar × 4 EPAD-zoner × 5–10 kontrakt ≈ < 200 KB
 tillagt i JSON.
 
+→ Uppmätt 2026-08-22: 3 kontrakt (Q1-26, Q2-26, Q3-26), 102,4 KB. Utan
+leveransfiltret blir det 22 kontrakt och 599,5 KB — filtret är alltså det som
+håller budgeten.
+
 **Ny output-nyckel `forward_health`** med arrayer av kontrakt som har
 "stale final" eller är "approaching expiry" — samma data som `status.py`
 använder för varningar.
@@ -131,6 +137,9 @@ returnerar data för delistade kontrakt via gammalt orderbook-ID. Om ja: ny
 flagga `nasdaq_download.py --backfill-expired` som re-söker via cachade ID:n.
 Om nej: luckan accepteras och flaggas som "data missing" i lookback-tabellen.
 
+→ Testat 2026-08-22, utfallet blev **nej**. Se avsnittet
+"Utfall backfill-experiment 2026-08-22" nedan.
+
 ## Filer som påverkas
 
 - `elpris/dashboard_v2_data.py` — utökar `load_forward_curve_data` med
@@ -139,10 +148,11 @@ Om nej: luckan accepteras och flaggas som "data missing" i lookback-tabellen.
   lägger till `renderSysForwardChart`, `renderZoneForwardVsRealisedChart`,
   `renderConvergenceChart`, `renderLookbackTable`. State-utökning:
   `FUTURES_STATE.convergenceContract`.
-- `status.py` — två nya checkar.
-- `elpris/nasdaq.py` — `discover_and_download` accepterar
-  `include_delisted=False` parameter (default oförändrat beteende).
-- `nasdaq_download.py` — ny `--backfill-expired` flagga (experimentell).
+- `status.py` — två nya checkar (delar tröskellogik med datalagret via
+  `build_forward_health`).
+- ~~`elpris/nasdaq.py` — `discover_and_download` accepterar
+  `include_delisted=False` parameter~~ — ej implementerad, se backfill-utfallet.
+- ~~`nasdaq_download.py` — ny `--backfill-expired` flagga~~ — ej implementerad.
 
 ## Leveransordning (separata commits)
 
@@ -159,8 +169,52 @@ Om nej: luckan accepteras och flaggas som "data missing" i lookback-tabellen.
 
 Pytest-täckningen är begränsad. Verifieras manuellt genom att köra
 `python3 generate_unified_dashboard.py` efter varje steg och inspektera
-HTML-output. Inga nya pytest-tester om vi inte hittar regression-prone
-hjälpfunktioner värda att skydda.
+HTML-output.
+
+Datalagret visade sig ha regression-känsliga hjälpfunktioner värda att skydda,
+så `tests/test_forward_history.py` täcker `_parse_contract_period`,
+`is_clean_final` (inklusive gränsfallet exakt 7 dagar), `build_forward_health`
+(båda varningsvägarna) och `forward_history`-bygget med syntetiska CSV-fixturer
+— särskilt att kontrakt som ännu inte gått till leverans exkluderas.
+
+## Utfall backfill-experiment 2026-08-22
+
+**Slutsats: NEJ — retroaktiv backfill är inte möjlig via Nasdaqs API.**
+`--backfill-expired` och `include_delisted` implementerades därför inte.
+Q1-26-luckan (sista fix 2025-03-28 mot leveransstart 2026-01-01) är permanent
+och flaggas som "data missing" i lookback-tabellen samt av `status.py`.
+
+Experimentet gick ut på att hitta ett orderbook-ID för ett delistat kontrakt
+och anropa `instruments/{orderbookId}/price-history` med det. Fyra spår testades:
+
+1. **Sök-API:t.** `GET /api/nordic/search?searchText=ENOFUTBL` (och `ENOFUT`,
+   `FUTBL`, `EPAD`, `Nordic System`, samt exakta symboler som `ENOFUTBLQ1-26`
+   och `ENOFUTBLQ4-26`) returnerar `NO_INST_FOUND`. Detta gäller **alla**
+   nordiska kraftfutures — inte bara delistade utan även aktiva kontrakt.
+   Kontrollsökningar på aktier (`ERIC`, `VOLVO`) returnerar normala träffar,
+   så endpointen fungerar; kraftderivaten är helt borta ur Nasdaqs sökindex
+   efter flytten till Euronext i mars 2026.
+2. **Cachade ID:n.** Inga orderbook-ID:n finns bevarade någonstans:
+   futures-CSV:erna lagrar bara `contract`-symbolen, `elpris/nasdaq.py`
+   cachar inget mellan körningar (`discover_and_download` skriver ut ID:t men
+   sparar det aldrig), `Resultat/logs/` innehåller bara `failed_chunks.csv`,
+   och en genomsökning av hela git-historiken hittade inga ID:n.
+3. **Listnings-endpoints.** `/api/nordic/instruments?assetClass=COMMODITIES`,
+   `/api/nordic/commodities`, `/api/nordic/market/commodities` och
+   `/api/nordic/instruments/list` ger alla 404 — det finns ingen väg att
+   räkna upp instrument utan att gå via sök.
+4. **price-history direkt.** Endpointen lever (equity-ID `TX68` med
+   `assetClass=SHARES` ger 200 och full prishistorik), men varje
+   `assetClass=COMMODITIES`-anrop svarar
+   `400 {"code":10003,"errorMessage":"Instrument not found"}`. Utan ett giltigt
+   ID går det inte att skilja "delistat instrument avvisas" från "fel ID", och
+   ID-rymden är numerisk och för stor för att gissa.
+
+Eftersom Nasdaq inte längre listar ens aktiva kraftkontrakt är hela
+Nasdaq-historikvägen död framåt; `sys_baseload.csv` och EPAD-filerna hålls
+numera aktuella av Euronext-snapshotten (`update_euronext_power_snapshot`).
+Den operativa garantin ligger därmed helt på `status.py`-varningarna: fångar
+vi inte fixen innan leveransstart är den förlorad.
 
 ## Avgränsning
 
