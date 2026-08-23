@@ -64,6 +64,8 @@ electricity-price/
 ├── generate_rework_dashboard.py         # Bygg rework-dashboard (Nordic Clarity)
 ├── generate_performance_report.py       # Bygg per-park månadsrapport
 ├── generate_puls.py                     # Daglig puls (avvikelsedetektion + digest)
+├── generate_insikt.py                   # Insikt-dashboard (slutsats-först, 3 sektioner)
+├── generate_investor_report.py          # Investerarrapport (kurerad månadsexport)
 └── discover_inverters.py                # Maintenance: regenerera inverter_registry.py
 ```
 
@@ -261,7 +263,35 @@ python3 generate_performance_report.py --park horby                  # senaste f
 ```
 Skapar `Resultat/rapporter/performance_<park>_<zone>_YYYY-MM.html` med 19 sektioner: KPI, YTD, daglig produktion, PR, PI, förlustanalys (waterfall), bästa/sämsta dagar + platshållare för inverter/alarm.
 
-**Parkbudget:** PVsyst TMY som default. Manuella overrides i `PARK_BUDGET_OVERRIDES` i `elpris/park_config.py`.
+**Parkbudget:** `PARK_BUDGET_OVERRIDES` i `elpris/park_config.py` är ifylld (2026-08) med
+månadsvärden direkt ur varje parks PVsyst SRC Forecast-rapport (E_Grid/GlobInc/PR).
+Degradering −0,5 %/år från `PVSYST_BASE_YEAR = 2026` appliceras centralt i `get_budget()`.
+Förlustkaskaden är uppdelad: instrålning, tillgänglighet, temperaturavvikelse mot
+ERA5-klimatologi (gamma per park i `PARK_TEMP_COEFF_PCT_PER_C`), clipping mot exportgräns,
+residual ("Övrigt").
+
+### Insikt — produktdashboard (slutsats först)
+```bash
+python3 generate_insikt.py                                   # ~35 s
+python3 generate_insikt.py --save-data /tmp/insikt.json      # cacha data
+python3 generate_insikt.py --from-data /tmp/insikt.json      # iterera på renderaren
+```
+Skapar `Resultat/rapporter/insikt_YYYYMMDD.html` (~325 kB). Tre sektioner, var och en
+leder med klartextinsikter: **Parkerna** (league table, parkkort, kaskad-drilldown),
+**Marknad & intäkt** (capture/PPA-bok, realiserad obalanskostnad, kannibaliserings-
+regression, forward-konvergens + lookback), **Batteri & investering** (revenue stacking,
+capex-kalkyl med break-even som beslutssiffra, BTM mot verkliga parkprofiler).
+Backend: `elpris/insikt/` (parkoversikt, marknad, bess_sektion, obalans,
+kannibalisering, bess_stack, bess_kalkyl, cache, render).
+Spec: `docs/plans/2026-08-22-insikt-produkt-spec.md` — byggs funktion för funktion;
+gamla dashboards rivs i takt med att Insikt ersätter dem.
+
+### Investerarrapport
+```bash
+python3 generate_investor_report.py --month 2026-07
+```
+Skapar `Resultat/rapporter/investerare_YYYY-MM.html` — CDN-fri (mejlbar/offline),
+utskriftsvänlig (2 A4-sidor). Kurerar Insikt-modulernas data; ingen egen analys.
 
 ### Daglig puls (Insikt — avvikelsedetektion)
 ```bash
