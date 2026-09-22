@@ -3,8 +3,12 @@
 
 import argparse
 
-from elpris.config import ZONES
+from elpris.config import DK_ZONES, ZONES
 from elpris.processing import process_all
+
+# DK1/DK2 raw files come from ENTSO-E (entsoe_download.py --prices) in the
+# same format; zones without a raw folder are skipped by process_all.
+ALL_ZONES = ZONES + DK_ZONES
 
 
 def main():
@@ -14,9 +18,9 @@ def main():
     parser.add_argument(
         "--zones",
         nargs="+",
-        choices=ZONES,
-        default=ZONES,
-        help=f"Zones to process (default: all - {', '.join(ZONES)})",
+        choices=ALL_ZONES,
+        default=ALL_ZONES,
+        help=f"Zones to process (default: all - {', '.join(ALL_ZONES)})",
     )
     parser.add_argument(
         "--quiet",

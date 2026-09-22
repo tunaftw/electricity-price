@@ -12,7 +12,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
-from .config import ENTSOE_DATA_DIR, SWEDEN_TZ
+from .config import ENTSOE_DATA_DIR, SWEDEN_TZ, ZONES
 
 # Directory for ENTSO-E generation data
 ENTSOE_DIR = ENTSOE_DATA_DIR / "generation"
@@ -171,6 +171,10 @@ def list_available_entsoe_profiles() -> list[str]:
         if not zone_dir.is_dir():
             continue
         zone = zone_dir.name
+        # Only Swedish zones: the capture reports weight Swedish prices with
+        # these profiles. DK1/DK2 generation (for Översikt) lives alongside.
+        if zone not in ZONES:
+            continue
 
         for gen_type in GENERATION_TYPES:
             pattern = f"{gen_type}_*.csv"

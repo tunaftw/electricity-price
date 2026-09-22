@@ -38,6 +38,12 @@ UTC_TZ = ZoneInfo("UTC")
 # Swedish electricity zones
 ZONES = ["SE1", "SE2", "SE3", "SE4"]
 
+# Danish bidding zones (day-ahead prices + solar via ENTSO-E, not elprisetjustnu).
+# Kept separate from ZONES on purpose: ZONES drives the elprisetjustnu
+# downloaders and the Swedish dashboards. DK price files use the same CSV
+# format as the Swedish ones (Resultat/marknadsdata/spotpriser/DK1/YYYY.csv).
+DK_ZONES = ["DK1", "DK2"]
+
 # Data availability
 EARLIEST_DATE = date(2021, 11, 1)  # First available data
 FIFTEEN_MIN_START = date(2025, 10, 1)  # When 15-minute data starts
