@@ -8738,7 +8738,7 @@ ar,region,effektklass,solcellsanlaggningar_antal,installerad_effekt_(mw)
 2023,00 Riket,< 20 kW,228262.0,2400.95
 2023,00 Riket,20 kW - 1 000 kW,23265.0,1308.82
 2023,00 Riket,> 1 000 kW,97.0,250.84
-2023,00 Riket,Totalt,251624.0,3960.62
+2023,00 Riket,Totalt,251626.0,3960.62
 2023,01 Stockholms län,< 20 kW,27241.0,277.15
 2023,01 Stockholms län,20 kW - 1 000 kW,2619.0,155.54
 2023,01 Stockholms län,> 1 000 kW,4.0,6.51
@@ -8786,7 +8786,7 @@ ar,region,effektklass,solcellsanlaggningar_antal,installerad_effekt_(mw)
 2023,14 Västra Götalands län,< 20 kW,40842.0,436.44
 2023,14 Västra Götalands län,20 kW - 1 000 kW,3984.0,223.13
 2023,14 Västra Götalands län,> 1 000 kW,15.0,30.39
-2023,14 Västra Götalands län,Totalt,44841.0,689.96
+2023,14 Västra Götalands län,Totalt,44842.0,689.96
 2023,17 Värmlands län,< 20 kW,7417.0,76.09
 2023,17 Värmlands län,20 kW - 1 000 kW,555.0,33.82
 2023,17 Värmlands län,> 1 000 kW,1.0,1.1
@@ -9510,7 +9510,7 @@ ar,region,effektklass,solcellsanlaggningar_antal,installerad_effekt_(mw)
 2023,1488 Trollhättan,< 20 kW,1035.0,11.35
 2023,1488 Trollhättan,20 kW - 1 000 kW,96.0,6.04
 2023,1488 Trollhättan,> 1 000 kW,1.0,1.25
-2023,1488 Trollhättan,Totalt,1132.0,22.14
+2023,1488 Trollhättan,Totalt,1133.0,22.14
 2023,1489 Alingsås,< 20 kW,1042.0,11.04
 2023,1489 Alingsås,20 kW - 1 000 kW,106.0,4.81
 2023,1489 Alingsås,> 1 000 kW,0.0,0.0
@@ -9983,9 +9983,9 @@ ar,region,effektklass,solcellsanlaggningar_antal,installerad_effekt_(mw)
 2023,2584 Kiruna,20 kW - 1 000 kW,1.0,0.06
 2023,2584 Kiruna,> 1 000 kW,0.0,0.0
 2023,2584 Kiruna,Totalt,68.0,0.68
-2024,00 Riket,< 20 kW,264779.0,2790.38
-2024,00 Riket,20 kW - 1 000 kW,28110.0,1638.19
-2024,00 Riket,> 1 000 kW,130.0,380.04
+2024,00 Riket,< 20 kW,264779.0,2790.34
+2024,00 Riket,20 kW - 1 000 kW,28110.0,1637.75
+2024,00 Riket,> 1 000 kW,130.0,380.01
 2024,00 Riket,Totalt,293019.0,4808.1
 2024,01 Stockholms län,< 20 kW,32350.0,332.44
 2024,01 Stockholms län,20 kW - 1 000 kW,3333.0,206.33
@@ -10034,15 +10034,15 @@ ar,region,effektklass,solcellsanlaggningar_antal,installerad_effekt_(mw)
 2024,14 Västra Götalands län,< 20 kW,47640.0,510.81
 2024,14 Västra Götalands län,20 kW - 1 000 kW,5016.0,289.93
 2024,14 Västra Götalands län,> 1 000 kW,18.0,53.32
-2024,14 Västra Götalands län,Totalt,52674.0,854.06
+2024,14 Västra Götalands län,Totalt,52678.0,871.26
 2024,17 Värmlands län,< 20 kW,8796.0,90.67
 2024,17 Värmlands län,20 kW - 1 000 kW,722.0,43.68
 2024,17 Värmlands län,> 1 000 kW,1.0,1.1
 2024,17 Värmlands län,Totalt,9519.0,135.44
 2024,18 Örebro län,< 20 kW,9063.0,95.49
-2024,18 Örebro län,20 kW - 1 000 kW,809.0,45.6
+2024,18 Örebro län,20 kW - 1 000 kW,809.0,46.02
 2024,18 Örebro län,> 1 000 kW,1.0,1.25
-2024,18 Örebro län,Totalt,9873.0,142.32
+2024,18 Örebro län,Totalt,9873.0,142.76
 2024,19 Västmanlands län,< 20 kW,7067.0,73.25
 2024,19 Västmanlands län,20 kW - 1 000 kW,884.0,49.56
 2024,19 Västmanlands län,> 1 000 kW,5.0,27.07
@@ -11184,7 +11184,7 @@ ar,region,effektklass,solcellsanlaggningar_antal,installerad_effekt_(mw)
 2024,2506 Arjeplog,> 1 000 kW,0.0,0.0
 2024,2506 Arjeplog,Totalt,21.0,0.19
 2024,2510 Jokkmokk,< 20 kW,38.0,0.38
-2024,2510 Jokkmokk,20 kW - 1 000 kW,2.0,0.33
+2024,2510 Jokkmokk,20 kW - 1 000 kW,2.0,0.71
 2024,2510 Jokkmokk,> 1 000 kW,0.0,0.0
 2024,2510 Jokkmokk,Totalt,40.0,0.71
 2024,2513 Överkalix,< 20 kW,31.0,0.19
@@ -11231,3 +11231,1251 @@ ar,region,effektklass,solcellsanlaggningar_antal,installerad_effekt_(mw)
 2024,2584 Kiruna,20 kW - 1 000 kW,6.0,0.26
 2024,2584 Kiruna,> 1 000 kW,0.0,0.0
 2024,2584 Kiruna,Totalt,85.0,0.94
+2025,00 Riket,< 20 kW,283696.0,3013.22
+2025,00 Riket,20 kW - 1 000 kW,30705.0,1853.74
+2025,00 Riket,> 1 000 kW,178.0,674.42
+2025,00 Riket,Totalt,314579.0,5541.37
+2025,01 Stockholms län,< 20 kW,35631.0,372.47
+2025,01 Stockholms län,20 kW - 1 000 kW,3829.0,241.09
+2025,01 Stockholms län,> 1 000 kW,9.0,57.36
+2025,01 Stockholms län,Totalt,39469.0,670.91
+2025,03 Uppsala län,< 20 kW,11511.0,119.74
+2025,03 Uppsala län,20 kW - 1 000 kW,1539.0,83.76
+2025,03 Uppsala län,> 1 000 kW,8.0,26.2
+2025,03 Uppsala län,Totalt,13058.0,229.7
+2025,04 Södermanlands län,< 20 kW,10447.0,108.2
+2025,04 Södermanlands län,20 kW - 1 000 kW,1275.0,78.9
+2025,04 Södermanlands län,> 1 000 kW,12.0,75.74
+2025,04 Södermanlands län,Totalt,11734.0,262.84
+2025,05 Östergötlands län,< 20 kW,14826.0,155.01
+2025,05 Östergötlands län,20 kW - 1 000 kW,2071.0,119.04
+2025,05 Östergötlands län,> 1 000 kW,7.0,26.99
+2025,05 Östergötlands län,Totalt,16904.0,301.03
+2025,06 Jönköpings län,< 20 kW,12649.0,138.13
+2025,06 Jönköpings län,20 kW - 1 000 kW,1508.0,104.01
+2025,06 Jönköpings län,> 1 000 kW,14.0,31.88
+2025,06 Jönköpings län,Totalt,14171.0,274.02
+2025,07 Kronobergs län,< 20 kW,7809.0,83.78
+2025,07 Kronobergs län,20 kW - 1 000 kW,..,..
+2025,07 Kronobergs län,> 1 000 kW,..,..
+2025,07 Kronobergs län,Totalt,8577.0,145.81
+2025,08 Kalmar län,< 20 kW,11518.0,117.53
+2025,08 Kalmar län,20 kW - 1 000 kW,1154.0,69.33
+2025,08 Kalmar län,> 1 000 kW,15.0,136.17
+2025,08 Kalmar län,Totalt,12687.0,323.03
+2025,09 Gotlands län,< 20 kW,2743.0,26.48
+2025,09 Gotlands län,20 kW - 1 000 kW,..,..
+2025,09 Gotlands län,> 1 000 kW,..,..
+2025,09 Gotlands län,Totalt,3033.0,40.78
+2025,10 Blekinge län,< 20 kW,6946.0,70.33
+2025,10 Blekinge län,20 kW - 1 000 kW,564.0,40.27
+2025,10 Blekinge län,> 1 000 kW,13.0,39.0
+2025,10 Blekinge län,Totalt,7523.0,149.6
+2025,12 Skåne län,< 20 kW,45362.0,489.51
+2025,12 Skåne län,20 kW - 1 000 kW,5149.0,325.12
+2025,12 Skåne län,> 1 000 kW,35.0,66.77
+2025,12 Skåne län,Totalt,50546.0,881.4
+2025,13 Hallands län,< 20 kW,17552.0,193.02
+2025,13 Hallands län,20 kW - 1 000 kW,1643.0,92.95
+2025,13 Hallands län,> 1 000 kW,18.0,42.31
+2025,13 Hallands län,Totalt,19213.0,328.29
+2025,14 Västra Götalands län,< 20 kW,50899.0,550.31
+2025,14 Västra Götalands län,20 kW - 1 000 kW,5589.0,333.66
+2025,14 Västra Götalands län,> 1 000 kW,27.0,103.86
+2025,14 Västra Götalands län,Totalt,56515.0,987.82
+2025,17 Värmlands län,< 20 kW,9290.0,96.4
+2025,17 Värmlands län,20 kW - 1 000 kW,..,..
+2025,17 Värmlands län,> 1 000 kW,..,..
+2025,17 Värmlands län,Totalt,10080.0,150.2
+2025,18 Örebro län,< 20 kW,9675.0,102.47
+2025,18 Örebro län,20 kW - 1 000 kW,..,..
+2025,18 Örebro län,> 1 000 kW,..,..
+2025,18 Örebro län,Totalt,10552.0,170.0
+2025,19 Västmanlands län,< 20 kW,7507.0,78.66
+2025,19 Västmanlands län,20 kW - 1 000 kW,954.0,53.8
+2025,19 Västmanlands län,> 1 000 kW,5.0,27.07
+2025,19 Västmanlands län,Totalt,8466.0,159.53
+2025,20 Dalarnas län,< 20 kW,10257.0,108.4
+2025,20 Dalarnas län,20 kW - 1 000 kW,770.0,39.65
+2025,20 Dalarnas län,> 1 000 kW,4.0,7.1
+2025,20 Dalarnas län,Totalt,11031.0,155.15
+2025,21 Gävleborgs län,< 20 kW,6604.0,69.26
+2025,21 Gävleborgs län,20 kW - 1 000 kW,..,..
+2025,21 Gävleborgs län,> 1 000 kW,..,..
+2025,21 Gävleborgs län,Totalt,7095.0,98.08
+2025,22 Västernorrlands län,< 20 kW,4477.0,47.82
+2025,22 Västernorrlands län,20 kW - 1 000 kW,386.0,21.51
+2025,22 Västernorrlands län,> 1 000 kW,0.0,0.0
+2025,22 Västernorrlands län,Totalt,4863.0,69.33
+2025,23 Jämtlands län,< 20 kW,2554.0,28.4
+2025,23 Jämtlands län,20 kW - 1 000 kW,524.0,22.38
+2025,23 Jämtlands län,> 1 000 kW,0.0,0.0
+2025,23 Jämtlands län,Totalt,3078.0,50.78
+2025,24 Västerbottens län,< 20 kW,3371.0,35.78
+2025,24 Västerbottens län,20 kW - 1 000 kW,..,..
+2025,24 Västerbottens län,> 1 000 kW,..,..
+2025,24 Västerbottens län,Totalt,3681.0,57.53
+2025,25 Norrbottens län,< 20 kW,2068.0,21.54
+2025,25 Norrbottens län,20 kW - 1 000 kW,..,..
+2025,25 Norrbottens län,> 1 000 kW,..,..
+2025,25 Norrbottens län,Totalt,2303.0,35.57
+2025,0114 Upplands Väsby,< 20 kW,767.0,8.25
+2025,0114 Upplands Väsby,20 kW - 1 000 kW,91.0,4.99
+2025,0114 Upplands Väsby,> 1 000 kW,0.0,0.0
+2025,0114 Upplands Väsby,Totalt,858.0,13.24
+2025,0115 Vallentuna,< 20 kW,1188.0,13.05
+2025,0115 Vallentuna,20 kW - 1 000 kW,78.0,3.64
+2025,0115 Vallentuna,> 1 000 kW,0.0,0.0
+2025,0115 Vallentuna,Totalt,1266.0,16.69
+2025,0117 Österåker,< 20 kW,..,..
+2025,0117 Österåker,20 kW - 1 000 kW,89.0,6.01
+2025,0117 Österåker,> 1 000 kW,..,..
+2025,0117 Österåker,Totalt,2101.0,28.89
+2025,0120 Värmdö,< 20 kW,1967.0,20.15
+2025,0120 Värmdö,20 kW - 1 000 kW,118.0,6.9
+2025,0120 Värmdö,> 1 000 kW,0.0,0.0
+2025,0120 Värmdö,Totalt,2085.0,27.04
+2025,0123 Järfälla,< 20 kW,1554.0,16.17
+2025,0123 Järfälla,20 kW - 1 000 kW,156.0,10.64
+2025,0123 Järfälla,> 1 000 kW,0.0,0.0
+2025,0123 Järfälla,Totalt,1710.0,26.81
+2025,0125 Ekerö,< 20 kW,1376.0,14.88
+2025,0125 Ekerö,20 kW - 1 000 kW,81.0,3.03
+2025,0125 Ekerö,> 1 000 kW,0.0,0.0
+2025,0125 Ekerö,Totalt,1457.0,17.91
+2025,0126 Huddinge,< 20 kW,2362.0,24.48
+2025,0126 Huddinge,20 kW - 1 000 kW,129.0,10.32
+2025,0126 Huddinge,> 1 000 kW,0.0,0.0
+2025,0126 Huddinge,Totalt,2491.0,34.79
+2025,0127 Botkyrka,< 20 kW,1355.0,14.25
+2025,0127 Botkyrka,20 kW - 1 000 kW,..,..
+2025,0127 Botkyrka,> 1 000 kW,..,..
+2025,0127 Botkyrka,Totalt,1442.0,26.1
+2025,0128 Salem,< 20 kW,387.0,4.12
+2025,0128 Salem,20 kW - 1 000 kW,27.0,1.16
+2025,0128 Salem,> 1 000 kW,0.0,0.0
+2025,0128 Salem,Totalt,414.0,5.29
+2025,0136 Haninge,< 20 kW,1970.0,20.34
+2025,0136 Haninge,20 kW - 1 000 kW,170.0,13.48
+2025,0136 Haninge,> 1 000 kW,0.0,0.0
+2025,0136 Haninge,Totalt,2140.0,33.82
+2025,0138 Tyresö,< 20 kW,1268.0,13.21
+2025,0138 Tyresö,20 kW - 1 000 kW,64.0,3.48
+2025,0138 Tyresö,> 1 000 kW,0.0,0.0
+2025,0138 Tyresö,Totalt,1332.0,16.69
+2025,0139 Upplands-Bro,< 20 kW,739.0,8.12
+2025,0139 Upplands-Bro,20 kW - 1 000 kW,92.0,8.52
+2025,0139 Upplands-Bro,> 1 000 kW,0.0,0.0
+2025,0139 Upplands-Bro,Totalt,831.0,16.64
+2025,0140 Nykvarn,< 20 kW,625.0,6.66
+2025,0140 Nykvarn,20 kW - 1 000 kW,47.0,2.3
+2025,0140 Nykvarn,> 1 000 kW,0.0,0.0
+2025,0140 Nykvarn,Totalt,672.0,8.96
+2025,0160 Täby,< 20 kW,1806.0,20.48
+2025,0160 Täby,20 kW - 1 000 kW,127.0,7.7
+2025,0160 Täby,> 1 000 kW,0.0,0.0
+2025,0160 Täby,Totalt,1933.0,28.19
+2025,0162 Danderyd,< 20 kW,571.0,6.16
+2025,0162 Danderyd,20 kW - 1 000 kW,51.0,2.46
+2025,0162 Danderyd,> 1 000 kW,0.0,0.0
+2025,0162 Danderyd,Totalt,622.0,8.62
+2025,0163 Sollentuna,< 20 kW,1407.0,14.94
+2025,0163 Sollentuna,20 kW - 1 000 kW,98.0,5.66
+2025,0163 Sollentuna,> 1 000 kW,0.0,0.0
+2025,0163 Sollentuna,Totalt,1505.0,20.6
+2025,0180 Stockholm,< 20 kW,..,..
+2025,0180 Stockholm,20 kW - 1 000 kW,931.0,59.74
+2025,0180 Stockholm,> 1 000 kW,..,..
+2025,0180 Stockholm,Totalt,4607.0,98.98
+2025,0181 Södertälje,< 20 kW,..,..
+2025,0181 Södertälje,20 kW - 1 000 kW,237.0,13.32
+2025,0181 Södertälje,> 1 000 kW,..,..
+2025,0181 Södertälje,Totalt,2065.0,34.77
+2025,0182 Nacka,< 20 kW,2084.0,22.51
+2025,0182 Nacka,20 kW - 1 000 kW,211.0,12.01
+2025,0182 Nacka,> 1 000 kW,0.0,0.0
+2025,0182 Nacka,Totalt,2295.0,34.52
+2025,0183 Sundbyberg,< 20 kW,159.0,1.61
+2025,0183 Sundbyberg,20 kW - 1 000 kW,76.0,5.42
+2025,0183 Sundbyberg,> 1 000 kW,0.0,0.0
+2025,0183 Sundbyberg,Totalt,235.0,7.03
+2025,0184 Solna,< 20 kW,100.0,0.91
+2025,0184 Solna,20 kW - 1 000 kW,160.0,13.72
+2025,0184 Solna,> 1 000 kW,0.0,0.0
+2025,0184 Solna,Totalt,260.0,14.63
+2025,0186 Lidingö,< 20 kW,573.0,6.35
+2025,0186 Lidingö,20 kW - 1 000 kW,59.0,2.83
+2025,0186 Lidingö,> 1 000 kW,0.0,0.0
+2025,0186 Lidingö,Totalt,632.0,9.18
+2025,0187 Vaxholm,< 20 kW,339.0,3.55
+2025,0187 Vaxholm,20 kW - 1 000 kW,23.0,0.82
+2025,0187 Vaxholm,> 1 000 kW,0.0,0.0
+2025,0187 Vaxholm,Totalt,362.0,4.37
+2025,0188 Norrtälje,< 20 kW,3538.0,34.59
+2025,0188 Norrtälje,20 kW - 1 000 kW,319.0,15.02
+2025,0188 Norrtälje,> 1 000 kW,3.0,41.5
+2025,0188 Norrtälje,Totalt,3860.0,91.11
+2025,0191 Sigtuna,< 20 kW,1009.0,11.18
+2025,0191 Sigtuna,20 kW - 1 000 kW,..,..
+2025,0191 Sigtuna,> 1 000 kW,..,..
+2025,0191 Sigtuna,Totalt,1235.0,32.0
+2025,0192 Nynäshamn,< 20 kW,975.0,9.8
+2025,0192 Nynäshamn,20 kW - 1 000 kW,84.0,4.26
+2025,0192 Nynäshamn,> 1 000 kW,0.0,0.0
+2025,0192 Nynäshamn,Totalt,1059.0,14.07
+2025,0305 Håbo,< 20 kW,987.0,10.55
+2025,0305 Håbo,20 kW - 1 000 kW,..,..
+2025,0305 Håbo,> 1 000 kW,..,..
+2025,0305 Håbo,Totalt,1073.0,28.6
+2025,0319 Älvkarleby,< 20 kW,342.0,3.43
+2025,0319 Älvkarleby,20 kW - 1 000 kW,13.0,0.93
+2025,0319 Älvkarleby,> 1 000 kW,0.0,0.0
+2025,0319 Älvkarleby,Totalt,355.0,4.36
+2025,0330 Knivsta,< 20 kW,780.0,8.32
+2025,0330 Knivsta,20 kW - 1 000 kW,83.0,4.87
+2025,0330 Knivsta,> 1 000 kW,0.0,0.0
+2025,0330 Knivsta,Totalt,863.0,13.19
+2025,0331 Heby,< 20 kW,551.0,5.93
+2025,0331 Heby,20 kW - 1 000 kW,..,..
+2025,0331 Heby,> 1 000 kW,..,..
+2025,0331 Heby,Totalt,642.0,13.8
+2025,0360 Tierp,< 20 kW,855.0,8.74
+2025,0360 Tierp,20 kW - 1 000 kW,82.0,3.86
+2025,0360 Tierp,> 1 000 kW,0.0,0.0
+2025,0360 Tierp,Totalt,937.0,12.6
+2025,0380 Uppsala,< 20 kW,5035.0,51.7
+2025,0380 Uppsala,20 kW - 1 000 kW,780.0,43.64
+2025,0380 Uppsala,> 1 000 kW,3.0,8.5
+2025,0380 Uppsala,Totalt,5818.0,103.84
+2025,0381 Enköping,< 20 kW,1780.0,18.99
+2025,0381 Enköping,20 kW - 1 000 kW,..,..
+2025,0381 Enköping,> 1 000 kW,..,..
+2025,0381 Enköping,Totalt,2090.0,37.22
+2025,0382 Östhammar,< 20 kW,1181.0,12.07
+2025,0382 Östhammar,20 kW - 1 000 kW,99.0,4.02
+2025,0382 Östhammar,> 1 000 kW,0.0,0.0
+2025,0382 Östhammar,Totalt,1280.0,16.09
+2025,0428 Vingåker,< 20 kW,..,..
+2025,0428 Vingåker,20 kW - 1 000 kW,45.0,2.6
+2025,0428 Vingåker,> 1 000 kW,0.0,0.0
+2025,0428 Vingåker,Totalt,..,..
+2025,0461 Gnesta,< 20 kW,563.0,6.13
+2025,0461 Gnesta,20 kW - 1 000 kW,49.0,1.85
+2025,0461 Gnesta,> 1 000 kW,0.0,0.0
+2025,0461 Gnesta,Totalt,612.0,7.99
+2025,0480 Nyköping,< 20 kW,2035.0,20.9
+2025,0480 Nyköping,20 kW - 1 000 kW,281.0,16.65
+2025,0480 Nyköping,> 1 000 kW,..,..
+2025,0480 Nyköping,Totalt,..,..
+2025,0481 Oxelösund,< 20 kW,309.0,2.97
+2025,0481 Oxelösund,20 kW - 1 000 kW,18.0,0.7
+2025,0481 Oxelösund,> 1 000 kW,0.0,0.0
+2025,0481 Oxelösund,Totalt,327.0,3.67
+2025,0482 Flen,< 20 kW,708.0,7.27
+2025,0482 Flen,20 kW - 1 000 kW,110.0,6.64
+2025,0482 Flen,> 1 000 kW,0.0,0.0
+2025,0482 Flen,Totalt,818.0,13.92
+2025,0483 Katrineholm,< 20 kW,..,..
+2025,0483 Katrineholm,20 kW - 1 000 kW,149.0,13.15
+2025,0483 Katrineholm,> 1 000 kW,..,..
+2025,0483 Katrineholm,Totalt,1271.0,30.16
+2025,0484 Eskilstuna,< 20 kW,2576.0,26.44
+2025,0484 Eskilstuna,20 kW - 1 000 kW,357.0,22.79
+2025,0484 Eskilstuna,> 1 000 kW,6.0,18.12
+2025,0484 Eskilstuna,Totalt,2939.0,67.35
+2025,0486 Strängnäs,< 20 kW,..,..
+2025,0486 Strängnäs,20 kW - 1 000 kW,179.0,10.57
+2025,0486 Strängnäs,> 1 000 kW,..,..
+2025,0486 Strängnäs,Totalt,1731.0,43.98
+2025,0488 Trosa,< 20 kW,1063.0,11.36
+2025,0488 Trosa,20 kW - 1 000 kW,87.0,3.95
+2025,0488 Trosa,> 1 000 kW,0.0,0.0
+2025,0488 Trosa,Totalt,1150.0,15.31
+2025,0509 Ödeshög,< 20 kW,280.0,2.93
+2025,0509 Ödeshög,20 kW - 1 000 kW,50.0,2.64
+2025,0509 Ödeshög,> 1 000 kW,0.0,0.0
+2025,0509 Ödeshög,Totalt,330.0,5.56
+2025,0512 Ydre,< 20 kW,239.0,2.63
+2025,0512 Ydre,20 kW - 1 000 kW,39.0,2.25
+2025,0512 Ydre,> 1 000 kW,0.0,0.0
+2025,0512 Ydre,Totalt,278.0,4.88
+2025,0513 Kinda,< 20 kW,627.0,6.52
+2025,0513 Kinda,20 kW - 1 000 kW,78.0,3.66
+2025,0513 Kinda,> 1 000 kW,0.0,0.0
+2025,0513 Kinda,Totalt,705.0,10.17
+2025,0560 Boxholm,< 20 kW,297.0,3.2
+2025,0560 Boxholm,20 kW - 1 000 kW,35.0,1.68
+2025,0560 Boxholm,> 1 000 kW,0.0,0.0
+2025,0560 Boxholm,Totalt,332.0,4.88
+2025,0561 Åtvidaberg,< 20 kW,541.0,5.37
+2025,0561 Åtvidaberg,20 kW - 1 000 kW,48.0,2.03
+2025,0561 Åtvidaberg,> 1 000 kW,0.0,0.0
+2025,0561 Åtvidaberg,Totalt,589.0,7.4
+2025,0562 Finspång,< 20 kW,769.0,7.85
+2025,0562 Finspång,20 kW - 1 000 kW,89.0,4.34
+2025,0562 Finspång,> 1 000 kW,0.0,0.0
+2025,0562 Finspång,Totalt,858.0,12.19
+2025,0563 Valdemarsvik,< 20 kW,509.0,5.23
+2025,0563 Valdemarsvik,20 kW - 1 000 kW,73.0,4.58
+2025,0563 Valdemarsvik,> 1 000 kW,0.0,0.0
+2025,0563 Valdemarsvik,Totalt,582.0,9.81
+2025,0580 Linköping,< 20 kW,4196.0,44.0
+2025,0580 Linköping,20 kW - 1 000 kW,634.0,38.85
+2025,0580 Linköping,> 1 000 kW,3.0,15.49
+2025,0580 Linköping,Totalt,4833.0,98.34
+2025,0581 Norrköping,< 20 kW,..,..
+2025,0581 Norrköping,20 kW - 1 000 kW,522.0,31.83
+2025,0581 Norrköping,> 1 000 kW,..,..
+2025,0581 Norrköping,Totalt,4186.0,72.98
+2025,0582 Söderköping,< 20 kW,799.0,8.47
+2025,0582 Söderköping,20 kW - 1 000 kW,83.0,3.22
+2025,0582 Söderköping,> 1 000 kW,0.0,0.0
+2025,0582 Söderköping,Totalt,882.0,11.69
+2025,0583 Motala,< 20 kW,1710.0,17.72
+2025,0583 Motala,20 kW - 1 000 kW,195.0,11.34
+2025,0583 Motala,> 1 000 kW,0.0,0.0
+2025,0583 Motala,Totalt,1905.0,29.07
+2025,0584 Vadstena,< 20 kW,..,..
+2025,0584 Vadstena,20 kW - 1 000 kW,58.0,3.34
+2025,0584 Vadstena,> 1 000 kW,..,..
+2025,0584 Vadstena,Totalt,369.0,7.88
+2025,0586 Mjölby,< 20 kW,..,..
+2025,0586 Mjölby,20 kW - 1 000 kW,167.0,9.28
+2025,0586 Mjölby,> 1 000 kW,..,..
+2025,0586 Mjölby,Totalt,1055.0,26.19
+2025,0604 Aneby,< 20 kW,311.0,3.66
+2025,0604 Aneby,20 kW - 1 000 kW,34.0,1.62
+2025,0604 Aneby,> 1 000 kW,0.0,0.0
+2025,0604 Aneby,Totalt,345.0,5.28
+2025,0617 Gnosjö,< 20 kW,392.0,4.24
+2025,0617 Gnosjö,20 kW - 1 000 kW,59.0,7.38
+2025,0617 Gnosjö,> 1 000 kW,0.0,0.0
+2025,0617 Gnosjö,Totalt,451.0,11.62
+2025,0642 Mullsjö,< 20 kW,323.0,3.52
+2025,0642 Mullsjö,20 kW - 1 000 kW,36.0,1.5
+2025,0642 Mullsjö,> 1 000 kW,0.0,0.0
+2025,0642 Mullsjö,Totalt,359.0,5.03
+2025,0643 Habo,< 20 kW,641.0,6.8
+2025,0643 Habo,20 kW - 1 000 kW,63.0,3.54
+2025,0643 Habo,> 1 000 kW,0.0,0.0
+2025,0643 Habo,Totalt,704.0,10.34
+2025,0662 Gislaved,< 20 kW,..,..
+2025,0662 Gislaved,20 kW - 1 000 kW,142.0,10.54
+2025,0662 Gislaved,> 1 000 kW,..,..
+2025,0662 Gislaved,Totalt,1204.0,34.2
+2025,0665 Vaggeryd,< 20 kW,..,..
+2025,0665 Vaggeryd,20 kW - 1 000 kW,85.0,3.91
+2025,0665 Vaggeryd,> 1 000 kW,..,..
+2025,0665 Vaggeryd,Totalt,789.0,15.66
+2025,0680 Jönköping,< 20 kW,3726.0,40.68
+2025,0680 Jönköping,20 kW - 1 000 kW,428.0,29.56
+2025,0680 Jönköping,> 1 000 kW,5.0,7.81
+2025,0680 Jönköping,Totalt,4159.0,78.05
+2025,0682 Nässjö,< 20 kW,1025.0,11.06
+2025,0682 Nässjö,20 kW - 1 000 kW,118.0,8.48
+2025,0682 Nässjö,> 1 000 kW,0.0,0.0
+2025,0682 Nässjö,Totalt,1143.0,19.54
+2025,0683 Värnamo,< 20 kW,1378.0,15.39
+2025,0683 Värnamo,20 kW - 1 000 kW,214.0,14.91
+2025,0683 Värnamo,> 1 000 kW,0.0,0.0
+2025,0683 Värnamo,Totalt,1592.0,30.3
+2025,0684 Sävsjö,< 20 kW,475.0,5.18
+2025,0684 Sävsjö,20 kW - 1 000 kW,55.0,2.93
+2025,0684 Sävsjö,> 1 000 kW,0.0,0.0
+2025,0684 Sävsjö,Totalt,530.0,8.11
+2025,0685 Vetlanda,< 20 kW,1405.0,14.88
+2025,0685 Vetlanda,20 kW - 1 000 kW,130.0,9.05
+2025,0685 Vetlanda,> 1 000 kW,3.0,5.87
+2025,0685 Vetlanda,Totalt,1538.0,29.8
+2025,0686 Eksjö,< 20 kW,651.0,6.87
+2025,0686 Eksjö,20 kW - 1 000 kW,73.0,6.04
+2025,0686 Eksjö,> 1 000 kW,0.0,0.0
+2025,0686 Eksjö,Totalt,724.0,12.9
+2025,0687 Tranås,< 20 kW,..,..
+2025,0687 Tranås,20 kW - 1 000 kW,71.0,4.54
+2025,0687 Tranås,> 1 000 kW,..,..
+2025,0687 Tranås,Totalt,633.0,13.19
+2025,0760 Uppvidinge,< 20 kW,542.0,5.9
+2025,0760 Uppvidinge,20 kW - 1 000 kW,34.0,3.4
+2025,0760 Uppvidinge,> 1 000 kW,0.0,0.0
+2025,0760 Uppvidinge,Totalt,576.0,9.3
+2025,0761 Lessebo,< 20 kW,325.0,3.42
+2025,0761 Lessebo,20 kW - 1 000 kW,27.0,1.52
+2025,0761 Lessebo,> 1 000 kW,0.0,0.0
+2025,0761 Lessebo,Totalt,352.0,4.94
+2025,0763 Tingsryd,< 20 kW,739.0,8.09
+2025,0763 Tingsryd,20 kW - 1 000 kW,69.0,3.57
+2025,0763 Tingsryd,> 1 000 kW,0.0,0.0
+2025,0763 Tingsryd,Totalt,808.0,11.66
+2025,0764 Alvesta,< 20 kW,868.0,9.5
+2025,0764 Alvesta,20 kW - 1 000 kW,..,..
+2025,0764 Alvesta,> 1 000 kW,..,..
+2025,0764 Alvesta,Totalt,962.0,19.85
+2025,0765 Älmhult,< 20 kW,914.0,9.84
+2025,0765 Älmhult,20 kW - 1 000 kW,57.0,5.86
+2025,0765 Älmhult,> 1 000 kW,0.0,0.0
+2025,0765 Älmhult,Totalt,971.0,15.7
+2025,0767 Markaryd,< 20 kW,426.0,4.37
+2025,0767 Markaryd,20 kW - 1 000 kW,47.0,5.65
+2025,0767 Markaryd,> 1 000 kW,0.0,0.0
+2025,0767 Markaryd,Totalt,473.0,10.02
+2025,0780 Växjö,< 20 kW,2758.0,29.14
+2025,0780 Växjö,20 kW - 1 000 kW,297.0,20.59
+2025,0780 Växjö,> 1 000 kW,0.0,0.0
+2025,0780 Växjö,Totalt,3055.0,49.73
+2025,0781 Ljungby,< 20 kW,1237.0,13.53
+2025,0781 Ljungby,20 kW - 1 000 kW,..,..
+2025,0781 Ljungby,> 1 000 kW,..,..
+2025,0781 Ljungby,Totalt,1380.0,24.62
+2025,0821 Högsby,< 20 kW,223.0,2.35
+2025,0821 Högsby,20 kW - 1 000 kW,30.0,2.05
+2025,0821 Högsby,> 1 000 kW,0.0,0.0
+2025,0821 Högsby,Totalt,253.0,4.4
+2025,0834 Torsås,< 20 kW,426.0,4.37
+2025,0834 Torsås,20 kW - 1 000 kW,49.0,3.24
+2025,0834 Torsås,> 1 000 kW,0.0,0.0
+2025,0834 Torsås,Totalt,475.0,7.6
+2025,0840 Mörbylånga,< 20 kW,1515.0,14.93
+2025,0840 Mörbylånga,20 kW - 1 000 kW,127.0,9.4
+2025,0840 Mörbylånga,> 1 000 kW,0.0,0.0
+2025,0840 Mörbylånga,Totalt,1642.0,24.34
+2025,0860 Hultsfred,< 20 kW,525.0,5.29
+2025,0860 Hultsfred,20 kW - 1 000 kW,49.0,3.0
+2025,0860 Hultsfred,> 1 000 kW,7.0,107.0
+2025,0860 Hultsfred,Totalt,581.0,115.29
+2025,0861 Mönsterås,< 20 kW,717.0,7.36
+2025,0861 Mönsterås,20 kW - 1 000 kW,60.0,3.44
+2025,0861 Mönsterås,> 1 000 kW,0.0,0.0
+2025,0861 Mönsterås,Totalt,777.0,10.8
+2025,0862 Emmaboda,< 20 kW,..,..
+2025,0862 Emmaboda,20 kW - 1 000 kW,41.0,1.73
+2025,0862 Emmaboda,> 1 000 kW,..,..
+2025,0862 Emmaboda,Totalt,429.0,8.93
+2025,0880 Kalmar,< 20 kW,..,..
+2025,0880 Kalmar,20 kW - 1 000 kW,297.0,17.4
+2025,0880 Kalmar,> 1 000 kW,..,..
+2025,0880 Kalmar,Totalt,2906.0,47.42
+2025,0881 Nybro,< 20 kW,..,..
+2025,0881 Nybro,20 kW - 1 000 kW,58.0,5.78
+2025,0881 Nybro,> 1 000 kW,..,..
+2025,0881 Nybro,Totalt,766.0,14.97
+2025,0882 Oskarshamn,< 20 kW,994.0,10.65
+2025,0882 Oskarshamn,20 kW - 1 000 kW,75.0,5.62
+2025,0882 Oskarshamn,> 1 000 kW,0.0,0.0
+2025,0882 Oskarshamn,Totalt,1069.0,16.27
+2025,0883 Västervik,< 20 kW,..,..
+2025,0883 Västervik,20 kW - 1 000 kW,181.0,8.26
+2025,0883 Västervik,> 1 000 kW,..,..
+2025,0883 Västervik,Totalt,1581.0,34.66
+2025,0884 Vimmerby,< 20 kW,..,..
+2025,0884 Vimmerby,20 kW - 1 000 kW,75.0,3.45
+2025,0884 Vimmerby,> 1 000 kW,..,..
+2025,0884 Vimmerby,Totalt,552.0,16.51
+2025,0885 Borgholm,< 20 kW,..,..
+2025,0885 Borgholm,20 kW - 1 000 kW,112.0,5.96
+2025,0885 Borgholm,> 1 000 kW,..,..
+2025,0885 Borgholm,Totalt,1656.0,21.85
+2025,0980 Gotland,< 20 kW,2743.0,26.48
+2025,0980 Gotland,20 kW - 1 000 kW,..,..
+2025,0980 Gotland,> 1 000 kW,..,..
+2025,0980 Gotland,Totalt,3033.0,40.78
+2025,1060 Olofström,< 20 kW,447.0,4.44
+2025,1060 Olofström,20 kW - 1 000 kW,..,..
+2025,1060 Olofström,> 1 000 kW,..,..
+2025,1060 Olofström,Totalt,495.0,9.09
+2025,1080 Karlskrona,< 20 kW,..,..
+2025,1080 Karlskrona,20 kW - 1 000 kW,227.0,19.56
+2025,1080 Karlskrona,> 1 000 kW,..,..
+2025,1080 Karlskrona,Totalt,3490.0,60.98
+2025,1081 Ronneby,< 20 kW,1189.0,12.57
+2025,1081 Ronneby,20 kW - 1 000 kW,96.0,8.07
+2025,1081 Ronneby,> 1 000 kW,3.0,4.5
+2025,1081 Ronneby,Totalt,1288.0,25.14
+2025,1082 Karlshamn,< 20 kW,..,..
+2025,1082 Karlshamn,20 kW - 1 000 kW,..,..
+2025,1082 Karlshamn,> 1 000 kW,..,..
+2025,1082 Karlshamn,Totalt,1299.0,22.05
+2025,1083 Sölvesborg,< 20 kW,855.0,8.62
+2025,1083 Sölvesborg,20 kW - 1 000 kW,91.0,5.73
+2025,1083 Sölvesborg,> 1 000 kW,5.0,18.0
+2025,1083 Sölvesborg,Totalt,951.0,32.34
+2025,1214 Svalöv,< 20 kW,730.0,8.3
+2025,1214 Svalöv,20 kW - 1 000 kW,..,..
+2025,1214 Svalöv,> 1 000 kW,..,..
+2025,1214 Svalöv,Totalt,818.0,14.94
+2025,1230 Staffanstorp,< 20 kW,1385.0,15.52
+2025,1230 Staffanstorp,20 kW - 1 000 kW,89.0,5.04
+2025,1230 Staffanstorp,> 1 000 kW,0.0,0.0
+2025,1230 Staffanstorp,Totalt,1474.0,20.56
+2025,1231 Burlöv,< 20 kW,585.0,5.87
+2025,1231 Burlöv,20 kW - 1 000 kW,44.0,6.35
+2025,1231 Burlöv,> 1 000 kW,0.0,0.0
+2025,1231 Burlöv,Totalt,629.0,12.22
+2025,1233 Vellinge,< 20 kW,1916.0,21.43
+2025,1233 Vellinge,20 kW - 1 000 kW,141.0,8.98
+2025,1233 Vellinge,> 1 000 kW,0.0,0.0
+2025,1233 Vellinge,Totalt,2057.0,30.41
+2025,1256 Östra Göinge,< 20 kW,657.0,6.98
+2025,1256 Östra Göinge,20 kW - 1 000 kW,66.0,3.64
+2025,1256 Östra Göinge,> 1 000 kW,0.0,0.0
+2025,1256 Östra Göinge,Totalt,723.0,10.62
+2025,1257 Örkelljunga,< 20 kW,474.0,4.9
+2025,1257 Örkelljunga,20 kW - 1 000 kW,43.0,3.51
+2025,1257 Örkelljunga,> 1 000 kW,0.0,0.0
+2025,1257 Örkelljunga,Totalt,517.0,8.41
+2025,1260 Bjuv,< 20 kW,..,..
+2025,1260 Bjuv,20 kW - 1 000 kW,49.0,2.66
+2025,1260 Bjuv,> 1 000 kW,..,..
+2025,1260 Bjuv,Totalt,706.0,11.2
+2025,1261 Kävlinge,< 20 kW,1905.0,21.36
+2025,1261 Kävlinge,20 kW - 1 000 kW,110.0,7.4
+2025,1261 Kävlinge,> 1 000 kW,0.0,0.0
+2025,1261 Kävlinge,Totalt,2015.0,28.76
+2025,1262 Lomma,< 20 kW,1035.0,11.43
+2025,1262 Lomma,20 kW - 1 000 kW,113.0,5.12
+2025,1262 Lomma,> 1 000 kW,0.0,0.0
+2025,1262 Lomma,Totalt,1148.0,16.56
+2025,1263 Svedala,< 20 kW,1197.0,13.1
+2025,1263 Svedala,20 kW - 1 000 kW,73.0,3.39
+2025,1263 Svedala,> 1 000 kW,0.0,0.0
+2025,1263 Svedala,Totalt,1270.0,16.49
+2025,1264 Skurup,< 20 kW,950.0,11.01
+2025,1264 Skurup,20 kW - 1 000 kW,101.0,5.32
+2025,1264 Skurup,> 1 000 kW,10.0,15.0
+2025,1264 Skurup,Totalt,1061.0,31.33
+2025,1265 Sjöbo,< 20 kW,1073.0,12.02
+2025,1265 Sjöbo,20 kW - 1 000 kW,149.0,12.29
+2025,1265 Sjöbo,> 1 000 kW,6.0,8.55
+2025,1265 Sjöbo,Totalt,1228.0,32.86
+2025,1266 Hörby,< 20 kW,695.0,7.94
+2025,1266 Hörby,20 kW - 1 000 kW,65.0,2.73
+2025,1266 Hörby,> 1 000 kW,0.0,0.0
+2025,1266 Hörby,Totalt,760.0,10.67
+2025,1267 Höör,< 20 kW,882.0,9.56
+2025,1267 Höör,20 kW - 1 000 kW,70.0,3.26
+2025,1267 Höör,> 1 000 kW,0.0,0.0
+2025,1267 Höör,Totalt,952.0,12.82
+2025,1270 Tomelilla,< 20 kW,720.0,8.17
+2025,1270 Tomelilla,20 kW - 1 000 kW,103.0,5.86
+2025,1270 Tomelilla,> 1 000 kW,0.0,0.0
+2025,1270 Tomelilla,Totalt,823.0,14.04
+2025,1272 Bromölla,< 20 kW,521.0,5.78
+2025,1272 Bromölla,20 kW - 1 000 kW,40.0,2.84
+2025,1272 Bromölla,> 1 000 kW,0.0,0.0
+2025,1272 Bromölla,Totalt,561.0,8.63
+2025,1273 Osby,< 20 kW,560.0,5.71
+2025,1273 Osby,20 kW - 1 000 kW,..,..
+2025,1273 Osby,> 1 000 kW,..,..
+2025,1273 Osby,Totalt,604.0,11.24
+2025,1275 Perstorp,< 20 kW,235.0,2.48
+2025,1275 Perstorp,20 kW - 1 000 kW,17.0,1.5
+2025,1275 Perstorp,> 1 000 kW,0.0,0.0
+2025,1275 Perstorp,Totalt,252.0,3.97
+2025,1276 Klippan,< 20 kW,718.0,7.73
+2025,1276 Klippan,20 kW - 1 000 kW,..,..
+2025,1276 Klippan,> 1 000 kW,..,..
+2025,1276 Klippan,Totalt,794.0,15.62
+2025,1277 Åstorp,< 20 kW,585.0,6.3
+2025,1277 Åstorp,20 kW - 1 000 kW,74.0,4.27
+2025,1277 Åstorp,> 1 000 kW,0.0,0.0
+2025,1277 Åstorp,Totalt,659.0,10.57
+2025,1278 Båstad,< 20 kW,..,..
+2025,1278 Båstad,20 kW - 1 000 kW,..,..
+2025,1278 Båstad,> 1 000 kW,0.0,0.0
+2025,1278 Båstad,Totalt,..,..
+2025,1280 Malmö,< 20 kW,..,..
+2025,1280 Malmö,20 kW - 1 000 kW,722.0,55.66
+2025,1280 Malmö,> 1 000 kW,..,..
+2025,1280 Malmö,Totalt,5263.0,106.03
+2025,1281 Lund,< 20 kW,..,..
+2025,1281 Lund,20 kW - 1 000 kW,449.0,26.11
+2025,1281 Lund,> 1 000 kW,..,..
+2025,1281 Lund,Totalt,3512.0,59.61
+2025,1282 Landskrona,< 20 kW,..,..
+2025,1282 Landskrona,20 kW - 1 000 kW,123.0,9.14
+2025,1282 Landskrona,> 1 000 kW,..,..
+2025,1282 Landskrona,Totalt,1283.0,30.48
+2025,1283 Helsingborg,< 20 kW,2709.0,28.93
+2025,1283 Helsingborg,20 kW - 1 000 kW,..,..
+2025,1283 Helsingborg,> 1 000 kW,..,..
+2025,1283 Helsingborg,Totalt,3122.0,64.79
+2025,1284 Höganäs,< 20 kW,1490.0,15.17
+2025,1284 Höganäs,20 kW - 1 000 kW,..,..
+2025,1284 Höganäs,> 1 000 kW,..,..
+2025,1284 Höganäs,Totalt,1657.0,24.26
+2025,1285 Eslöv,< 20 kW,1338.0,15.06
+2025,1285 Eslöv,20 kW - 1 000 kW,..,..
+2025,1285 Eslöv,> 1 000 kW,..,..
+2025,1285 Eslöv,Totalt,1546.0,27.72
+2025,1286 Ystad,< 20 kW,..,..
+2025,1286 Ystad,20 kW - 1 000 kW,..,..
+2025,1286 Ystad,> 1 000 kW,0.0,0.0
+2025,1286 Ystad,Totalt,..,..
+2025,1287 Trelleborg,< 20 kW,1984.0,22.48
+2025,1287 Trelleborg,20 kW - 1 000 kW,..,..
+2025,1287 Trelleborg,> 1 000 kW,..,..
+2025,1287 Trelleborg,Totalt,2226.0,34.51
+2025,1290 Kristianstad,< 20 kW,3370.0,35.61
+2025,1290 Kristianstad,20 kW - 1 000 kW,389.0,22.39
+2025,1290 Kristianstad,> 1 000 kW,4.0,9.38
+2025,1290 Kristianstad,Totalt,3763.0,67.37
+2025,1291 Simrishamn,< 20 kW,1392.0,14.25
+2025,1291 Simrishamn,20 kW - 1 000 kW,168.0,11.55
+2025,1291 Simrishamn,> 1 000 kW,0.0,0.0
+2025,1291 Simrishamn,Totalt,1560.0,25.79
+2025,1292 Ängelholm,< 20 kW,1930.0,21.01
+2025,1292 Ängelholm,20 kW - 1 000 kW,199.0,12.42
+2025,1292 Ängelholm,> 1 000 kW,0.0,0.0
+2025,1292 Ängelholm,Totalt,2129.0,33.43
+2025,1293 Hässleholm,< 20 kW,2319.0,25.42
+2025,1293 Hässleholm,20 kW - 1 000 kW,232.0,16.19
+2025,1293 Hässleholm,> 1 000 kW,0.0,0.0
+2025,1293 Hässleholm,Totalt,2551.0,41.61
+2025,1315 Hylte,< 20 kW,..,..
+2025,1315 Hylte,20 kW - 1 000 kW,47.0,2.13
+2025,1315 Hylte,> 1 000 kW,0.0,0.0
+2025,1315 Hylte,Totalt,..,..
+2025,1380 Halmstad,< 20 kW,..,..
+2025,1380 Halmstad,20 kW - 1 000 kW,380.0,23.93
+2025,1380 Halmstad,> 1 000 kW,..,..
+2025,1380 Halmstad,Totalt,4422.0,83.22
+2025,1381 Laholm,< 20 kW,..,..
+2025,1381 Laholm,20 kW - 1 000 kW,..,..
+2025,1381 Laholm,> 1 000 kW,0.0,0.0
+2025,1381 Laholm,Totalt,..,..
+2025,1382 Falkenberg,< 20 kW,2953.0,31.18
+2025,1382 Falkenberg,20 kW - 1 000 kW,316.0,18.97
+2025,1382 Falkenberg,> 1 000 kW,4.0,12.6
+2025,1382 Falkenberg,Totalt,3273.0,62.75
+2025,1383 Varberg,< 20 kW,..,..
+2025,1383 Varberg,20 kW - 1 000 kW,364.0,18.97
+2025,1383 Varberg,> 1 000 kW,..,..
+2025,1383 Varberg,Totalt,3737.0,66.81
+2025,1384 Kungsbacka,< 20 kW,4840.0,54.75
+2025,1384 Kungsbacka,20 kW - 1 000 kW,..,..
+2025,1384 Kungsbacka,> 1 000 kW,..,..
+2025,1384 Kungsbacka,Totalt,5159.0,78.34
+2025,1401 Härryda,< 20 kW,1944.0,20.79
+2025,1401 Härryda,20 kW - 1 000 kW,119.0,6.34
+2025,1401 Härryda,> 1 000 kW,0.0,0.0
+2025,1401 Härryda,Totalt,2063.0,27.13
+2025,1402 Partille,< 20 kW,1111.0,11.54
+2025,1402 Partille,20 kW - 1 000 kW,67.0,4.54
+2025,1402 Partille,> 1 000 kW,0.0,0.0
+2025,1402 Partille,Totalt,1178.0,16.08
+2025,1407 Öckerö,< 20 kW,824.0,8.93
+2025,1407 Öckerö,20 kW - 1 000 kW,29.0,1.81
+2025,1407 Öckerö,> 1 000 kW,0.0,0.0
+2025,1407 Öckerö,Totalt,853.0,10.75
+2025,1415 Stenungsund,< 20 kW,1434.0,15.31
+2025,1415 Stenungsund,20 kW - 1 000 kW,111.0,5.1
+2025,1415 Stenungsund,> 1 000 kW,0.0,0.0
+2025,1415 Stenungsund,Totalt,1545.0,20.4
+2025,1419 Tjörn,< 20 kW,1412.0,14.35
+2025,1419 Tjörn,20 kW - 1 000 kW,64.0,5.66
+2025,1419 Tjörn,> 1 000 kW,0.0,0.0
+2025,1419 Tjörn,Totalt,1476.0,20.01
+2025,1421 Orust,< 20 kW,1298.0,13.85
+2025,1421 Orust,20 kW - 1 000 kW,68.0,3.77
+2025,1421 Orust,> 1 000 kW,0.0,0.0
+2025,1421 Orust,Totalt,1366.0,17.63
+2025,1427 Sotenäs,< 20 kW,546.0,5.37
+2025,1427 Sotenäs,20 kW - 1 000 kW,36.0,2.02
+2025,1427 Sotenäs,> 1 000 kW,0.0,0.0
+2025,1427 Sotenäs,Totalt,582.0,7.4
+2025,1430 Munkedal,< 20 kW,483.0,5.38
+2025,1430 Munkedal,20 kW - 1 000 kW,51.0,3.21
+2025,1430 Munkedal,> 1 000 kW,0.0,0.0
+2025,1430 Munkedal,Totalt,534.0,8.58
+2025,1435 Tanum,< 20 kW,1053.0,11.03
+2025,1435 Tanum,20 kW - 1 000 kW,84.0,5.41
+2025,1435 Tanum,> 1 000 kW,0.0,0.0
+2025,1435 Tanum,Totalt,1137.0,16.44
+2025,1438 Dals-Ed,< 20 kW,189.0,2.02
+2025,1438 Dals-Ed,20 kW - 1 000 kW,22.0,1.66
+2025,1438 Dals-Ed,> 1 000 kW,0.0,0.0
+2025,1438 Dals-Ed,Totalt,211.0,3.68
+2025,1439 Färgelanda,< 20 kW,235.0,2.57
+2025,1439 Färgelanda,20 kW - 1 000 kW,40.0,1.62
+2025,1439 Färgelanda,> 1 000 kW,0.0,0.0
+2025,1439 Färgelanda,Totalt,275.0,4.19
+2025,1440 Ale,< 20 kW,1093.0,11.95
+2025,1440 Ale,20 kW - 1 000 kW,85.0,3.75
+2025,1440 Ale,> 1 000 kW,0.0,0.0
+2025,1440 Ale,Totalt,1178.0,15.7
+2025,1441 Lerum,< 20 kW,1769.0,18.9
+2025,1441 Lerum,20 kW - 1 000 kW,127.0,5.95
+2025,1441 Lerum,> 1 000 kW,0.0,0.0
+2025,1441 Lerum,Totalt,1896.0,24.85
+2025,1442 Vårgårda,< 20 kW,489.0,5.32
+2025,1442 Vårgårda,20 kW - 1 000 kW,68.0,5.1
+2025,1442 Vårgårda,> 1 000 kW,0.0,0.0
+2025,1442 Vårgårda,Totalt,557.0,10.41
+2025,1443 Bollebygd,< 20 kW,451.0,5.07
+2025,1443 Bollebygd,20 kW - 1 000 kW,28.0,1.37
+2025,1443 Bollebygd,> 1 000 kW,0.0,0.0
+2025,1443 Bollebygd,Totalt,479.0,6.44
+2025,1444 Grästorp,< 20 kW,199.0,2.27
+2025,1444 Grästorp,20 kW - 1 000 kW,61.0,2.45
+2025,1444 Grästorp,> 1 000 kW,0.0,0.0
+2025,1444 Grästorp,Totalt,260.0,4.72
+2025,1445 Essunga,< 20 kW,255.0,2.83
+2025,1445 Essunga,20 kW - 1 000 kW,54.0,1.76
+2025,1445 Essunga,> 1 000 kW,0.0,0.0
+2025,1445 Essunga,Totalt,309.0,4.59
+2025,1446 Karlsborg,< 20 kW,354.0,3.76
+2025,1446 Karlsborg,20 kW - 1 000 kW,19.0,0.82
+2025,1446 Karlsborg,> 1 000 kW,0.0,0.0
+2025,1446 Karlsborg,Totalt,373.0,4.57
+2025,1447 Gullspång,< 20 kW,301.0,3.13
+2025,1447 Gullspång,20 kW - 1 000 kW,..,..
+2025,1447 Gullspång,> 1 000 kW,..,..
+2025,1447 Gullspång,Totalt,325.0,9.73
+2025,1452 Tranemo,< 20 kW,..,..
+2025,1452 Tranemo,20 kW - 1 000 kW,64.0,3.23
+2025,1452 Tranemo,> 1 000 kW,..,..
+2025,1452 Tranemo,Totalt,602.0,10.2
+2025,1460 Bengtsfors,< 20 kW,390.0,3.95
+2025,1460 Bengtsfors,20 kW - 1 000 kW,34.0,1.12
+2025,1460 Bengtsfors,> 1 000 kW,0.0,0.0
+2025,1460 Bengtsfors,Totalt,424.0,5.07
+2025,1461 Mellerud,< 20 kW,400.0,4.28
+2025,1461 Mellerud,20 kW - 1 000 kW,72.0,4.76
+2025,1461 Mellerud,> 1 000 kW,0.0,0.0
+2025,1461 Mellerud,Totalt,472.0,9.04
+2025,1462 Lilla Edet,< 20 kW,490.0,5.34
+2025,1462 Lilla Edet,20 kW - 1 000 kW,42.0,2.67
+2025,1462 Lilla Edet,> 1 000 kW,0.0,0.0
+2025,1462 Lilla Edet,Totalt,532.0,8.02
+2025,1463 Mark,< 20 kW,1520.0,16.21
+2025,1463 Mark,20 kW - 1 000 kW,157.0,8.38
+2025,1463 Mark,> 1 000 kW,0.0,0.0
+2025,1463 Mark,Totalt,1677.0,24.58
+2025,1465 Svenljunga,< 20 kW,482.0,5.23
+2025,1465 Svenljunga,20 kW - 1 000 kW,63.0,3.33
+2025,1465 Svenljunga,> 1 000 kW,0.0,0.0
+2025,1465 Svenljunga,Totalt,545.0,8.55
+2025,1466 Herrljunga,< 20 kW,336.0,3.61
+2025,1466 Herrljunga,20 kW - 1 000 kW,70.0,3.79
+2025,1466 Herrljunga,> 1 000 kW,0.0,0.0
+2025,1466 Herrljunga,Totalt,406.0,7.4
+2025,1470 Vara,< 20 kW,528.0,6.21
+2025,1470 Vara,20 kW - 1 000 kW,117.0,6.91
+2025,1470 Vara,> 1 000 kW,0.0,0.0
+2025,1470 Vara,Totalt,645.0,13.11
+2025,1471 Götene,< 20 kW,636.0,6.92
+2025,1471 Götene,20 kW - 1 000 kW,71.0,4.0
+2025,1471 Götene,> 1 000 kW,0.0,0.0
+2025,1471 Götene,Totalt,707.0,10.92
+2025,1472 Tibro,< 20 kW,354.0,3.81
+2025,1472 Tibro,20 kW - 1 000 kW,27.0,2.25
+2025,1472 Tibro,> 1 000 kW,0.0,0.0
+2025,1472 Tibro,Totalt,381.0,6.06
+2025,1473 Töreboda,< 20 kW,339.0,3.93
+2025,1473 Töreboda,20 kW - 1 000 kW,..,..
+2025,1473 Töreboda,> 1 000 kW,..,..
+2025,1473 Töreboda,Totalt,391.0,9.89
+2025,1480 Göteborg,< 20 kW,7806.0,84.96
+2025,1480 Göteborg,20 kW - 1 000 kW,1342.0,84.9
+2025,1480 Göteborg,> 1 000 kW,6.0,23.08
+2025,1480 Göteborg,Totalt,9154.0,192.93
+2025,1481 Mölndal,< 20 kW,..,..
+2025,1481 Mölndal,20 kW - 1 000 kW,185.0,11.45
+2025,1481 Mölndal,> 1 000 kW,..,..
+2025,1481 Mölndal,Totalt,2262.0,39.23
+2025,1482 Kungälv,< 20 kW,2228.0,24.31
+2025,1482 Kungälv,20 kW - 1 000 kW,155.0,7.68
+2025,1482 Kungälv,> 1 000 kW,0.0,0.0
+2025,1482 Kungälv,Totalt,2383.0,31.98
+2025,1484 Lysekil,< 20 kW,583.0,5.94
+2025,1484 Lysekil,20 kW - 1 000 kW,45.0,7.36
+2025,1484 Lysekil,> 1 000 kW,0.0,0.0
+2025,1484 Lysekil,Totalt,628.0,13.3
+2025,1485 Uddevalla,< 20 kW,2093.0,23.1
+2025,1485 Uddevalla,20 kW - 1 000 kW,168.0,8.49
+2025,1485 Uddevalla,> 1 000 kW,0.0,0.0
+2025,1485 Uddevalla,Totalt,2261.0,31.59
+2025,1486 Strömstad,< 20 kW,552.0,5.86
+2025,1486 Strömstad,20 kW - 1 000 kW,64.0,5.23
+2025,1486 Strömstad,> 1 000 kW,0.0,0.0
+2025,1486 Strömstad,Totalt,616.0,11.09
+2025,1487 Vänersborg,< 20 kW,1145.0,12.18
+2025,1487 Vänersborg,20 kW - 1 000 kW,..,..
+2025,1487 Vänersborg,> 1 000 kW,..,..
+2025,1487 Vänersborg,Totalt,1278.0,21.71
+2025,1488 Trollhättan,< 20 kW,..,..
+2025,1488 Trollhättan,20 kW - 1 000 kW,128.0,5.95
+2025,1488 Trollhättan,> 1 000 kW,..,..
+2025,1488 Trollhättan,Totalt,1488.0,22.17
+2025,1489 Alingsås,< 20 kW,..,..
+2025,1489 Alingsås,20 kW - 1 000 kW,..,..
+2025,1489 Alingsås,> 1 000 kW,..,..
+2025,1489 Alingsås,Totalt,1537.0,25.36
+2025,1490 Borås,< 20 kW,2662.0,28.9
+2025,1490 Borås,20 kW - 1 000 kW,..,..
+2025,1490 Borås,> 1 000 kW,..,..
+2025,1490 Borås,Totalt,2983.0,54.22
+2025,1491 Ulricehamn,< 20 kW,947.0,10.54
+2025,1491 Ulricehamn,20 kW - 1 000 kW,..,..
+2025,1491 Ulricehamn,> 1 000 kW,..,..
+2025,1491 Ulricehamn,Totalt,1087.0,20.56
+2025,1492 Åmål,< 20 kW,298.0,3.07
+2025,1492 Åmål,20 kW - 1 000 kW,36.0,3.23
+2025,1492 Åmål,> 1 000 kW,0.0,0.0
+2025,1492 Åmål,Totalt,334.0,6.3
+2025,1493 Mariestad,< 20 kW,809.0,8.87
+2025,1493 Mariestad,20 kW - 1 000 kW,83.0,4.54
+2025,1493 Mariestad,> 1 000 kW,0.0,0.0
+2025,1493 Mariestad,Totalt,892.0,13.41
+2025,1494 Lidköping,< 20 kW,..,..
+2025,1494 Lidköping,20 kW - 1 000 kW,232.0,11.36
+2025,1494 Lidköping,> 1 000 kW,..,..
+2025,1494 Lidköping,Totalt,1724.0,43.67
+2025,1495 Skara,< 20 kW,..,..
+2025,1495 Skara,20 kW - 1 000 kW,106.0,9.42
+2025,1495 Skara,> 1 000 kW,..,..
+2025,1495 Skara,Totalt,680.0,18.84
+2025,1496 Skövde,< 20 kW,1600.0,17.76
+2025,1496 Skövde,20 kW - 1 000 kW,..,..
+2025,1496 Skövde,> 1 000 kW,..,..
+2025,1496 Skövde,Totalt,1788.0,33.18
+2025,1497 Hjo,< 20 kW,..,..
+2025,1497 Hjo,20 kW - 1 000 kW,40.0,2.14
+2025,1497 Hjo,> 1 000 kW,..,..
+2025,1497 Hjo,Totalt,355.0,6.56
+2025,1498 Tidaholm,< 20 kW,381.0,4.14
+2025,1498 Tidaholm,20 kW - 1 000 kW,68.0,3.08
+2025,1498 Tidaholm,> 1 000 kW,0.0,0.0
+2025,1498 Tidaholm,Totalt,449.0,7.22
+2025,1499 Falköping,< 20 kW,1133.0,12.42
+2025,1499 Falköping,20 kW - 1 000 kW,101.0,4.95
+2025,1499 Falköping,> 1 000 kW,3.0,31.0
+2025,1499 Falköping,Totalt,1237.0,48.36
+2025,1715 Kil,< 20 kW,541.0,5.75
+2025,1715 Kil,20 kW - 1 000 kW,24.0,1.76
+2025,1715 Kil,> 1 000 kW,0.0,0.0
+2025,1715 Kil,Totalt,565.0,7.52
+2025,1730 Eda,< 20 kW,221.0,2.33
+2025,1730 Eda,20 kW - 1 000 kW,..,..
+2025,1730 Eda,> 1 000 kW,..,..
+2025,1730 Eda,Totalt,242.0,5.19
+2025,1737 Torsby,< 20 kW,382.0,4.0
+2025,1737 Torsby,20 kW - 1 000 kW,..,..
+2025,1737 Torsby,> 1 000 kW,..,..
+2025,1737 Torsby,Totalt,416.0,7.57
+2025,1760 Storfors,< 20 kW,177.0,1.85
+2025,1760 Storfors,20 kW - 1 000 kW,9.0,0.3
+2025,1760 Storfors,> 1 000 kW,0.0,0.0
+2025,1760 Storfors,Totalt,186.0,2.16
+2025,1761 Hammarö,< 20 kW,760.0,7.85
+2025,1761 Hammarö,20 kW - 1 000 kW,24.0,1.11
+2025,1761 Hammarö,> 1 000 kW,0.0,0.0
+2025,1761 Hammarö,Totalt,784.0,8.96
+2025,1762 Munkfors,< 20 kW,90.0,0.97
+2025,1762 Munkfors,20 kW - 1 000 kW,6.0,0.97
+2025,1762 Munkfors,> 1 000 kW,0.0,0.0
+2025,1762 Munkfors,Totalt,96.0,1.93
+2025,1763 Forshaga,< 20 kW,408.0,4.25
+2025,1763 Forshaga,20 kW - 1 000 kW,28.0,2.87
+2025,1763 Forshaga,> 1 000 kW,0.0,0.0
+2025,1763 Forshaga,Totalt,436.0,7.13
+2025,1764 Grums,< 20 kW,364.0,3.81
+2025,1764 Grums,20 kW - 1 000 kW,30.0,1.85
+2025,1764 Grums,> 1 000 kW,0.0,0.0
+2025,1764 Grums,Totalt,394.0,5.67
+2025,1765 Årjäng,< 20 kW,424.0,4.0
+2025,1765 Årjäng,20 kW - 1 000 kW,37.0,1.7
+2025,1765 Årjäng,> 1 000 kW,0.0,0.0
+2025,1765 Årjäng,Totalt,461.0,5.7
+2025,1766 Sunne,< 20 kW,738.0,7.89
+2025,1766 Sunne,20 kW - 1 000 kW,41.0,2.77
+2025,1766 Sunne,> 1 000 kW,0.0,0.0
+2025,1766 Sunne,Totalt,779.0,10.66
+2025,1780 Karlstad,< 20 kW,2282.0,23.47
+2025,1780 Karlstad,20 kW - 1 000 kW,301.0,19.53
+2025,1780 Karlstad,> 1 000 kW,0.0,0.0
+2025,1780 Karlstad,Totalt,2583.0,43.0
+2025,1781 Kristinehamn,< 20 kW,801.0,8.39
+2025,1781 Kristinehamn,20 kW - 1 000 kW,85.0,4.88
+2025,1781 Kristinehamn,> 1 000 kW,0.0,0.0
+2025,1781 Kristinehamn,Totalt,886.0,13.26
+2025,1782 Filipstad,< 20 kW,202.0,2.02
+2025,1782 Filipstad,20 kW - 1 000 kW,15.0,1.09
+2025,1782 Filipstad,> 1 000 kW,0.0,0.0
+2025,1782 Filipstad,Totalt,217.0,3.11
+2025,1783 Hagfors,< 20 kW,462.0,4.8
+2025,1783 Hagfors,20 kW - 1 000 kW,13.0,0.65
+2025,1783 Hagfors,> 1 000 kW,0.0,0.0
+2025,1783 Hagfors,Totalt,475.0,5.44
+2025,1784 Arvika,< 20 kW,959.0,10.11
+2025,1784 Arvika,20 kW - 1 000 kW,62.0,5.31
+2025,1784 Arvika,> 1 000 kW,0.0,0.0
+2025,1784 Arvika,Totalt,1021.0,15.42
+2025,1785 Säffle,< 20 kW,479.0,4.92
+2025,1785 Säffle,20 kW - 1 000 kW,60.0,2.57
+2025,1785 Säffle,> 1 000 kW,0.0,0.0
+2025,1785 Säffle,Totalt,539.0,7.48
+2025,1814 Lekeberg,< 20 kW,484.0,5.27
+2025,1814 Lekeberg,20 kW - 1 000 kW,34.0,1.63
+2025,1814 Lekeberg,> 1 000 kW,0.0,0.0
+2025,1814 Lekeberg,Totalt,518.0,6.9
+2025,1860 Laxå,< 20 kW,298.0,3.06
+2025,1860 Laxå,20 kW - 1 000 kW,25.0,1.3
+2025,1860 Laxå,> 1 000 kW,0.0,0.0
+2025,1860 Laxå,Totalt,323.0,4.36
+2025,1861 Hallsberg,< 20 kW,650.0,6.98
+2025,1861 Hallsberg,20 kW - 1 000 kW,..,..
+2025,1861 Hallsberg,> 1 000 kW,0.0,0.0
+2025,1861 Hallsberg,Totalt,..,..
+2025,1862 Degerfors,< 20 kW,..,..
+2025,1862 Degerfors,20 kW - 1 000 kW,..,..
+2025,1862 Degerfors,> 1 000 kW,0.0,0.0
+2025,1862 Degerfors,Totalt,..,..
+2025,1863 Hällefors,< 20 kW,172.0,1.67
+2025,1863 Hällefors,20 kW - 1 000 kW,9.0,0.47
+2025,1863 Hällefors,> 1 000 kW,0.0,0.0
+2025,1863 Hällefors,Totalt,181.0,2.13
+2025,1864 Ljusnarsberg,< 20 kW,140.0,1.35
+2025,1864 Ljusnarsberg,20 kW - 1 000 kW,8.0,0.24
+2025,1864 Ljusnarsberg,> 1 000 kW,0.0,0.0
+2025,1864 Ljusnarsberg,Totalt,148.0,1.6
+2025,1880 Örebro,< 20 kW,3854.0,40.72
+2025,1880 Örebro,20 kW - 1 000 kW,378.0,25.78
+2025,1880 Örebro,> 1 000 kW,0.0,0.0
+2025,1880 Örebro,Totalt,4232.0,66.5
+2025,1881 Kumla,< 20 kW,906.0,9.77
+2025,1881 Kumla,20 kW - 1 000 kW,66.0,3.73
+2025,1881 Kumla,> 1 000 kW,0.0,0.0
+2025,1881 Kumla,Totalt,972.0,13.5
+2025,1882 Askersund,< 20 kW,656.0,7.03
+2025,1882 Askersund,20 kW - 1 000 kW,66.0,3.31
+2025,1882 Askersund,> 1 000 kW,0.0,0.0
+2025,1882 Askersund,Totalt,722.0,10.34
+2025,1883 Karlskoga,< 20 kW,794.0,8.09
+2025,1883 Karlskoga,20 kW - 1 000 kW,58.0,2.12
+2025,1883 Karlskoga,> 1 000 kW,0.0,0.0
+2025,1883 Karlskoga,Totalt,852.0,10.2
+2025,1884 Nora,< 20 kW,468.0,4.91
+2025,1884 Nora,20 kW - 1 000 kW,36.0,1.38
+2025,1884 Nora,> 1 000 kW,0.0,0.0
+2025,1884 Nora,Totalt,504.0,6.29
+2025,1885 Lindesberg,< 20 kW,..,..
+2025,1885 Lindesberg,20 kW - 1 000 kW,109.0,6.04
+2025,1885 Lindesberg,> 1 000 kW,..,..
+2025,1885 Lindesberg,Totalt,957.0,31.43
+2025,1904 Skinnskatteberg,< 20 kW,272.0,2.83
+2025,1904 Skinnskatteberg,20 kW - 1 000 kW,13.0,0.52
+2025,1904 Skinnskatteberg,> 1 000 kW,0.0,0.0
+2025,1904 Skinnskatteberg,Totalt,285.0,3.35
+2025,1907 Surahammar,< 20 kW,350.0,3.59
+2025,1907 Surahammar,20 kW - 1 000 kW,23.0,0.99
+2025,1907 Surahammar,> 1 000 kW,0.0,0.0
+2025,1907 Surahammar,Totalt,373.0,4.58
+2025,1960 Kungsör,< 20 kW,329.0,3.47
+2025,1960 Kungsör,20 kW - 1 000 kW,25.0,1.09
+2025,1960 Kungsör,> 1 000 kW,0.0,0.0
+2025,1960 Kungsör,Totalt,354.0,4.57
+2025,1961 Hallstahammar,< 20 kW,519.0,5.63
+2025,1961 Hallstahammar,20 kW - 1 000 kW,..,..
+2025,1961 Hallstahammar,> 1 000 kW,..,..
+2025,1961 Hallstahammar,Totalt,569.0,16.21
+2025,1962 Norberg,< 20 kW,189.0,1.94
+2025,1962 Norberg,20 kW - 1 000 kW,16.0,0.62
+2025,1962 Norberg,> 1 000 kW,0.0,0.0
+2025,1962 Norberg,Totalt,205.0,2.56
+2025,1980 Västerås,< 20 kW,..,..
+2025,1980 Västerås,20 kW - 1 000 kW,487.0,31.38
+2025,1980 Västerås,> 1 000 kW,..,..
+2025,1980 Västerås,Totalt,3568.0,82.93
+2025,1981 Sala,< 20 kW,..,..
+2025,1981 Sala,20 kW - 1 000 kW,..,..
+2025,1981 Sala,> 1 000 kW,0.0,0.0
+2025,1981 Sala,Totalt,1031.0,15.77
+2025,1982 Fagersta,< 20 kW,244.0,2.62
+2025,1982 Fagersta,20 kW - 1 000 kW,20.0,0.92
+2025,1982 Fagersta,> 1 000 kW,0.0,0.0
+2025,1982 Fagersta,Totalt,264.0,3.54
+2025,1983 Köping,< 20 kW,962.0,10.23
+2025,1983 Köping,20 kW - 1 000 kW,147.0,6.8
+2025,1983 Köping,> 1 000 kW,0.0,0.0
+2025,1983 Köping,Totalt,1109.0,17.03
+2025,1984 Arboga,< 20 kW,650.0,6.53
+2025,1984 Arboga,20 kW - 1 000 kW,58.0,2.47
+2025,1984 Arboga,> 1 000 kW,0.0,0.0
+2025,1984 Arboga,Totalt,708.0,9.0
+2025,2021 Vansbro,< 20 kW,223.0,2.42
+2025,2021 Vansbro,20 kW - 1 000 kW,27.0,1.36
+2025,2021 Vansbro,> 1 000 kW,0.0,0.0
+2025,2021 Vansbro,Totalt,250.0,3.78
+2025,2023 Malung-Sälen,< 20 kW,320.0,3.57
+2025,2023 Malung-Sälen,20 kW - 1 000 kW,35.0,1.63
+2025,2023 Malung-Sälen,> 1 000 kW,0.0,0.0
+2025,2023 Malung-Sälen,Totalt,355.0,5.2
+2025,2026 Gagnef,< 20 kW,..,..
+2025,2026 Gagnef,20 kW - 1 000 kW,22.0,1.12
+2025,2026 Gagnef,> 1 000 kW,..,..
+2025,2026 Gagnef,Totalt,527.0,8.1
+2025,2029 Leksand,< 20 kW,852.0,8.7
+2025,2029 Leksand,20 kW - 1 000 kW,36.0,1.26
+2025,2029 Leksand,> 1 000 kW,0.0,0.0
+2025,2029 Leksand,Totalt,888.0,9.96
+2025,2031 Rättvik,< 20 kW,590.0,6.07
+2025,2031 Rättvik,20 kW - 1 000 kW,27.0,1.34
+2025,2031 Rättvik,> 1 000 kW,0.0,0.0
+2025,2031 Rättvik,Totalt,617.0,7.42
+2025,2034 Orsa,< 20 kW,300.0,3.12
+2025,2034 Orsa,20 kW - 1 000 kW,14.0,0.56
+2025,2034 Orsa,> 1 000 kW,0.0,0.0
+2025,2034 Orsa,Totalt,314.0,3.68
+2025,2039 Älvdalen,< 20 kW,323.0,3.47
+2025,2039 Älvdalen,20 kW - 1 000 kW,28.0,1.21
+2025,2039 Älvdalen,> 1 000 kW,0.0,0.0
+2025,2039 Älvdalen,Totalt,351.0,4.68
+2025,2061 Smedjebacken,< 20 kW,..,..
+2025,2061 Smedjebacken,20 kW - 1 000 kW,19.0,0.64
+2025,2061 Smedjebacken,> 1 000 kW,..,..
+2025,2061 Smedjebacken,Totalt,432.0,6.34
+2025,2062 Mora,< 20 kW,893.0,9.6
+2025,2062 Mora,20 kW - 1 000 kW,37.0,1.76
+2025,2062 Mora,> 1 000 kW,0.0,0.0
+2025,2062 Mora,Totalt,930.0,11.36
+2025,2080 Falun,< 20 kW,2031.0,21.82
+2025,2080 Falun,20 kW - 1 000 kW,157.0,7.62
+2025,2080 Falun,> 1 000 kW,0.0,0.0
+2025,2080 Falun,Totalt,2188.0,29.44
+2025,2081 Borlänge,< 20 kW,..,..
+2025,2081 Borlänge,20 kW - 1 000 kW,137.0,6.33
+2025,2081 Borlänge,> 1 000 kW,..,..
+2025,2081 Borlänge,Totalt,1437.0,23.36
+2025,2082 Säter,< 20 kW,523.0,5.7
+2025,2082 Säter,20 kW - 1 000 kW,36.0,1.35
+2025,2082 Säter,> 1 000 kW,0.0,0.0
+2025,2082 Säter,Totalt,559.0,7.05
+2025,2083 Hedemora,< 20 kW,552.0,5.82
+2025,2083 Hedemora,20 kW - 1 000 kW,53.0,1.61
+2025,2083 Hedemora,> 1 000 kW,0.0,0.0
+2025,2083 Hedemora,Totalt,605.0,7.43
+2025,2084 Avesta,< 20 kW,825.0,8.97
+2025,2084 Avesta,20 kW - 1 000 kW,90.0,4.03
+2025,2084 Avesta,> 1 000 kW,0.0,0.0
+2025,2084 Avesta,Totalt,915.0,13.0
+2025,2085 Ludvika,< 20 kW,611.0,6.53
+2025,2085 Ludvika,20 kW - 1 000 kW,52.0,7.85
+2025,2085 Ludvika,> 1 000 kW,0.0,0.0
+2025,2085 Ludvika,Totalt,663.0,14.37
+2025,2101 Ockelbo,< 20 kW,234.0,2.41
+2025,2101 Ockelbo,20 kW - 1 000 kW,5.0,0.28
+2025,2101 Ockelbo,> 1 000 kW,0.0,0.0
+2025,2101 Ockelbo,Totalt,239.0,2.69
+2025,2104 Hofors,< 20 kW,..,..
+2025,2104 Hofors,20 kW - 1 000 kW,..,..
+2025,2104 Hofors,> 1 000 kW,0.0,0.0
+2025,2104 Hofors,Totalt,..,..
+2025,2121 Ovanåker,< 20 kW,362.0,3.86
+2025,2121 Ovanåker,20 kW - 1 000 kW,26.0,0.89
+2025,2121 Ovanåker,> 1 000 kW,0.0,0.0
+2025,2121 Ovanåker,Totalt,388.0,4.75
+2025,2132 Nordanstig,< 20 kW,349.0,3.66
+2025,2132 Nordanstig,20 kW - 1 000 kW,34.0,1.35
+2025,2132 Nordanstig,> 1 000 kW,0.0,0.0
+2025,2132 Nordanstig,Totalt,383.0,5.01
+2025,2161 Ljusdal,< 20 kW,408.0,4.25
+2025,2161 Ljusdal,20 kW - 1 000 kW,43.0,1.22
+2025,2161 Ljusdal,> 1 000 kW,0.0,0.0
+2025,2161 Ljusdal,Totalt,451.0,5.48
+2025,2180 Gävle,< 20 kW,..,..
+2025,2180 Gävle,20 kW - 1 000 kW,..,..
+2025,2180 Gävle,> 1 000 kW,..,..
+2025,2180 Gävle,Totalt,..,..
+2025,2181 Sandviken,< 20 kW,942.0,10.09
+2025,2181 Sandviken,20 kW - 1 000 kW,53.0,2.97
+2025,2181 Sandviken,> 1 000 kW,0.0,0.0
+2025,2181 Sandviken,Totalt,995.0,13.07
+2025,2182 Söderhamn,< 20 kW,617.0,6.29
+2025,2182 Söderhamn,20 kW - 1 000 kW,32.0,1.44
+2025,2182 Söderhamn,> 1 000 kW,0.0,0.0
+2025,2182 Söderhamn,Totalt,649.0,7.73
+2025,2183 Bollnäs,< 20 kW,587.0,6.08
+2025,2183 Bollnäs,20 kW - 1 000 kW,36.0,1.77
+2025,2183 Bollnäs,> 1 000 kW,0.0,0.0
+2025,2183 Bollnäs,Totalt,623.0,7.85
+2025,2184 Hudiksvall,< 20 kW,1076.0,11.26
+2025,2184 Hudiksvall,20 kW - 1 000 kW,94.0,5.19
+2025,2184 Hudiksvall,> 1 000 kW,0.0,0.0
+2025,2184 Hudiksvall,Totalt,1170.0,16.44
+2025,2260 Ånge,< 20 kW,148.0,1.6
+2025,2260 Ånge,20 kW - 1 000 kW,11.0,0.43
+2025,2260 Ånge,> 1 000 kW,0.0,0.0
+2025,2260 Ånge,Totalt,159.0,2.03
+2025,2262 Timrå,< 20 kW,403.0,4.33
+2025,2262 Timrå,20 kW - 1 000 kW,17.0,1.03
+2025,2262 Timrå,> 1 000 kW,0.0,0.0
+2025,2262 Timrå,Totalt,420.0,5.36
+2025,2280 Härnösand,< 20 kW,374.0,3.96
+2025,2280 Härnösand,20 kW - 1 000 kW,65.0,3.06
+2025,2280 Härnösand,> 1 000 kW,0.0,0.0
+2025,2280 Härnösand,Totalt,439.0,7.02
+2025,2281 Sundsvall,< 20 kW,1322.0,13.97
+2025,2281 Sundsvall,20 kW - 1 000 kW,135.0,8.15
+2025,2281 Sundsvall,> 1 000 kW,0.0,0.0
+2025,2281 Sundsvall,Totalt,1457.0,22.12
+2025,2282 Kramfors,< 20 kW,527.0,5.54
+2025,2282 Kramfors,20 kW - 1 000 kW,34.0,1.76
+2025,2282 Kramfors,> 1 000 kW,0.0,0.0
+2025,2282 Kramfors,Totalt,561.0,7.3
+2025,2283 Sollefteå,< 20 kW,344.0,3.73
+2025,2283 Sollefteå,20 kW - 1 000 kW,23.0,1.3
+2025,2283 Sollefteå,> 1 000 kW,0.0,0.0
+2025,2283 Sollefteå,Totalt,367.0,5.03
+2025,2284 Örnsköldsvik,< 20 kW,1359.0,14.68
+2025,2284 Örnsköldsvik,20 kW - 1 000 kW,101.0,5.78
+2025,2284 Örnsköldsvik,> 1 000 kW,0.0,0.0
+2025,2284 Örnsköldsvik,Totalt,1460.0,20.47
+2025,2303 Ragunda,< 20 kW,75.0,0.78
+2025,2303 Ragunda,20 kW - 1 000 kW,8.0,0.24
+2025,2303 Ragunda,> 1 000 kW,0.0,0.0
+2025,2303 Ragunda,Totalt,83.0,1.02
+2025,2305 Bräcke,< 20 kW,152.0,1.63
+2025,2305 Bräcke,20 kW - 1 000 kW,18.0,0.5
+2025,2305 Bräcke,> 1 000 kW,0.0,0.0
+2025,2305 Bräcke,Totalt,170.0,2.12
+2025,2309 Krokom,< 20 kW,426.0,5.03
+2025,2309 Krokom,20 kW - 1 000 kW,99.0,3.42
+2025,2309 Krokom,> 1 000 kW,0.0,0.0
+2025,2309 Krokom,Totalt,525.0,8.45
+2025,2313 Strömsund,< 20 kW,186.0,2.07
+2025,2313 Strömsund,20 kW - 1 000 kW,27.0,0.92
+2025,2313 Strömsund,> 1 000 kW,0.0,0.0
+2025,2313 Strömsund,Totalt,213.0,2.98
+2025,2321 Åre,< 20 kW,293.0,3.21
+2025,2321 Åre,20 kW - 1 000 kW,70.0,2.41
+2025,2321 Åre,> 1 000 kW,0.0,0.0
+2025,2321 Åre,Totalt,363.0,5.62
+2025,2326 Berg,< 20 kW,211.0,2.33
+2025,2326 Berg,20 kW - 1 000 kW,62.0,1.54
+2025,2326 Berg,> 1 000 kW,0.0,0.0
+2025,2326 Berg,Totalt,273.0,3.88
+2025,2361 Härjedalen,< 20 kW,338.0,3.65
+2025,2361 Härjedalen,20 kW - 1 000 kW,38.0,1.21
+2025,2361 Härjedalen,> 1 000 kW,0.0,0.0
+2025,2361 Härjedalen,Totalt,376.0,4.86
+2025,2380 Östersund,< 20 kW,873.0,9.7
+2025,2380 Östersund,20 kW - 1 000 kW,202.0,12.14
+2025,2380 Östersund,> 1 000 kW,0.0,0.0
+2025,2380 Östersund,Totalt,1075.0,21.84
+2025,2401 Nordmaling,< 20 kW,219.0,2.3
+2025,2401 Nordmaling,20 kW - 1 000 kW,9.0,0.26
+2025,2401 Nordmaling,> 1 000 kW,0.0,0.0
+2025,2401 Nordmaling,Totalt,228.0,2.56
+2025,2403 Bjurholm,< 20 kW,49.0,0.47
+2025,2403 Bjurholm,20 kW - 1 000 kW,11.0,0.54
+2025,2403 Bjurholm,> 1 000 kW,0.0,0.0
+2025,2403 Bjurholm,Totalt,60.0,1.02
+2025,2404 Vindeln,< 20 kW,..,..
+2025,2404 Vindeln,20 kW - 1 000 kW,..,..
+2025,2404 Vindeln,> 1 000 kW,0.0,0.0
+2025,2404 Vindeln,Totalt,99.0,1.83
+2025,2409 Robertsfors,< 20 kW,157.0,1.64
+2025,2409 Robertsfors,20 kW - 1 000 kW,10.0,0.26
+2025,2409 Robertsfors,> 1 000 kW,0.0,0.0
+2025,2409 Robertsfors,Totalt,167.0,1.89
+2025,2417 Norsjö,< 20 kW,..,..
+2025,2417 Norsjö,20 kW - 1 000 kW,..,..
+2025,2417 Norsjö,> 1 000 kW,0.0,0.0
+2025,2417 Norsjö,Totalt,35.0,0.42
+2025,2418 Malå,< 20 kW,27.0,0.27
+2025,2418 Malå,20 kW - 1 000 kW,0.0,0.0
+2025,2418 Malå,> 1 000 kW,0.0,0.0
+2025,2418 Malå,Totalt,27.0,0.27
+2025,2421 Storuman,< 20 kW,78.0,0.8
+2025,2421 Storuman,20 kW - 1 000 kW,..,..
+2025,2421 Storuman,> 1 000 kW,..,..
+2025,2421 Storuman,Totalt,85.0,2.39
+2025,2422 Sorsele,< 20 kW,21.0,0.19
+2025,2422 Sorsele,20 kW - 1 000 kW,0.0,0.0
+2025,2422 Sorsele,> 1 000 kW,0.0,0.0
+2025,2422 Sorsele,Totalt,21.0,0.19
+2025,2425 Dorotea,< 20 kW,22.0,0.26
+2025,2425 Dorotea,20 kW - 1 000 kW,0.0,0.0
+2025,2425 Dorotea,> 1 000 kW,0.0,0.0
+2025,2425 Dorotea,Totalt,22.0,0.26
+2025,2460 Vännäs,< 20 kW,228.0,2.44
+2025,2460 Vännäs,20 kW - 1 000 kW,23.0,0.85
+2025,2460 Vännäs,> 1 000 kW,0.0,0.0
+2025,2460 Vännäs,Totalt,251.0,3.28
+2025,2462 Vilhelmina,< 20 kW,78.0,0.77
+2025,2462 Vilhelmina,20 kW - 1 000 kW,5.0,0.72
+2025,2462 Vilhelmina,> 1 000 kW,0.0,0.0
+2025,2462 Vilhelmina,Totalt,83.0,1.49
+2025,2463 Åsele,< 20 kW,38.0,0.42
+2025,2463 Åsele,20 kW - 1 000 kW,4.0,0.14
+2025,2463 Åsele,> 1 000 kW,0.0,0.0
+2025,2463 Åsele,Totalt,42.0,0.56
+2025,2480 Umeå,< 20 kW,..,..
+2025,2480 Umeå,20 kW - 1 000 kW,142.0,9.01
+2025,2480 Umeå,> 1 000 kW,..,..
+2025,2480 Umeå,Totalt,1510.0,26.93
+2025,2481 Lycksele,< 20 kW,128.0,1.38
+2025,2481 Lycksele,20 kW - 1 000 kW,12.0,0.74
+2025,2481 Lycksele,> 1 000 kW,0.0,0.0
+2025,2481 Lycksele,Totalt,140.0,2.12
+2025,2482 Skellefteå,< 20 kW,834.0,8.76
+2025,2482 Skellefteå,20 kW - 1 000 kW,77.0,3.56
+2025,2482 Skellefteå,> 1 000 kW,0.0,0.0
+2025,2482 Skellefteå,Totalt,911.0,12.32
+2025,2505 Arvidsjaur,< 20 kW,46.0,0.52
+2025,2505 Arvidsjaur,20 kW - 1 000 kW,3.0,0.4
+2025,2505 Arvidsjaur,> 1 000 kW,0.0,0.0
+2025,2505 Arvidsjaur,Totalt,49.0,0.92
+2025,2506 Arjeplog,< 20 kW,26.0,0.24
+2025,2506 Arjeplog,20 kW - 1 000 kW,3.0,0.19
+2025,2506 Arjeplog,> 1 000 kW,0.0,0.0
+2025,2506 Arjeplog,Totalt,29.0,0.43
+2025,2510 Jokkmokk,< 20 kW,46.0,0.46
+2025,2510 Jokkmokk,20 kW - 1 000 kW,5.0,0.7
+2025,2510 Jokkmokk,> 1 000 kW,0.0,0.0
+2025,2510 Jokkmokk,Totalt,51.0,1.16
+2025,2513 Överkalix,< 20 kW,36.0,0.25
+2025,2513 Överkalix,20 kW - 1 000 kW,0.0,0.0
+2025,2513 Överkalix,> 1 000 kW,0.0,0.0
+2025,2513 Överkalix,Totalt,36.0,0.25
+2025,2514 Kalix,< 20 kW,199.0,1.97
+2025,2514 Kalix,20 kW - 1 000 kW,13.0,0.45
+2025,2514 Kalix,> 1 000 kW,0.0,0.0
+2025,2514 Kalix,Totalt,212.0,2.42
+2025,2518 Övertorneå,< 20 kW,..,..
+2025,2518 Övertorneå,20 kW - 1 000 kW,..,..
+2025,2518 Övertorneå,> 1 000 kW,0.0,0.0
+2025,2518 Övertorneå,Totalt,93.0,1.38
+2025,2521 Pajala,< 20 kW,86.0,0.87
+2025,2521 Pajala,20 kW - 1 000 kW,13.0,0.77
+2025,2521 Pajala,> 1 000 kW,0.0,0.0
+2025,2521 Pajala,Totalt,99.0,1.63
+2025,2523 Gällivare,< 20 kW,93.0,0.91
+2025,2523 Gällivare,20 kW - 1 000 kW,8.0,0.53
+2025,2523 Gällivare,> 1 000 kW,0.0,0.0
+2025,2523 Gällivare,Totalt,101.0,1.44
+2025,2560 Älvsbyn,< 20 kW,62.0,0.65
+2025,2560 Älvsbyn,20 kW - 1 000 kW,6.0,0.28
+2025,2560 Älvsbyn,> 1 000 kW,0.0,0.0
+2025,2560 Älvsbyn,Totalt,68.0,0.93
+2025,2580 Luleå,< 20 kW,541.0,5.82
+2025,2580 Luleå,20 kW - 1 000 kW,90.0,5.33
+2025,2580 Luleå,> 1 000 kW,0.0,0.0
+2025,2580 Luleå,Totalt,631.0,11.16
+2025,2581 Piteå,< 20 kW,..,..
+2025,2581 Piteå,20 kW - 1 000 kW,54.0,2.43
+2025,2581 Piteå,> 1 000 kW,..,..
+2025,2581 Piteå,Totalt,508.0,8.6
+2025,2582 Boden,< 20 kW,244.0,2.5
+2025,2582 Boden,20 kW - 1 000 kW,20.0,1.01
+2025,2582 Boden,> 1 000 kW,0.0,0.0
+2025,2582 Boden,Totalt,264.0,3.52
+2025,2583 Haparanda,< 20 kW,55.0,0.49
+2025,2583 Haparanda,20 kW - 1 000 kW,0.0,0.0
+2025,2583 Haparanda,> 1 000 kW,0.0,0.0
+2025,2583 Haparanda,Totalt,55.0,0.49
+2025,2584 Kiruna,< 20 kW,99.0,0.91
+2025,2584 Kiruna,20 kW - 1 000 kW,8.0,0.33
+2025,2584 Kiruna,> 1 000 kW,0.0,0.0
+2025,2584 Kiruna,Totalt,107.0,1.25
