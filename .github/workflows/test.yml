@@ -59,4 +59,9 @@ jobs:
                  tests/test_rework_analysis.py \
                  tests/test_solar_profile.py \
                  tests/test_inverter_data.py \
+                 tests/test_park_energy_strict.py \
+                 tests/test_oversikt.py \
+                 tests/test_futures_zonal.py \
+                 tests/test_nasdaq.py \
+                 tests/test_entsoe.py \
                  -v --tb=short
