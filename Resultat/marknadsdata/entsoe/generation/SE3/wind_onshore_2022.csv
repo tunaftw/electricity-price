@@ -3273,6 +3273,7 @@ time_start,zone,psr_type,generation_mw,resolution_minutes
 2022-05-17T08:00:00+00:00,SE3,wind_onshore,217.3,60
 2022-05-17T09:00:00+00:00,SE3,wind_onshore,193.81,60
 2022-05-17T10:00:00+00:00,SE3,wind_onshore,164.13,60
+2022-05-17T11:00:00+00:00,SE3,wind_onshore,164.13,60
 2022-05-17T12:00:00+00:00,SE3,wind_onshore,152.95,60
 2022-05-17T13:00:00+00:00,SE3,wind_onshore,130.17,60
 2022-05-17T14:00:00+00:00,SE3,wind_onshore,113.45,60

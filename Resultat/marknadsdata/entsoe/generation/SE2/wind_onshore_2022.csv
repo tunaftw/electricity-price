@@ -5926,6 +5926,7 @@ time_start,zone,psr_type,generation_mw,resolution_minutes
 2022-09-04T21:00:00+00:00,SE2,wind_onshore,129.76,60
 2022-09-04T22:00:00+00:00,SE2,wind_onshore,124.73,60
 2022-09-04T23:00:00+00:00,SE2,wind_onshore,107.92,60
+2022-09-05T00:00:00+00:00,SE2,wind_onshore,107.92,60
 2022-09-05T01:00:00+00:00,SE2,wind_onshore,103.2,60
 2022-09-05T02:00:00+00:00,SE2,wind_onshore,89.44,60
 2022-09-05T03:00:00+00:00,SE2,wind_onshore,91.57,60

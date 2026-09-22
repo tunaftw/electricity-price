@@ -4779,6 +4779,7 @@ time_start,zone,psr_type,generation_mw,resolution_minutes
 2025-07-19T01:00:00+00:00,SE4,wind_onshore,118.57,60
 2025-07-19T02:00:00+00:00,SE4,wind_onshore,133.96,60
 2025-07-19T03:00:00+00:00,SE4,wind_onshore,147.76,60
+2025-07-19T04:00:00+00:00,SE4,wind_onshore,147.76,60
 2025-07-19T05:00:00+00:00,SE4,wind_onshore,134.94,60
 2025-07-19T06:00:00+00:00,SE4,wind_onshore,97.96,60
 2025-07-19T07:00:00+00:00,SE4,wind_onshore,84.54,60

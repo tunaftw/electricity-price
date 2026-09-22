@@ -683,6 +683,7 @@ time_start,zone,psr_type,generation_mw,resolution_minutes
 2022-01-29T09:00:00+00:00,SE1,wind_onshore,367.95,60
 2022-01-29T10:00:00+00:00,SE1,wind_onshore,315.68,60
 2022-01-29T11:00:00+00:00,SE1,wind_onshore,250.17,60
+2022-01-29T12:00:00+00:00,SE1,wind_onshore,250.17,60
 2022-01-29T13:00:00+00:00,SE1,wind_onshore,243.39,60
 2022-01-29T14:00:00+00:00,SE1,wind_onshore,329.15,60
 2022-01-29T15:00:00+00:00,SE1,wind_onshore,479.71,60

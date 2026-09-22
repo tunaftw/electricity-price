@@ -5800,6 +5800,7 @@ time_start,zone,psr_type,generation_mw,resolution_minutes
 2022-08-30T15:00:00+00:00,SE4,wind_onshore,300.69,60
 2022-08-30T16:00:00+00:00,SE4,wind_onshore,303.57,60
 2022-08-30T17:00:00+00:00,SE4,wind_onshore,327.41,60
+2022-08-30T18:00:00+00:00,SE4,wind_onshore,327.41,60
 2022-08-30T19:00:00+00:00,SE4,wind_onshore,325.96,60
 2022-08-30T20:00:00+00:00,SE4,wind_onshore,347.66,60
 2022-08-30T21:00:00+00:00,SE4,wind_onshore,377.53,60
@@ -6087,6 +6088,7 @@ time_start,zone,psr_type,generation_mw,resolution_minutes
 2022-09-11T15:00:00+00:00,SE4,wind_onshore,119.93,60
 2022-09-11T16:00:00+00:00,SE4,wind_onshore,132.2,60
 2022-09-11T17:00:00+00:00,SE4,wind_onshore,145.62,60
+2022-09-11T18:00:00+00:00,SE4,wind_onshore,145.62,60
 2022-09-11T19:00:00+00:00,SE4,wind_onshore,129.46,60
 2022-09-11T20:00:00+00:00,SE4,wind_onshore,108.93,60
 2022-09-11T21:00:00+00:00,SE4,wind_onshore,91.61,60
