@@ -10,8 +10,9 @@ Computes metrics for the Operations section of dashboard v2:
 from __future__ import annotations
 
 import csv
+import math
 from collections import defaultdict
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from .bazefield import parse_bazefield_ts
@@ -25,6 +26,8 @@ from .config import (
     UTC_TZ,
     local_year_month,
 )
+from .solar_geometry import solar_elevation_deg
+from .temperature import PARK_COORDS
 
 
 # ---------------------------------------------------------------------------
@@ -38,17 +41,26 @@ def load_park_15min(park_key: str) -> list[dict]:
     active_power_mw: float|None, effective_power_mw: float,
     irradiance_poa: float|None, availability: float|None}.
 
-    `power_mw` is the grid meter reading (ActivePowerMeter).
+    `power_mw` is the grid meter reading (ActivePowerMeter), 0 when missing.
     `active_power_mw` is the inverter output (ActivePower).
-    `effective_power_mw` is the best available energy reading:
-        meter if available, else inverter. Use this for energy aggregation
-        when meter coverage is incomplete (e.g. small parks like Stenstorp).
+    `effective_power_mw` is the energy reading to aggregate. It is decided
+    per quarter by strict rules (see `_classify_energy_source`) and the
+    choice is recorded in `energy_source`:
 
-    Stuck-value detection: When the park is down, ActivePower sometimes
-    reports a constant stale value (e.g. Stenstorp showed 0.1792 MW for
-    10 straight days during downtime). Days where active_power_mw has
-    the SAME value across ALL intervals and power_mw is entirely missing
-    are detected and effective_power_mw is forced to 0 for those days.
+        "night"    — sun below the horizon: 0, whatever the signals say
+        "meter"    — valid grid meter reading (negative clipped to 0)
+        "inverter" — meter missing, inverter reading live and plausible
+        "missing"  — neither signal can be trusted: 0 and NOT a real zero
+
+    Only "meter" and "inverter" quarters are observed production; callers
+    that compare against budget must look at `energy_source` (or use
+    `daylight_coverage`) so that "missing" is not mistaken for downtime.
+
+    Why so strict: the earlier meter→inverter fallback (`power > 0 else
+    inverter`) produced phantom energy — inverters that freeze on their
+    last value keep "producing" through the night (Fjällskär Aug 2026:
+    413 MWh between 23 and 03) and dead meters were silently replaced by
+    frozen inverter values (Fjällskär Sep 2026: 7.69 MW in every quarter).
     """
     zone = PARK_ZONES.get(park_key)
     if not zone:
@@ -59,68 +71,210 @@ def load_park_15min(park_key: str) -> list[dict]:
 
     # Max plausible power: DC capacity in MW (generous upper bound)
     max_mw = PARK_CAPACITY_KWP.get(park_key, 50000) / 1000
+    coords = PARK_COORDS.get(park_key)
 
-    records = []
+    # Parsing + solar geometry is the expensive part and some dashboards call
+    # this hundreds of times per build. Cache per file version and hand out
+    # fresh dicts so callers may still mutate their records.
+    stat = csv_path.stat()
+    key = (str(csv_path), stat.st_mtime_ns, stat.st_size, max_mw, coords)
+    cached = _PARK_CACHE.get(key)
+    if cached is None:
+        cached = _parse_park_csv(csv_path, max_mw, coords)
+        # One entry per park file: drop older versions of the same file.
+        for old in [k for k in _PARK_CACHE if k[0] == key[0]]:
+            del _PARK_CACHE[old]
+        _PARK_CACHE[key] = cached
+    return [dict(r) for r in cached]
+
+
+_PARK_CACHE: dict = {}
+
+
+def _parse_park_csv(csv_path: Path, max_mw: float, coords) -> list[dict]:
+    """Parse one park CSV and apply the strict energy rules (uncached)."""
+    by_ts: dict[datetime, dict] = {}
     with open(csv_path, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
             ts = parse_bazefield_ts(row["timestamp"])
             ts_utc = ts.astimezone(UTC_TZ)
-            power = float(row.get("power_mw") or 0)
-            if power > max_mw:
-                continue  # Sensor error
-
-            active_power = None
-            if "active_power_mw" in row and row["active_power_mw"]:
-                ap_val = float(row["active_power_mw"])
-                if ap_val <= max_mw:  # Sanity check
-                    active_power = ap_val
-
-            # Effective power: meter (preferred) → inverter → 0
-            effective = power if power > 0 else (active_power or 0)
+            meter = _plausible_mw(row.get("power_mw"), max_mw)
+            inverter = _plausible_mw(row.get("active_power_mw"), max_mw)
 
             rec = {
                 "timestamp_utc": ts_utc,
                 "date": ts_utc.strftime("%Y-%m-%d"),
                 "year": ts_utc.year,
                 "month": ts_utc.month,
-                "power_mw": power,
-                "effective_power_mw": effective,
+                "power_mw": meter if meter is not None else 0.0,
+                "_meter": meter,
+                "_inverter": inverter,
             }
-            if active_power is not None:
-                rec["active_power_mw"] = active_power
+            if inverter is not None:
+                rec["active_power_mw"] = inverter
             if "irradiance_poa" in row and row["irradiance_poa"]:
-                rec["irradiance_poa"] = float(row["irradiance_poa"])
+                poa = _finite(row["irradiance_poa"])
+                if poa is not None:
+                    rec["irradiance_poa"] = poa
             if "availability" in row and row["availability"]:
-                rec["availability"] = float(row["availability"])
-            records.append(rec)
+                avail = _finite(row["availability"])
+                if avail is not None:
+                    rec["availability"] = avail
+            # Files are appended by incremental syncs and are not always in
+            # time order; the last row for a timestamp wins.
+            by_ts[ts_utc] = rec
 
-    # Post-process: detect and neutralize stuck-value days (Stenstorp issue)
-    from collections import defaultdict
-    by_date: dict[str, list[dict]] = defaultdict(list)
-    for rec in records:
-        by_date[rec["date"]].append(rec)
+    records = [by_ts[ts] for ts in sorted(by_ts)]
+    elevations = [
+        solar_elevation_deg(r["timestamp_utc"] + _HALF_QUARTER, *coords) if coords is not None else None
+        for r in records
+    ]
+    frozen_meter = _frozen_mask([r["_meter"] for r in records], elevations)
+    frozen_inverter = _frozen_mask([r["_inverter"] for r in records], elevations)
 
-    for date_key, day_records in by_date.items():
-        # Check if meter is entirely missing this day
-        meter_missing = all(r["power_mw"] == 0 for r in day_records)
-        if not meter_missing:
-            continue
-
-        # Collect unique active_power_mw values
-        ap_values = set(
-            r.get("active_power_mw") for r in day_records
-            if r.get("active_power_mw") is not None
-        )
-
-        # If there's exactly one unique value and ActivePower is non-zero,
-        # the sensor is stuck on a stale value — treat as park off.
-        if len(ap_values) == 1 and next(iter(ap_values)) > 0:
-            for rec in day_records:
-                rec["effective_power_mw"] = 0.0
-                rec["_stuck_value"] = True  # for debugging/diagnostics
+    for i, rec in enumerate(records):
+        elevation = elevations[i]
+        rec["sun_elevation_deg"] = elevation
+        meter = None if frozen_meter[i] else rec.pop("_meter")
+        inverter = None if frozen_inverter[i] else rec.pop("_inverter")
+        rec.pop("_meter", None)
+        rec.pop("_inverter", None)
+        if frozen_meter[i]:
+            rec["power_mw"] = 0.0
+        if frozen_inverter[i] and (elevation is None or elevation > 0):
+            # Read by rework_portfolio / meter-loss diagnostics. Only daylight
+            # quarters: an inverter parked on its last value overnight is
+            # handled by the night rule and is not a daytime outage.
+            rec["_stuck_value"] = True
+        source, value = _classify_energy_source(meter, inverter, elevation)
+        rec["energy_source"] = source
+        rec["effective_power_mw"] = value
 
     return records
+
+
+# Strict energy rules — see load_park_15min.
+NIGHT_ELEVATION_DEG = -3.0     # below this a PV park cannot export
+DAYLIGHT_ELEVATION_DEG = 10.0  # above this an inverter at exactly 0 is suspect
+FROZEN_RUN_QUARTERS = 8        # identical reading ≥ 2 h in a row …
+FROZEN_DAYTIME_RUN_QUARTERS = 24  # … is frozen if it reaches into night, or lasts ≥ 6 h
+FROZEN_MIN_MW = 0.01           # a run of zeros is not "frozen" (night, downtime)
+NEGATIVE_METER_SHARE = 0.02    # meter below −2 % of capacity is not a real reading
+_HALF_QUARTER = timedelta(minutes=7, seconds=30)  # elevation at mid-interval
+
+
+def _finite(raw) -> float | None:
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return None
+    if math.isnan(value) or math.isinf(value):
+        return None
+    return value
+
+
+def _plausible_mw(raw, max_mw: float) -> float | None:
+    """Reading in MW, or None when missing or physically implausible.
+
+    Above DC capacity is a sensor error. Far below zero is too: a solar park's
+    own consumption is a few tens of kW, so e.g. −8 MW on an 18 MWp park is a
+    sign flip or garbage (Hörby 2026-07-22..24), not "zero production".
+    """
+    value = _finite(raw) if raw not in (None, "") else None
+    if value is None or value > max_mw or value < -NEGATIVE_METER_SHARE * max_mw:
+        return None
+    return value
+
+
+def _frozen_mask(values: list[float | None],
+                 elevations: list[float | None] | None = None) -> list[bool]:
+    """True where a non-zero reading is frozen.
+
+    A run of ≥ FROZEN_RUN_QUARTERS identical readings counts as frozen when it
+    reaches into the night (a live PV signal cannot hold a non-zero value in
+    darkness) or lasts ≥ FROZEN_DAYTIME_RUN_QUARTERS. A shorter plateau in full
+    daylight is usually a park held at its export limit (Tången at 4.528 MW
+    for 2–4 h on clear days) and is real production.
+    """
+    mask = [False] * len(values)
+    start = 0
+    n = len(values)
+    while start < n:
+        value = values[start]
+        end = start + 1
+        if value is not None:
+            key = round(value, 4)
+            while end < n and values[end] is not None and round(values[end], 4) == key:
+                end += 1
+            length = end - start
+            if length >= FROZEN_RUN_QUARTERS and value > FROZEN_MIN_MW:
+                touches_night = elevations is None or any(
+                    elevations[j] is not None and elevations[j] < NIGHT_ELEVATION_DEG
+                    for j in range(start, end)
+                )
+                if touches_night or length >= FROZEN_DAYTIME_RUN_QUARTERS:
+                    for j in range(start, end):
+                        mask[j] = True
+        start = end
+    return mask
+
+
+def _classify_energy_source(
+    meter: float | None, inverter: float | None, sun_elevation: float | None,
+) -> tuple[str, float]:
+    """Choose the energy reading for one quarter: (energy_source, MW)."""
+    if sun_elevation is not None and sun_elevation < NIGHT_ELEVATION_DEG:
+        return "night", 0.0
+    if meter is not None:
+        return "meter", max(meter, 0.0)
+    if inverter is not None:
+        # Without a meter, an inverter at exactly 0 in full daylight cannot be
+        # told apart from a dead signal — call it unknown, not downtime.
+        if inverter <= 0 and sun_elevation is not None and sun_elevation > DAYLIGHT_ELEVATION_DEG:
+            return "missing", 0.0
+        return "inverter", max(inverter, 0.0)
+    return "missing", 0.0
+
+
+def daylight_coverage(
+    park_key: str,
+    records: list[dict],
+    start_utc: datetime,
+    end_utc: datetime,
+    min_elevation_deg: float = 5.0,
+) -> float | None:
+    """Share of daylight in [start_utc, end_utc) with observed production.
+
+    Every expected quarter with the sun above ``min_elevation_deg`` is
+    weighted by sin(elevation) — a rough proxy for how much energy that
+    quarter should carry — so a missing noon counts more than a missing
+    dawn. A quarter is covered when its record has energy_source "meter"
+    or "inverter". Returns 0–1, or None when the park has no coordinates.
+    """
+    coords = PARK_COORDS.get(park_key)
+    if coords is None:
+        return None
+    observed = {
+        r["timestamp_utc"]
+        for r in records
+        if start_utc <= r["timestamp_utc"] < end_utc
+        and r.get("energy_source") in ("meter", "inverter")
+    }
+    total = covered = 0.0
+    ts = start_utc
+    step = timedelta(minutes=15)
+    while ts < end_utc:
+        elevation = solar_elevation_deg(ts + _HALF_QUARTER, *coords)
+        if elevation > min_elevation_deg:
+            weight = math.sin(math.radians(elevation))
+            total += weight
+            if ts in observed:
+                covered += weight
+        ts += step
+    if total == 0:
+        return None
+    return covered / total
 
 
 def load_spot_prices_15min(zone: str) -> dict[str, list[dict]]:
@@ -323,6 +477,8 @@ def calculate_meter_loss() -> dict[str, list[dict]]:
         for rec in records:
             ap = rec.get("active_power_mw")
             pm = rec.get("power_mw", 0)
+            if rec.get("_stuck_value"):
+                continue  # frozen inverter value, not a real reading
             if ap is not None and ap > 0.1 and pm > 0:
                 daily_inv[rec["date"]] += ap
                 daily_meter[rec["date"]] += pm

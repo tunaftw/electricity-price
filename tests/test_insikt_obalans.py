@@ -272,3 +272,14 @@ def test_settle_monthly_single_price_share():
     prices = {t1: (40.0, 40.0), t2: (40.0, 60.0)}  # en enpris, en tvåpris
     monthly = settle_monthly(energies, fc, fc, spot, prices)
     assert monthly[0]["single_price_share_pct"] == pytest.approx(50.0)
+
+
+def test_energies_skip_unknown_quarters():
+    # Död mätare + fryst inverter ⇒ energy_source "missing": okänt, inte 0.
+    # Kvarten ska inte finnas med, annars jämförs 0 MWh mot prognosen.
+    t1, t2 = _utc(2026, 9, 1, 10, 0), _utc(2026, 9, 1, 10, 15)
+    recs = [dict(_rec(t1, 0.0), energy_source="missing"),
+            dict(_rec(t2, 2.0, power=2.0), energy_source="meter")]
+    energies = energies_from_records(recs)
+    assert t1 not in energies
+    assert energies[t2] == pytest.approx(0.5)

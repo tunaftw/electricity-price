@@ -293,6 +293,7 @@ def _meter_inverter_efficiency(records: list[dict]) -> Optional[float]:
     valid = [
         r for r in records
         if r.get("active_power_mw") is not None and r.get("power_mw", 0) > 0
+        and not r.get("_stuck_value")  # fryst invertervärde, ingen mätning
     ]
     inv_total = sum((r.get("active_power_mw") or 0) for r in valid)
     if inv_total <= 0:

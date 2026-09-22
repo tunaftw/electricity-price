@@ -145,9 +145,15 @@ def energies_from_records(records: List[dict]) -> Dict[datetime, float]:
     på 4,28 MW hela natten med POA = 0). Utan vakten möter sådana kvartar
     ibland extrema obalanspriser (±10 000 €/MWh) och dominerar månader.
     Mätarsignalen litas alltid på; saknas POA-data släpps värdet igenom.
+    Kvartar med ``energy_source == "missing"`` utelämnas helt.
     """
     out: Dict[datetime, float] = {}
     for rec in records:
+        # Okänd kvart (död mätare/fryst inverter) är inte noll produktion —
+        # utelämna den, annars jämförs 0 mot prognosen och skapar obalans
+        # som aldrig inträffat.
+        if rec.get("energy_source") == "missing":
+            continue
         effective = rec["effective_power_mw"]
         poa = rec.get("irradiance_poa")
         if (
