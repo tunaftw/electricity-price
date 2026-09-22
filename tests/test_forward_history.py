@@ -324,3 +324,91 @@ def test_forward_history_is_empty_without_contracts_in_delivery(tmp_path, monkey
     assert [c["label"] for c in forward["contracts"]] == [
         f"YR-{str(future_year)[-2:]}"
     ]
+
+
+# ---------------------------------------------------------------------------
+# Zonpris = SYS + EPAD från samma värdedag; saknat ben => None, aldrig SYS
+# ---------------------------------------------------------------------------
+
+def test_latest_common_fix_pairs_legs_on_same_date():
+    from elpris.dashboard_v2_data import latest_common_fix
+
+    sys_series = [
+        {"date": "2026-09-18", "price": 67.9},
+        {"date": "2026-09-21", "price": 66.55},
+        {"date": "2026-09-22", "price": 64.65},
+    ]
+    # EPAD saknar 22/9 -> senaste gemensamma dag är 21/9, inte SYS 22/9 + EPAD 21/9.
+    epad_series = [
+        {"date": "2026-09-18", "price": -5.0},
+        {"date": "2026-09-21", "price": -5.0},
+    ]
+    assert latest_common_fix(sys_series, epad_series) == ("2026-09-21", 66.55, -5.0)
+    assert latest_common_fix(sys_series, []) is None
+    assert latest_common_fix([], epad_series) is None
+
+
+@pytest.fixture
+def zonal_dir(tmp_path, monkeypatch):
+    """SYS har Q och YR på senaste settlement-dagen; SE3-EPAD bara YR samma
+    dag; SE4-EPAD har YR men från en äldre dag; SE1 saknar EPAD-fil."""
+    data_dir = tmp_path / "futures"
+    data_dir.mkdir()
+    year = date.today().year + 2
+    yy = str(year)[-2:]
+    d_new, d_old = _iso(-1), _iso(-3)
+    _write_csv(data_dir / "sys_baseload.csv", [
+        (d_old, f"ENOFUTBLYR-{yy}", "60.00"),
+        (d_new, f"ENOFUTBLYR-{yy}", "64.65"),
+        (d_new, f"ENOFUTBLQ1-{yy}", "110.00"),
+    ])
+    _write_csv(data_dir / "epad_se2_sun.csv", [])
+    _write_csv(data_dir / "epad_se3_sto.csv", [(d_new, f"SYSTOFUTBLYR-{yy}", "-4.70")])
+    _write_csv(data_dir / "epad_se4_mal.csv", [(d_old, f"SYMALFUTBLYR-{yy}", "13.76")])
+    monkeypatch.setattr(dashboard_v2_data, "NASDAQ_DATA_DIR", data_dir)
+    return {"yr": f"YR-{yy}", "q1": f"Q1-{yy}"}
+
+
+def test_zone_fwd_is_none_when_epad_leg_missing(zonal_dir):
+    fwd = dashboard_v2_data.load_forward_curve_data({})
+    yr, q1 = zonal_dir["yr"], zonal_dir["q1"]
+
+    assert fwd["sys"] == {q1: 110.0, yr: 64.65}
+    # SE3: YR har båda benen samma dag; Q1 saknar EPAD -> None (inte 110).
+    assert fwd["zone_fwd"]["SE3"] == {q1: None, yr: 59.95}
+    # SE4: EPAD finns bara från en äldre dag -> blandas inte med dagens SYS.
+    assert fwd["zone_fwd"]["SE4"] == {q1: None, yr: None}
+    # SE1/SE2 utan EPAD-data -> alla None.
+    assert set(fwd["zone_fwd"]["SE1"].values()) == {None}
+    assert set(fwd["zone_fwd"]["SE2"].values()) == {None}
+
+
+def test_spot_realized_forward_uses_common_date_or_none(tmp_path, monkeypatch):
+    data_dir = tmp_path / "futures"
+    data_dir.mkdir()
+    # Levererat kvartal för ett år sedan: SYS har fix två dagar, EPAD SE3 bara
+    # den första; SE4 saknar EPAD helt.
+    delivered = _quarter_symbol("ENOFUTBL", date.today() - timedelta(days=365))
+    label, _, start, end = _parse_contract_period(delivered)
+    d1, d2 = _shift(start, -10), _shift(start, -3)
+    future_yr = f"ENOFUTBLYR-{str(date.today().year + 2)[-2:]}"
+    _write_csv(data_dir / "sys_baseload.csv", [
+        (d1, delivered, "50.00"),
+        (d2, delivered, "52.00"),
+        # Ett aktivt kontrakt ger en aktuell settlement_date (styr "expired").
+        (_iso(-1), future_yr, "45.00"),
+    ])
+    epad = _quarter_symbol("SYSTOFUTBL", date.today() - timedelta(days=365))
+    _write_csv(data_dir / "epad_se3_sto.csv", [(d1, epad, "-3.00")])
+    for filename in ["epad_se1_lul.csv", "epad_se2_sun.csv", "epad_se4_mal.csv"]:
+        _write_csv(data_dir / filename, [])
+    monkeypatch.setattr(dashboard_v2_data, "NASDAQ_DATA_DIR", data_dir)
+
+    spot = {z: {start: [{"eur_mwh": 40.0}], end: [{"eur_mwh": 60.0}]} for z in ("SE3", "SE4")}
+    fwd = dashboard_v2_data.load_forward_curve_data(spot)
+
+    se3 = fwd["spot_realized"]["SE3"][label]
+    assert se3 == {"spot_avg": 50.0, "forward": 47.0, "forward_date": d1}
+    se4 = fwd["spot_realized"]["SE4"][label]
+    assert se4["spot_avg"] == 50.0
+    assert se4["forward"] is None and se4["forward_date"] is None

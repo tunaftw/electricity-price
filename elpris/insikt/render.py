@@ -114,8 +114,9 @@ def _render_section_marknad(data: Dict[str, Any]) -> str:
     <div class="blk-chart" id="fwd-conv"></div>
     <p class="note-warn" id="fwd-clean-note" hidden></p>
     <h4 class="blk-sub">Lookback — vad sa marknaden före leverans?</h4>
-    <p class="chart-note">Zone-implied (SYS + EPAD) närmast T−X månader före
-      leveransstart (±7 dagar). Fel = slutfix − realiserat; färgas bara för
+    <p class="chart-note">Zone-implied (SYS + EPAD, samma värdedag) senast
+      noterat på eller före T−X månader före leveransstart (högst 7 dagar
+      tillbaka). Fel = slutfix − realiserat; färgas bara för
       levererade kontrakt (grön &lt; 5, gul 5–15, röd &gt; 15 €/MWh).</p>
     <div class="tbl-wrap" id="fwd-lookback"></div>
     <p class="note-warn" id="fwd-health" hidden></p>

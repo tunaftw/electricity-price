@@ -44,7 +44,8 @@ DAILY_WINDOW_DAYS = 365
 
 # T-fönster i lookback-tabellen: månader före leveransstart.
 LOOKBACK_MONTHS = (12, 6, 3, 1)
-# Största avstånd (dagar) mellan målfönstret och närmaste settlement-dag.
+# Hur långt före måldatumet (dagar) senaste settlement-dag får ligga.
+# Noteringar EFTER måldatumet används aldrig (as-of-semantik).
 LOOKBACK_TOLERANCE_DAYS = 7
 
 
@@ -281,25 +282,23 @@ def lookback_value(
     months_before: int,
     tolerance_days: int = LOOKBACK_TOLERANCE_DAYS,
 ) -> Optional[float]:
-    """Zone-implied närmast ``delivery_start − months_before`` månader.
+    """Zone-implied per ``delivery_start − months_before`` månader (as-of).
 
-    Målet är kalendermånads-skiftat (T-3mo för leverans 1 apr = 1 jan);
-    närmaste settlement-dag inom ±``tolerance_days`` dagar väljs. Vid
-    lika avstånd vinner den tidigare dagen. ``None`` om ingen dag finns
-    i fönstret.
+    Målet är kalendermånads-skiftat (T-3mo för leverans 1 apr = 1 jan).
+    Senaste settlement-dag PÅ ELLER FÖRE målet väljs, högst
+    ``tolerance_days`` dagar tillbaka — aldrig en notering efter målet
+    (det vore information marknaden inte hade då). ``None`` om ingen dag
+    finns i fönstret.
     """
     if not implied_by_date:
         return None
     target = _shift_months(date.fromisoformat(delivery_start), months_before)
-    best: Optional[tuple] = None
-    for d_str, price in implied_by_date.items():
-        dist = abs((date.fromisoformat(d_str) - target).days)
-        if dist > tolerance_days:
-            continue
-        key = (dist, d_str)
-        if best is None or key < best[0]:
-            best = (key, price)
-    return round(best[1], 2) if best else None
+    earliest = (target - timedelta(days=tolerance_days)).isoformat()
+    target_iso = target.isoformat()
+    eligible = [d for d in implied_by_date if earliest <= d <= target_iso]
+    if not eligible:
+        return None
+    return round(implied_by_date[max(eligible)], 2)
 
 
 def build_lookback_rows(

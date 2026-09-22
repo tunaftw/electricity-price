@@ -1343,7 +1343,7 @@ RENDERERS.forwardCurve = function () {
   const el = document.getElementById('ch-forward-curve');
   if (!fwd) { el.innerHTML = '<p style="color:var(--muted);padding:20px">Ingen forwarddata.</p>'; return; }
   document.getElementById('fwd-note').textContent =
-    'SYS + EPAD per kontrakt. Settlement ' + fwd.settlement_date + ' (Nasdaq, handeln flyttad till Euronext).';
+    'SYS + EPAD per kontrakt, samma värdedag (saknas EPAD-benet visas inget zonpris). Settlement ' + fwd.settlement_date + ' (Nasdaq t.o.m. 2026-04-29, därefter Euronext).';
   const labels = (fwd.contracts || []).map(c => c.label);
   const traces = Object.keys(fwd.zone_fwd || {}).map(z => ({
     type: 'scatter', mode: 'lines+markers', name: z,

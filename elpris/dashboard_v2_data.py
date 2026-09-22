@@ -717,6 +717,22 @@ def _load_full_history(filepath: Path) -> dict[str, list[dict]]:
     return history
 
 
+def latest_common_fix(
+    sys_series: list[dict], epad_series: list[dict]
+) -> tuple[str, float, float] | None:
+    """Senaste datum där både SYS och EPAD har fix: (datum, sys, epad).
+
+    Zonpriset = SYS + EPAD får bara byggas av ben från samma värdedag.
+    ``None`` när serierna saknar gemensamt datum (t.ex. EPAD saknas helt).
+    """
+    epad_by_date = {r["date"]: r["price"] for r in epad_series or []}
+    for rec in reversed(sys_series or []):
+        epad = epad_by_date.get(rec["date"])
+        if epad is not None:
+            return rec["date"], rec["price"], epad
+    return None
+
+
 def load_forward_curve_data(spot_data: dict[str, dict]) -> dict | None:
     """Load latest futures settlement prices and build forward curve.
 
@@ -728,8 +744,11 @@ def load_forward_curve_data(spot_data: dict[str, dict]) -> dict | None:
         contracts: [{label, type, start, end, sort_key}]
         sys: {label: price}
         epad: {zone: {label: price}}
-        zone_fwd: {zone: {label: price}}  (sys + epad)
-        spot_realized: {zone: {label: avg_price}}  for expired periods
+        zone_fwd: {zone: {label: price | None}}  (sys + epad, same
+            settlement date; None when the EPAD leg is missing)
+        spot_realized: {zone: {label: {spot_avg, forward, forward_date}}}
+            for expired periods; forward = SYS + EPAD on the last date both
+            legs settled (None if they never overlap)
     """
     if not NASDAQ_DATA_DIR.exists():
         return None
@@ -850,13 +869,30 @@ def load_forward_curve_data(spot_data: dict[str, dict]) -> dict | None:
                     epad_prices[zone][epad_symbol], 2
                 )
 
-    # Calculate zone forward prices (SYS + EPAD)
-    zone_fwd: dict[str, dict[str, float]] = {}
+    # Zone forward prices = SYS + EPAD. Both legs are from `settlement_date`
+    # (enforced above). A missing leg gives a missing zone price (None) —
+    # never SYS alone, which would pass the system price off as an SE price.
+    zone_fwd: dict[str, dict[str, float | None]] = {}
     for zone in ZONES:
         zone_fwd[zone] = {}
         for label, sys_price in sys_fwd.items():
-            epad = epad_fwd.get(zone, {}).get(label, 0)
-            zone_fwd[zone][label] = round(sys_price + epad, 2)
+            epad = epad_fwd.get(zone, {}).get(label)
+            zone_fwd[zone][label] = (
+                round(sys_price + epad, 2) if epad is not None else None
+            )
+
+    # Full daily history per contract (used by spot_realized + forward_history)
+    sys_history = _load_full_history(sys_file)
+    epad_history: dict[str, dict[str, list[dict]]] = {}
+    for zone, filename in epad_files.items():
+        epad_history[zone] = _load_full_history(NASDAQ_DATA_DIR / filename)
+
+    def _epad_series_for(zone: str, label: str) -> list[dict]:
+        for sym, series in epad_history.get(zone, {}).items():
+            parsed_e = _parse_contract_period(sym)
+            if parsed_e and parsed_e[0] == label:
+                return series
+        return []
 
     # Calculate realized spot averages for expired periods
     spot_realized: dict[str, dict[str, float]] = {}
@@ -876,20 +912,17 @@ def load_forward_curve_data(spot_data: dict[str, dict]) -> dict | None:
                         total_price += h["eur_mwh"]
                         count += 1
             if count > 0:
-                # Also check what the forward was pricing this before delivery
-                fwd_price = sys_prices.get(c["symbol"])
-                epad_price = 0
-                if zone in epad_prices:
-                    for sym, p in epad_prices[zone].items():
-                        parsed_e = _parse_contract_period(sym)
-                        if parsed_e and parsed_e[0] == c["label"]:
-                            epad_price = p
-                            break
-                if fwd_price is not None:
-                    spot_realized[zone][c["label"]] = {
-                        "spot_avg": round(total_price / count, 2),
-                        "forward": round(fwd_price + epad_price, 2),
-                    }
+                # What the zone forward priced before delivery: last date on
+                # which BOTH legs settled (None if the legs never overlap).
+                last = latest_common_fix(
+                    sys_history.get(c["symbol"], []),
+                    _epad_series_for(zone, c["label"]),
+                )
+                spot_realized[zone][c["label"]] = {
+                    "spot_avg": round(total_price / count, 2),
+                    "forward": round(last[1] + last[2], 2) if last else None,
+                    "forward_date": last[0] if last else None,
+                }
 
     contract_labels = [
         {"label": c["label"], "type": c["type"], "start": c["start"], "end": c["end"]}
@@ -908,11 +941,6 @@ def load_forward_curve_data(spot_data: dict[str, dict]) -> dict | None:
     # gått till leverans har inget utfall att jämföras mot och ligger redan
     # i `contracts`/`sys`/`epad`. Filtret håller också payloaden nere.
     # ------------------------------------------------------------------
-    sys_history = _load_full_history(sys_file)
-    epad_history: dict[str, dict[str, list[dict]]] = {}
-    for zone, filename in epad_files.items():
-        epad_history[zone] = _load_full_history(NASDAQ_DATA_DIR / filename)
-
     forward_history: dict[str, dict] = {}
     today = date.today()
     in_delivery = [c for c in contracts if c["start"] <= today.isoformat()]
@@ -944,11 +972,9 @@ def load_forward_curve_data(spot_data: dict[str, dict]) -> dict | None:
         # logic as the active-contract pricing above).
         epad_series_by_zone: dict[str, list[dict]] = {}
         for zone in ZONES:
-            for sym, series in epad_history.get(zone, {}).items():
-                parsed_e = _parse_contract_period(sym)
-                if parsed_e and parsed_e[0] == c["label"]:
-                    epad_series_by_zone[zone] = series
-                    break
+            series = _epad_series_for(zone, c["label"])
+            if series:
+                epad_series_by_zone[zone] = series
 
         forward_history[c["label"]] = {
             "type": c["type"],

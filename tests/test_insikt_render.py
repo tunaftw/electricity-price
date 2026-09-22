@@ -94,21 +94,26 @@ class TestShiftMonths:
 
 
 class TestLookbackValue:
+    """As-of-semantik: senaste notering PÅ ELLER FÖRE målet (T−X mån),
+    högst 7 dagar tillbaka — aldrig en notering efter målet."""
+
     def test_exact_hit(self):
         implied = {"2026-01-01": 55.0, "2026-01-05": 60.0}
         assert lookback_value(implied, "2026-04-01", 3) == 55.0
 
-    def test_nearest_within_tolerance(self):
-        implied = {"2026-01-05": 60.0, "2026-01-20": 70.0}
-        assert lookback_value(implied, "2026-04-01", 3) == 60.0
+    def test_latest_on_or_before_target(self):
+        implied = {"2025-12-26": 50.0, "2025-12-30": 52.0}
+        assert lookback_value(implied, "2026-04-01", 3) == 52.0
 
-    def test_none_outside_tolerance(self):
-        implied = {"2026-01-09": 60.0}  # 8 dagar från 1 jan
-        assert lookback_value(implied, "2026-04-01", 3) is None
-
-    def test_tie_prefers_earlier_date(self):
-        implied = {"2025-12-30": 50.0, "2026-01-03": 51.0}  # båda 2 dagar
+    def test_never_uses_observation_after_target(self):
+        # 2 jan ligger närmare målet (1 jan) än 29 dec, men är efter det.
+        implied = {"2025-12-29": 50.0, "2026-01-02": 60.0}
         assert lookback_value(implied, "2026-04-01", 3) == 50.0
+        assert lookback_value({"2026-01-02": 60.0}, "2026-04-01", 3) is None
+
+    def test_tolerance_window_is_backwards_only(self):
+        assert lookback_value({"2025-12-25": 61.0}, "2026-04-01", 3) == 61.0  # 7 d
+        assert lookback_value({"2025-12-24": 60.0}, "2026-04-01", 3) is None  # 8 d
 
     def test_empty(self):
         assert lookback_value({}, "2026-04-01", 3) is None
@@ -121,11 +126,13 @@ class TestLookbackValue:
 def _history_fixture() -> dict:
     sys_series = [
         {"date": "2025-12-30", "price": 40.0},
+        {"date": "2026-02-27", "price": 44.0},
         {"date": "2026-03-02", "price": 45.0},
         {"date": "2026-03-27", "price": 47.0},
     ]
     epad = [
         {"date": "2025-12-30", "price": 10.0},
+        {"date": "2026-02-27", "price": 12.0},
         {"date": "2026-03-02", "price": 12.0},
         {"date": "2026-03-27", "price": 13.0},
     ]
@@ -154,7 +161,9 @@ class TestBuildLookbackRows:
         assert r["zone"] == "SE4"
         assert r["delivered"] is True
         assert r["t3"] == 50.0       # 2025-12-30: 40 + 10
-        assert r["t1"] == 57.0       # 2026-03-02: 45 + 12 (närmast 1 mars)
+        # T−1 = 1 mars: fredag 27 feb (44 + 12), inte 2 mars (45 + 12) som
+        # ligger närmare men EFTER måldatumet.
+        assert r["t1"] == 56.0
         assert r["t12"] is None      # ingen data 12 mån före
         assert r["final"] == 60.0    # 47 + 13
         assert r["error"] == -10.0   # 60 − 70

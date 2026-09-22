@@ -2635,16 +2635,17 @@ function _convergenceContractList(fwd) {
     return labels;
 }
 
-function _findFixNear(series, targetDate, windowDays) {
+// As-of lookup: latest fix ON OR BEFORE targetDate, at most windowDays back.
+// Never a fix after the target — that is information the market did not have.
+function _findFixOnOrBefore(series, targetDate, windowDays) {
     if (!series || !series.length) return null;
     var target = new Date(targetDate).getTime();
     var bestRow = null;
-    var bestDiff = Infinity;
+    var bestTime = -Infinity;
     for (var i = 0; i < series.length; i++) {
         var d = new Date(series[i].date).getTime();
-        var diff = Math.abs(d - target);
-        if (diff <= windowDays * 86400000 && diff < bestDiff) {
-            bestDiff = diff;
+        if (d <= target && target - d <= windowDays * 86400000 && d > bestTime) {
+            bestTime = d;
             bestRow = series[i];
         }
     }
@@ -2800,9 +2801,6 @@ function renderLookbackTable(fwd) {
             // Implied series for lookback math
             var impliedSeries = sysSeries.filter(function(r) { return epadByDate[r.date] != null; })
                 .map(function(r) { return { date: r.date, price: r.price + epadByDate[r.date] }; });
-            var sysFinalSeries = sysSeries.length
-                ? [{ date: sysSeries[sysSeries.length - 1].date, price: sysSeries[sysSeries.length - 1].price + (epadByDate[sysSeries[sysSeries.length - 1].date] || 0) }]
-                : [];
             // Final value: last available implied (falling back to "—" if no overlap)
             var finalRow = impliedSeries.length ? impliedSeries[impliedSeries.length - 1] : null;
 
@@ -2818,7 +2816,7 @@ function renderLookbackTable(fwd) {
             };
             lookbacks.forEach(function(lb) {
                 var target = _shiftIso(c.delivery_start, lb.months);
-                var hit = _findFixNear(impliedSeries, target, 7);
+                var hit = _findFixOnOrBefore(impliedSeries, target, 7);
                 row[lb.key] = hit ? hit.price : null;
             });
             row.error_eur = (row.final != null && row.realised != null)
@@ -5032,7 +5030,7 @@ _SHELL = r"""<!DOCTYPE html>
 
         <div class="card">
           <div class="card-head">
-            <div><div class="card-title">Lookback — forward vs realised</div><div class="card-sub">Zone-implied price (SYS + EPAD) at fixed lookback intervals before delivery, and the realised spot.</div></div>
+            <div><div class="card-title">Lookback — forward vs realised</div><div class="card-sub">Zone-implied price (SYS + EPAD, same settlement date) as of fixed lookback intervals before delivery (latest fix on or before the date, max 7 days back), and the realised spot.</div></div>
           </div>
           <div style="overflow-x:auto">
             <table class="editorial" id="futures-lookback-table"></table>

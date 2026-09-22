@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>se.elpris.futures-daily</string>
+
+    <!-- Fetches today's Euronext settlements (SYS + EPAD SE1-SE4) and merges
+         them idempotently into Resultat/marknadsdata/nasdaq/futures/.
+         The script logs to Resultat/logs/futures_daily_YYYYMMDD.log and exits
+         1 on failure. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>/Users/pontusskog/Documents/Developer/electricity-price/futures_daily.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/pontusskog/Documents/Developer/electricity-price</string>
+
+    <!-- Mon-Fri 19:15 local time. Settlements are published after the
+         ~17:00 close; 19:15 leaves margin. If the Mac sleeps through 19:15,
+         launchd runs the job once on wake; a fully missed day is healed by
+         the next run (it re-reads every session since the newest stored day). -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict>
+            <key>Weekday</key>
+            <integer>1</integer>
+            <key>Hour</key>
+            <integer>19</integer>
+            <key>Minute</key>
+            <integer>15</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key>
+            <integer>2</integer>
+            <key>Hour</key>
+            <integer>19</integer>
+            <key>Minute</key>
+            <integer>15</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key>
+            <integer>3</integer>
+            <key>Hour</key>
+            <integer>19</integer>
+            <key>Minute</key>
+            <integer>15</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key>
+            <integer>4</integer>
+            <key>Hour</key>
+            <integer>19</integer>
+            <key>Minute</key>
+            <integer>15</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key>
+            <integer>5</integer>
+            <key>Hour</key>
+            <integer>19</integer>
+            <key>Minute</key>
+            <integer>15</integer>
+        </dict>
+    </array>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/pontusskog/Documents/Developer/electricity-price/Resultat/logs/futures_daily_launchd.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/pontusskog/Documents/Developer/electricity-price/Resultat/logs/futures_daily_launchd.err</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+    </dict>
+</dict>
+</plist>

@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Download Nordic electricity futures history and current snapshot.
+"""Download Nordic electricity futures settlements.
 
 Downloads settlement prices for:
 - SYS Baseload (Nordic System Price)
 - EPAD SE1 Luleå, SE2 Sundsvall, SE3 Stockholm, SE4 Malmö
 
-Uses Nasdaq for history and Euronext/Nord Pool Power Futures for current
-snapshot settlements.
+Uses Nasdaq for history (dailyFix up to 2026-04-29) and Euronext Nord Pool
+Power Futures for dated settlements since (last 10 sessions per run, every
+listed month/quarter/year). For the Euronext part alone, see futures_daily.py.
 Data is saved to Resultat/marknadsdata/nasdaq/futures/.
 """
 
