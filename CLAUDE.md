@@ -19,6 +19,7 @@ electricity-price/
 │   ├── dashboard_v2_data.py             # Park/profil-laddare för dashboards
 │   ├── ancillary_dashboard_data.py      # Mimer/eSett-aggregering till dashboard
 │   ├── energimyndigheten.py             # PxWeb (installerad kapacitet)
+│   ├── futures_zonal.py                 # Områdesterminer SYS+EPAD per handelsdag
 │   ├── entsoe.py                        # ENTSO-E Transparency Platform
 │   ├── entsoe_profile.py                # Normaliserade ENTSO-E-profiler
 │   ├── esett.py                         # eSett Nordic obalanspriser
@@ -26,7 +27,8 @@ electricity-price/
 │   ├── inverter_data.py                 # SCADA inverter-CSV (lazy-laddad)
 │   ├── inverter_registry.py             # Auto-genererad av discover_inverters.py
 │   ├── mimer.py                         # Svenska kraftnät reglerpriser
-│   ├── nasdaq.py                        # Nasdaq Nordic futures (SYS + EPADs)
+│   ├── nasdaq.py                        # Terminer: Nasdaq-historik + Euronext (daterad historik)
+│   ├── oversikt/                        # Översikt: portfölj, marknad, terminer, batteri, datastatus
 │   ├── operations_dashboard_data.py     # Specific yield, neg-pris, tracker, meterförlust
 │   ├── park_config.py                   # Park-metadata + budget (PVsyst TMY)
 │   ├── park_product_data.py             # Cowork SharePoint-extrakt (källa)
@@ -40,6 +42,7 @@ electricity-price/
 │   ├── rework_imbalance.py              # Rework: eSett-obalansstatistik
 │   ├── rework_market_analysis.py        # Rework: duck curve, neg-timmar, spreadar
 │   ├── rework_portfolio.py              # Rework: portföljaggregat + klartext-insikter
+│   ├── solar_geometry.py                # Solhöjd (NOAA) — natt/dagsljus i parkdatan
 │   ├── solar_profile.py                 # PVsyst + ENTSO-E solprofiler
 │   ├── storage.py                       # CSV-läs/skriv för spotpriser
 │   ├── unified_dashboard_data.py        # Aggregerar all data till JSON
@@ -48,7 +51,7 @@ electricity-price/
 ├── Resultat/                            # All nedladdad data + analyser (se nedan)
 ├── data/                                # Symlinks till Resultat/ (delvis — se nedan)
 ├── docs/                                # Insikter + planer (active vs archive)
-├── update_all.py                        # Master pipeline (14 steg)
+├── update_all.py                        # Master pipeline (15 steg)
 ├── download.py                          # Spotpriser, full historik
 ├── update.py                            # Spotpriser, inkrementellt
 ├── process.py                           # Konvertera tim → quarterly
@@ -60,6 +63,8 @@ electricity-price/
 ├── nasdaq_download.py                   # Hämta Nasdaq-futures
 ├── installed_download.py                # Hämta installerad kapacitet
 ├── bazefield_download.py                # Synka Bazefield-solparker
+├── generate_oversikt.py                 # Översikt — portfölj + marknad på en sida (primär)
+├── futures_daily.py                     # Daglig terminshämtning (launchd vardagar 19:15)
 ├── generate_unified_dashboard.py        # Bygg unified dashboard (Track C)
 ├── generate_rework_dashboard.py         # Bygg rework-dashboard (Nordic Clarity)
 ├── generate_performance_report.py       # Bygg per-park månadsrapport
@@ -100,8 +105,8 @@ Resultat/
 
 ## Datakällor
 
-### 1. Spotpriser — elprisetjustnu.se
-- **Zoner:** SE1, SE2, SE3, SE4
+### 1. Spotpriser — elprisetjustnu.se (SE) + ENTSO-E (DK)
+- **Zoner:** SE1, SE2, SE3, SE4 (elprisetjustnu). DK1/DK2 hämtas via ENTSO-E (A44) i samma CSV-format till `Resultat/marknadsdata/spotpriser/DK{1,2}/` (`python3 entsoe_download.py --prices`)
 - **Period:** 2021-11-01 → idag (15-min upplösning från 2025-10-01)
 - **API:** `https://www.elprisetjustnu.se/api/v1/prices/{year}/{month}-{day}_{zone}.json`
 
@@ -138,8 +143,9 @@ Resultat/
 - **SYS Baseload:** Nordic system price futures (kvartal, år)
 - **EPAD:** Per zon (Luleå, Sundsvall, Stockholm, Malmö)
 - **Upplösning:** Daglig settlement (`dailyFix`) i EUR/MWh
-- **API:** `https://api.nasdaq.com/api/nordic/` (odokumenterat)
-- **OBS:** Handeln flyttad till Euronext mars 2026, men Nasdaq publicerar fortfarande dailyFix
+- **API:** `https://api.nasdaq.com/api/nordic/` (odokumenterat) t.o.m. 2026-04-29; därefter Euronext live-sidans historiktabell (en rad per handelsdag)
+- **OBS:** Handeln flyttad till Euronext mars 2026. Nasdaqs sök-API returnerar inga kontrakt längre. `date` = handelsdag (inte hämtningstid); kolumnerna `open_eur,volume,source,fetched_at` är tillagda. Utgångna kontrakt går inte att hämta i efterhand — kör `futures_daily.py` varje vardag (launchd-plist i `scripts/`).
+- **Områdespris:** `elpris.futures_zonal.load_zonal_forward_history` — SYS + EPAD bara när båda benen finns samma dag; saknad EPAD ger aldrig SYS som zonpris.
 
 ### 7. Solparksproduktion — Bazefield
 - **8 parker:** Horby/Agerum/Tangen (SE4), Fjallskar/Hova/Bjorke/Skakelbacken/Stenstorp (SE3)
@@ -154,7 +160,7 @@ Resultat/
 Slash commands i `.claude/commands/`. Master-kommandot rekommenderas för rutinkörningar.
 
 ### Master Update (rekommenderad)
-- `/elpris-update-all` — Hela pipelinen (14 steg: spotpriser → Bazefield → temperatur → ENTSO-E → Mimer → Nasdaq → eSett → process → capture → Excel → unified dashboard → parkrapporter → daglig puls → status). Lägg till `--reports` för per-park månadsrapport.
+- `/elpris-update-all` — Hela pipelinen (15 steg: spotpriser → Bazefield → temperatur → ENTSO-E (+DK) → Mimer → terminer → eSett → process → capture → Excel → unified dashboard → Översikt → parkrapporter → daglig puls → status). Lägg till `--reports` för per-park månadsrapport.
 
 ### Datakällor
 - `/elpris-download` — Spotpriser, full historik
@@ -167,6 +173,7 @@ Slash commands i `.claude/commands/`. Master-kommandot rekommenderas för rutink
 - `/elpris-bazefield` — Bazefield solparker
 
 ### Analys och rapporter
+- `/elpris-oversikt` — **Översikt** (primär sida: portfölj, marknad, terminer, batteri)
 - `/elpris-status` — Datastatus
 - `/elpris-capture` — Capture prices
 - `/elpris-excel` — Excel-rapporter (capture + battery arbitrage)
@@ -228,6 +235,22 @@ python3 capture.py SE3 --period month
 python3 capture.py SE3 --period year
 python3 status.py                                # Datastatus
 ```
+
+### Översikt — portföljen och elmarknaden på en sida (primär)
+```bash
+python3 generate_oversikt.py                                  # ~15 s
+python3 generate_oversikt.py --save-data /tmp/oversikt.json   # cacha data
+python3 generate_oversikt.py --from-data /tmp/oversikt.json   # iterera på renderaren
+```
+Skapar `Resultat/rapporter/oversikt_YYYYMMDD.html` (~0,6 MB). Byggd från grunden
+2026-09-22 efter granskning av Insikt/Track C. Fem delar: **Portföljen**
+(produktion, mot budget för tid med mätdata, spotvärde, capture, datatäckning +
+dagremsor per park; parkdetalj vid klick), **Elmarknaden** (spotpris + solens capture
+rate på faktisk ENTSO-E-sol, SE1–SE4 + DK1/DK2), **Terminer** (SYS+EPAD SE3/SE4,
+förändring 1 v–12 m, "vad marknaden trodde"), **Batteri** (dagsspread + arbitrage-tak
+1 cykel/dag), **Datastatus** (automatiskt upptäckta problem + definitioner).
+Regler: okänt är inte noll; "mot budget" visas bara vid ≥ 80 % datatäckning.
+Backend: `elpris/oversikt/`. Design: `docs/plans/2026-09-22-oversikt-design.md`.
 
 ### Unified Dashboard (Track C — Nordic Editorial)
 ```bash
@@ -355,8 +378,15 @@ Capture = Σ(pris × solproduktion) / Σ(solproduktion)
 ### 15-minutersmarknad
 Från 2025-10-01 övergår den svenska elmarknaden till 15-min upplösning. Spotpriser före detta datum expanderas i `processing.py` (varje timpris upprepas 4 gånger).
 
-### Effective power (Bazefield)
-`elpris.operations_dashboard_data.load_park_15min` exponerar `effective_power_mw` per intervall: grid-mätare när tillgänglig, annars inverter-summa, annars 0. **All energi-aggregering** (specific yield, neg-pris-exponering) ska använda `effective_power_mw`, inte `power_mw` direkt — annars rapporteras 0 för parker med trasig mätarsignal (t.ex. Stenstorp).
+### Effective power (Bazefield) — strikt energiregel
+`elpris.operations_dashboard_data.load_park_15min` exponerar `effective_power_mw` och `energy_source` per kvart:
+`night` (solhöjd < −3° → 0), `meter` (giltig mätare, negativt → 0), `inverter` (mätare saknas, inverter levande),
+`missing` (ingen trovärdig signal → 0, men **okänt, inte noll**). Frusna signaler (samma värde > 0,01 MW i ≥ 8 kvartar
+som når in i natten eller varar ≥ 6 h — kortare dagsplatåer är exportgränsen, t.ex. Tången 4,528 MW), mätare under
+−2 % av kapaciteten och inverter = 0 i fullt dagsljus utan mätare räknas som `missing`. Resultatet cachas per filversion. **All energi-aggregering** ska använda
+`effective_power_mw`; jämförelser mot budget ska dessutom ta hänsyn till täckning (`daylight_coverage`), annars
+blir saknad data "dålig prestation". Den gamla regeln (`power > 0 else inverter`) gav fantomenergi — Fjällskär aug 2026:
+413 MWh mellan 23 och 03.
 
 ## Operations Dashboard
 
@@ -465,7 +495,9 @@ date,contract,daily_fix_eur,bid_eur,ask_eur,high_eur,low_eur,open_interest
 - [x] Bazefield utökat format (POA, availability, active power)
 - [x] Månadsrapport: SCADA-integration (inverter-nivå, alarm/fault) — implementation klar; `bazefield_download.py --inverters --backfill` hämtar data, sektion 14/15/18 renderas i månadsrapporten
 - [x] Daglig automation (macOS launchd plist i `scripts/`, manuell installation per `scripts/README.md`)
-- [ ] Vidareutveckla Track C (layout, datapunkter, interaktivitet baserat på team-feedback)
+- [x] Översikt (2026-09-22) — ny primär sida, strikt energiregel, DK1/DK2, daterad Euronext-historik
+- [ ] Byt Track C mot Översikt på Sites efter Pontus granskning
+- [ ] Rätta POA-tidsförskjutningen (~2 h efter produktionen sedan apr 2026) och återinför PR i Översikt
 - [ ] Migrera till hosted version med autentisering (Vercel/Netlify privat)
 - [ ] Historiska solprofiler per region
 - [ ] Använd ENTSO-E solproduktion för capture price-beräkning
