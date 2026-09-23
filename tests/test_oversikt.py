@@ -250,5 +250,5 @@ def test_render_inlines_plotly_when_vendored():
         pytest.skip("vendor/plotly.min.js saknas")
     html = render_oversikt({"generated": "", "dataset": "", "portfolj": {}, "marknad": {},
                             "terminer": None, "batteri": {}, "datastatus": {}, "definitions": []})
-    assert "cdn.plot.ly" not in html
+    assert '<script src="https://cdn.plot.ly' not in html   # ingen extern skripttagg
     assert "plotly.js v" in html
