@@ -8,6 +8,9 @@ Användning:
     python3 generate_oversikt.py
     python3 generate_oversikt.py --output /tmp/oversikt.html
 
+    # Som Claude-artifact (utan dokumentskal):
+    python3 generate_oversikt.py --artifact --output /tmp/oversikt_artifact.html
+
     # Iterera på renderaren utan att räkna om datan (sekunder):
     python3 generate_oversikt.py --save-data /tmp/oversikt.json
     python3 generate_oversikt.py --from-data /tmp/oversikt.json
@@ -35,6 +38,8 @@ def main() -> int:
                         help="Spara den insamlade datan som JSON")
     parser.add_argument("--from-data", type=Path, default=None,
                         help="Rendera från sparad JSON i stället för att räkna om")
+    parser.add_argument("--artifact", action="store_true",
+                        help="Skriv sidan utan dokumentskal, för publicering som Claude-artifact")
     args = parser.parse_args()
 
     t0 = time.time()
@@ -48,8 +53,8 @@ def main() -> int:
             args.save_data.write_text(json.dumps(data, ensure_ascii=False, default=str), encoding="utf-8")
             print(f"  data sparad: {args.save_data}", file=sys.stderr)
 
-    from elpris.oversikt.render import render_oversikt
-    html = render_oversikt(data)
+    from elpris.oversikt.render import render_oversikt, render_oversikt_fragment
+    html = render_oversikt_fragment(data) if args.artifact else render_oversikt(data)
     out = args.output or REPORTS_DIR / f"oversikt_{date.today():%Y%m%d}.html"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html, encoding="utf-8")

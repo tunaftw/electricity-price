@@ -95,7 +95,7 @@ a { color: inherit; }
 .masthead .meta b { color: var(--ink); font-weight: 700; }
 
 nav.sections {
-  position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--paper) 92%, transparent);
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; background: color-mix(in srgb, var(--paper) 92%, transparent);
   backdrop-filter: blur(6px); border-bottom: 1px solid var(--rule);
 }
 nav.sections .wrap { display: flex; gap: 4px; overflow-x: auto; padding-top: 6px; padding-bottom: 6px; scrollbar-width: none; }
@@ -435,7 +435,10 @@ function plot(id, data, lay) {
   }
   Plotly.react(node, data, lay, PLOT_CFG);
 }
-if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', redrawAll);
+function retheme() { safe(syncChips); redrawAll(); }
+if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', retheme);
+// Artifact-visaren stämplar data-theme på rotelementet när tittaren byter tema.
+new MutationObserver(retheme).observe(document.documentElement, {attributes: true, attributeFilter: ['data-theme']});
 
 function dataTable(target, head, rows) {
   const h = '<table><thead><tr>' + head.map(x => '<th>' + x + '</th>').join('') + '</tr></thead><tbody>' +
@@ -456,7 +459,7 @@ function writeHash() {
   if (STATE.month !== D.portfolj.default_month) p.set('m', STATE.month);
   if (STATE.park) p.set('park', STATE.park);
   const s = p.toString();
-  history.replaceState(null, '', s ? '#' + s : location.pathname + location.search);
+  try { history.replaceState(null, '', s ? '#' + s : location.pathname + location.search); } catch (e) { /* inbäddad vy */ }
 }
 
 // =====================================================================
@@ -914,8 +917,31 @@ def _plotly_tag() -> str:
     return f"<script src=\"{PLOTLY_URL}\" charset=\"utf-8\"></script>"
 
 
+TITLE = "Solportföljen och elmarknaden"
+
+
+def render_oversikt_fragment(data: Dict[str, Any]) -> str:
+    """Sidan utan <html>/<head>/<body> — för publicering som Claude-artifact.
+
+    Artifact-visaren lägger själv till dokumentskalet; <title> ska ligga
+    först (bara de första 8 kB skannas). Plotly bäddas in sist, före
+    skripten som använder det.
+    """
+    return (
+        f"<title>{esc(TITLE)}</title>\n"
+        "<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n"
+        "<link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n"
+        f"<link rel=\"stylesheet\" href=\"{FONTS_URL}\">\n"
+        f"<style>{CSS}</style>\n"
+        f"{BODY}\n"
+        f"{_plotly_tag()}\n"
+        f"<script>const D = {script_json(data)};</script>\n"
+        f"<script>{JS}</script>\n"
+    )
+
+
 def render_oversikt(data: Dict[str, Any]) -> str:
-    title = "Översikt — solportföljen och elmarknaden"
+    title = TITLE
     return (
         "<!DOCTYPE html>\n<html lang=\"sv\">\n<head>\n<meta charset=\"utf-8\">\n"
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
