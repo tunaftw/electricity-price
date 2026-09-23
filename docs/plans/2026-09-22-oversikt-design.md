@@ -93,6 +93,16 @@ Samma text visas under "Så räknar vi" på sidan (`elpris/oversikt/build.py`).
   timpriser, med högst en laddning per dygn. Det är ett tak, inte en prognos.
   Handel på kvartspriser ger cirka 7 % mer.
 
+## Teknik
+
+- **En fristående HTML-fil med Plotly inbäddat.** Plotly (v3.3.0, MIT)
+  ligger i `elpris/oversikt/vendor/`. Förhandsvisningen i Claude-appen
+  blockerar externa skript, så den första versionen, som hämtade Plotly från
+  CDN, visade tomma sektioner.
+- **Varje sektion och varje diagram renderas isolerat.** Ett fel i ett
+  diagram stoppar inte resten av sidan. Saknas Plotly visas tabellerna och
+  texterna ändå.
+
 ## Datafixar (gjorda 2026-09-22)
 
 1. **Strikt energiregel** i `load_park_15min`. Den påverkar alla

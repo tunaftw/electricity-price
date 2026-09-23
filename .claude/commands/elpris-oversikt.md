@@ -19,7 +19,8 @@ Verifiera i webbläsare (http.server + Playwright/Browser, inte file://).
 
 ## Output
 
-`Resultat/rapporter/oversikt_YYYYMMDD.html` (~0,6 MB, Plotly via CDN).
+`Resultat/rapporter/oversikt_YYYYMMDD.html` (~5,4 MB, Plotly inbäddat — inga externa
+skript, fungerar offline och i förhandsvisningar).
 Fem delar: **Portföljen** (månadsväljare, parktabell med dagremsor för
 datatäckning, parkdetalj vid klick), **Elmarknaden**, **Terminer**,
 **Batteri**, **Datastatus** (kända problem + definitioner).

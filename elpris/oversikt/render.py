@@ -9,15 +9,19 @@ Principer (docs/plans/2026-09-22-oversikt-design.md):
 * Signatur: datatäckning syns bredvid siffrorna (dagremsor per park).
 
 Data injiceras som ``const D = …``; all presentation sker i JS nedan.
-Plotly (basic-bundle) laddas från CDN.
+Plotly bäddas in från vendor/plotly.min.js (CDN som reserv).
 """
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Dict
 
 from ..dashboard_common import esc, script_json
 
+# Plotly bäddas in (vendor/plotly.min.js) så att sidan fungerar offline och i
+# förhandsvisningar som blockerar externa skript. Saknas filen: CDN.
+PLOTLY_VENDOR = Path(__file__).parent / "vendor" / "plotly.min.js"
 PLOTLY_URL = "https://cdn.plot.ly/plotly-basic-2.35.2.min.js"
 FONTS_URL = (
     "https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;500;700"
@@ -417,8 +421,20 @@ function layout(extra) {
   return base;
 }
 const RENDERERS = [];
-function draw(fn) { RENDERERS.push(fn); fn(); }
-function redrawAll() { RENDERERS.forEach(fn => fn()); }
+// Ett trasigt diagram får aldrig stoppa resten av sidan.
+function safe(fn) { try { fn(); } catch (e) { console.error(e); } }
+function draw(fn) { RENDERERS.push(fn); safe(fn); }
+function redrawAll() { RENDERERS.forEach(safe); }
+function plot(id, data, lay) {
+  const node = el(id);
+  if (!node) return;
+  if (!window.Plotly) {
+    node.style.height = 'auto';
+    node.innerHTML = '<p class="note">Diagrammet kunde inte laddas. Siffrorna finns under "Visa siffrorna".</p>';
+    return;
+  }
+  Plotly.react(node, data, lay, PLOT_CFG);
+}
 if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', redrawAll);
 
 function dataTable(target, head, rows) {
@@ -528,7 +544,7 @@ function renderPortfolioTrend() {
     const x = months.map(m => mLabel(m, true));
     const ticks = months.map((m, i) => (i === 0 || m.slice(5) === '01') ? MSHORT[+m.slice(5) - 1] + '<br>' + m.slice(0, 4) : MSHORT[+m.slice(5) - 1]);
     const pm = m => P.portfolio[m];
-    Plotly.react('p-months', [
+    plot('p-months', [
       {type: 'bar', name: 'Uppmätt', x, y: months.map(m => pm(m).energy_mwh), marker: {color: months.map(m => pm(m).coverage >= 0.95 ? css('--bar') : css('--bar-partial'))},
        customdata: months.map(m => [pct(pm(m).coverage)]),
        hovertemplate: '%{y:,.0f} MWh · datatäckning %{customdata[0]}<extra></extra>'},
@@ -538,7 +554,7 @@ function renderPortfolioTrend() {
                margin: {l: 52, r: 12, t: 8, b: 44}}), PLOT_CFG);
     dataTable('p-months-tbl', ['Månad', 'Produktion MWh', 'Budget (tid med data) MWh', 'Mot budget', 'Datatäckning'],
       months.slice().reverse().map(m => [mLabel(m, true), fmt(pm(m).energy_mwh), fmt(pm(m).budget_obs_mwh), pct(pm(m).vs_budget, 1, true), pct(pm(m).coverage)]));
-    Plotly.react('p-value', [
+    plot('p-value', [
       {type: 'scatter', mode: 'lines+markers', name: 'Spotpris', x, y: months.map(m => pm(m).baseload_mix_eur), line: {color: css('--s-SYS'), width: 2}, marker: {size: 6},
        hovertemplate: 'spotpris %{y:,.1f} €/MWh<extra></extra>'},
       {type: 'scatter', mode: 'lines+markers', name: 'Capturepris', x, y: months.map(m => pm(m).capture_eur), line: {color: css('--bar'), width: 2.5}, marker: {size: 7},
@@ -647,7 +663,7 @@ function renderParkDetail(scroll) {
   const months = Object.keys(p.months).filter(x => x <= mk).slice(-13);
   const mTicks = months.map((x, i) => (i === 0 || x.slice(5) === '01') ? MSHORT[+x.slice(5) - 1] + '<br>' + x.slice(0, 4) : MSHORT[+x.slice(5) - 1]);
   const barColor = cov => !isNum(cov) || cov < 0.8 ? css('--bar-missing') : (cov < 0.95 ? css('--bar-partial') : css('--bar'));
-  Plotly.react('pd-months', [
+  plot('pd-months', [
     {type: 'bar', name: 'Uppmätt', x: months.map(x => mLabel(x, true)), y: months.map(x => p.months[x].energy_mwh),
      marker: {color: months.map(x => barColor(p.months[x].coverage))},
      customdata: months.map(x => [pct(p.months[x].coverage), pct(p.months[x].vs_budget, 1, true)]),
@@ -658,7 +674,7 @@ function renderParkDetail(scroll) {
               yaxis: {title: {text: 'MWh', standoff: 6}}, bargap: 0.35, margin: {l: 52, r: 12, t: 8, b: 44}}), PLOT_CFG);
 
   const days = p.days[mk] || [];
-  Plotly.react('pd-days', [
+  plot('pd-days', [
     {type: 'bar', name: 'Uppmätt', x: days.map(d => d.date), y: days.map(d => d.energy_mwh),
      marker: {color: days.map(d => barColor(d.coverage === null ? null : (d.coverage >= 0.95 ? 1 : (d.coverage >= 0.5 ? 0.9 : 0))))},
      customdata: days.map(d => [pct(d.coverage)]), hovertemplate: '%{y:,.1f} MWh · täckning %{customdata[0]}<extra></extra>'},
@@ -713,7 +729,7 @@ function renderMarket() {
   draw(() => {
     const months = STATE.range === 'all' ? M.months : M.months.slice(-(+STATE.range));
     const zs = activeZones(M.zones);
-    Plotly.react('m-price', zs.map(z => ({type: 'scatter', mode: 'lines', name: z, x: months.map(mk => mk + '-15'),
+    plot('m-price', zs.map(z => ({type: 'scatter', mode: 'lines', name: z, x: months.map(mk => mk + '-15'),
       y: months.map(mk => (M.monthly[z][mk] || {}).base), line: {color: zc(z), width: 2}, connectgaps: false,
       hovertemplate: z + ': %{y:,.1f} €/MWh<extra></extra>'})),
       layout({xaxis: {type: 'date', tickformat: STATE.range === 'all' ? '%Y' : '%b %Y', dtick: STATE.range === 'all' ? 'M12' : 'M6', hoverformat: '%b %Y'}, yaxis: {title: {text: 'EUR/MWh', standoff: 6}}}), PLOT_CFG);
@@ -721,7 +737,7 @@ function renderMarket() {
 
     const shown = months.filter(mk => zs.some(z => isNum((M.monthly[z][mk] || {}).capture_rate)));
     const cmax = Math.max(1.1, ...[].concat(...zs.map(z => months.map(mk => (M.monthly[z][mk] || {}).capture_rate).filter(isNum))));
-    Plotly.react('m-capture', zs.map(z => ({type: 'scatter', mode: 'lines+markers', name: z, x: months.map(mk => mk + '-15'),
+    plot('m-capture', zs.map(z => ({type: 'scatter', mode: 'lines+markers', name: z, x: months.map(mk => mk + '-15'),
       y: months.map(mk => (M.monthly[z][mk] || {}).capture_rate), line: {color: zc(z), width: 2}, marker: {size: 5, color: zc(z)},
       connectgaps: false, hovertemplate: z + ': %{y:.0%}<extra></extra>'})),
       layout({xaxis: {type: 'date', tickformat: STATE.range === 'all' ? '%Y' : '%b %Y', dtick: STATE.range === 'all' ? 'M12' : 'M6', hoverformat: '%b %Y'},
@@ -800,7 +816,7 @@ function renderFutures() {
     series.push({type: 'scatter', mode: 'lines', name: 'SYS', x: h.dates, y: h.SYS, line: {color: css('--s-SYS'), width: 1.5}, connectgaps: false,
       hovertemplate: 'Systempris: %{y:,.1f} €/MWh<extra></extra>'});
     const gaps = (F.gaps || []).map(g => ({type: 'rect', xref: 'x', yref: 'paper', x0: g.from, x1: g.to, y0: 0, y1: 1, fillcolor: css('--grid'), line: {width: 0}, layer: 'below'}));
-    Plotly.react('f-history', series, layout({xaxis: {type: 'date', hoverformat: '%-d %b %Y'}, yaxis: {title: {text: 'EUR/MWh', standoff: 6}, rangemode: 'normal'},
+    plot('f-history', series, layout({xaxis: {type: 'date', hoverformat: '%-d %b %Y'}, yaxis: {title: {text: 'EUR/MWh', standoff: 6}, rangemode: 'normal'},
       shapes: gaps, showlegend: true, legend: {orientation: 'h', y: 1.08, x: 0}}), PLOT_CFG);
     dataTable('f-history-tbl', ['Datum'].concat(hz).concat(['SYS']), h.dates.map((d, i) => [dLabel(d)].concat(hz.map(z => fmt(h[z][i], 2))).concat([fmt(h.SYS[i], 2)])).reverse());
   });
@@ -830,11 +846,11 @@ function renderBattery() {
   draw(() => {
     const zs = activeZones(B.zones);
     const months = Array.from(new Set([].concat(...zs.map(z => Object.keys(B.per_zone[z].monthly))))).sort();
-    Plotly.react('b-spread', zs.map(z => ({type: 'scatter', mode: 'lines', name: z, x: months.map(m => m + '-15'), y: months.map(m => (B.per_zone[z].monthly[m] || {}).spread_2h),
+    plot('b-spread', zs.map(z => ({type: 'scatter', mode: 'lines', name: z, x: months.map(m => m + '-15'), y: months.map(m => (B.per_zone[z].monthly[m] || {}).spread_2h),
       line: {color: zc(z), width: 2}, hovertemplate: z + ': %{y:,.0f} €/MWh<extra></extra>'})),
       layout({xaxis: {type: 'date', tickformat: '%Y', dtick: 'M12', hoverformat: '%b %Y'}, yaxis: {title: {text: 'EUR/MWh', standoff: 6}}}), PLOT_CFG);
     dataTable('b-spread-tbl', ['Månad'].concat(zs), months.slice().reverse().map(m => [mLabel(m, true)].concat(zs.map(z => fmt((B.per_zone[z].monthly[m] || {}).spread_2h, 1)))));
-    Plotly.react('b-rev', zs.map(z => ({type: 'scatter', mode: 'lines', name: z, x: months.map(m => m + '-15'), y: months.map(m => (B.per_zone[z].monthly[m] || {}).revenue_eur_mw),
+    plot('b-rev', zs.map(z => ({type: 'scatter', mode: 'lines', name: z, x: months.map(m => m + '-15'), y: months.map(m => (B.per_zone[z].monthly[m] || {}).revenue_eur_mw),
       line: {color: zc(z), width: 2}, hovertemplate: z + ': %{y:,.0f} €/MW<extra></extra>'})),
       layout({xaxis: {type: 'date', tickformat: '%Y', dtick: 'M12', hoverformat: '%b %Y'}, yaxis: {title: {text: 'EUR per MW', standoff: 6}}}), PLOT_CFG);
     dataTable('b-rev-tbl', ['Månad'].concat(zs), months.slice().reverse().map(m => [mLabel(m, true)].concat(zs.map(z => fmt((B.per_zone[z].monthly[m] || {}).revenue_eur_mw, 0)))));
@@ -872,23 +888,30 @@ function renderStatus() {
 }
 
 // ---------- start ----------
-renderMeta();
-monthOptions();
-renderPortfolio();
-zoneChips('m-zones', M.zones, () => redrawAll());
-rangeButtons('m-zones');
-zoneChips('b-zones', B.zones, () => redrawAll());
-renderMarket();
-renderFutures();
-renderBattery();
-renderStatus();
-syncChips();
+safe(renderMeta);
+safe(monthOptions);
+safe(renderPortfolio);
+safe(() => { zoneChips('m-zones', M.zones, () => redrawAll()); rangeButtons('m-zones'); });
+safe(() => zoneChips('b-zones', B.zones, () => redrawAll()));
+safe(renderMarket);
+safe(renderFutures);
+safe(renderBattery);
+safe(renderStatus);
+safe(syncChips);
 (function scrollToTarget() {
   const id = location.hash.slice(1);
   const target = STATE.park ? el('park-detail') : (id && /^[a-z]+$/.test(id) ? el(id) : null);
   if (target) requestAnimationFrame(() => window.scrollTo({top: target.getBoundingClientRect().top + window.scrollY - 64, behavior: 'auto'}));
 })();
 """
+
+
+def _plotly_tag() -> str:
+    if PLOTLY_VENDOR.exists():
+        source = PLOTLY_VENDOR.read_text(encoding="utf-8")
+        if "</script" not in source.lower():
+            return f"<script>{source}</script>"
+    return f"<script src=\"{PLOTLY_URL}\" charset=\"utf-8\"></script>"
 
 
 def render_oversikt(data: Dict[str, Any]) -> str:
@@ -901,7 +924,7 @@ def render_oversikt(data: Dict[str, Any]) -> str:
         "<link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n"
         f"<link rel=\"stylesheet\" href=\"{FONTS_URL}\">\n"
         f"<style>{CSS}</style>\n"
-        f"<script src=\"{PLOTLY_URL}\" charset=\"utf-8\"></script>\n"
+        f"{_plotly_tag()}\n"
         "</head>\n<body>\n"
         f"{BODY}\n"
         f"<script>const D = {script_json(data)};</script>\n"

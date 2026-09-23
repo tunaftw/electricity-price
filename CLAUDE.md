@@ -242,7 +242,8 @@ python3 generate_oversikt.py                                  # ~15 s
 python3 generate_oversikt.py --save-data /tmp/oversikt.json   # cacha data
 python3 generate_oversikt.py --from-data /tmp/oversikt.json   # iterera på renderaren
 ```
-Skapar `Resultat/rapporter/oversikt_YYYYMMDD.html` (~0,6 MB). Byggd från grunden
+Skapar `Resultat/rapporter/oversikt_YYYYMMDD.html` (~5,4 MB — Plotly är inbäddat från
+`elpris/oversikt/vendor/`, så sidan fungerar offline, i appens förhandsvisning och som mejlbilaga). Byggd från grunden
 2026-09-22 efter granskning av Insikt/Track C. Fem delar: **Portföljen**
 (produktion, mot budget för tid med mätdata, spotvärde, capture, datatäckning +
 dagremsor per park; parkdetalj vid klick), **Elmarknaden** (spotpris + solens capture

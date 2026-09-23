@@ -240,3 +240,15 @@ def test_calendar_outside_precomputed_range():
                        ("2028-06-01T12:00", "2028-06-01")]:
         epoch = int(datetime.fromisoformat(stamp).replace(tzinfo=SWEDEN_TZ).timestamp())
         assert cal.day(epoch) == day
+
+
+def test_render_inlines_plotly_when_vendored():
+    # Förhandsvisningar och mejlklienter blockerar externa skript: Plotly ska
+    # bäddas in så att sidan fungerar utan nätåtkomst.
+    from elpris.oversikt import render
+    if not render.PLOTLY_VENDOR.exists():
+        pytest.skip("vendor/plotly.min.js saknas")
+    html = render_oversikt({"generated": "", "dataset": "", "portfolj": {}, "marknad": {},
+                            "terminer": None, "batteri": {}, "datastatus": {}, "definitions": []})
+    assert "cdn.plot.ly" not in html
+    assert "plotly.js v" in html
