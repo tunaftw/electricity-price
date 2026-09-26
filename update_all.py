@@ -292,7 +292,9 @@ def main():
         step(current_step, total_steps, "Nasdaq futures (SKIPPED)")
     else:
         step(current_step, total_steps, "Updating Nasdaq Nordic futures")
-        if run_script("nasdaq_download.py", quiet=args.quiet):
+        legacy_ok = run_script("nasdaq_download.py", quiet=args.quiet)
+        nordic_ok = run_script("nordic_market_download.py", quiet=args.quiet)
+        if legacy_ok and nordic_ok:
             success_count += 1
             print("  Done!")
         else:

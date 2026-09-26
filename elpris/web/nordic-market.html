@@ -1,0 +1,42 @@
+<div id="nordic-market" lang="sv">
+  <div class="nm-status" id="nm-status"></div>
+  <div class="nm-toolbar">
+    <div class="nm-seg" role="group" aria-label="Terminsupplösning" id="nm-kind">
+      <button type="button" data-kind="year" aria-pressed="true">År</button>
+      <button type="button" data-kind="quarter" aria-pressed="false">Kvartal</button>
+      <button type="button" data-kind="month" aria-pressed="false">Månad</button>
+    </div>
+    <label>Leveransperiod<select id="nm-contract"></select></label>
+    <label>Historisk jämförelse<select id="nm-benchmark"></select></label>
+    <span class="nm-unit">EUR/MWh · baseload</span>
+  </div>
+  <section class="nm-panel" aria-labelledby="nm-forward-title">
+    <div class="nm-heading"><h2 id="nm-forward-title">Terminspriser per elområde</h2><span>Systempris + EPAD · samma avräkningsdag</span></div>
+    <div class="nm-scroll"><table id="nm-forward" class="nm-table"></table></div>
+    <p class="nm-note">Välj en leveransperiod för analysen nedan. Även leveranser med endast SYS visas. ”Månads-EPAD saknas” betyder att systempriset finns men att ett områdespris inte kan beräknas. Streck betyder att en komplett notering saknas. Avräkningspriser är inte bindande köp- eller säljofferter.</p>
+  </section>
+  <section class="nm-panel" aria-labelledby="nm-comparison-title">
+    <div class="nm-heading"><h2 id="nm-comparison-title">Termin jämfört med historik</h2><span id="nm-comparison-label"></span></div>
+    <div class="nm-scroll"><table id="nm-comparison" class="nm-table"></table></div>
+    <div class="nm-insight" id="nm-insight" aria-live="polite"></div>
+    <div id="nm-comparison-chart" class="nm-chart" role="img" aria-label="Terminspriser och historisk baseload för sex elområden"></div>
+    <p class="nm-note">Avvikelsen mäter skillnaden mot historiskt baseloadpris. Den är inte ett mått på felprissättning. Solcapture är en separat profiljämförelse, inte en noterad soltermin.</p>
+  </section>
+  <section class="nm-panel" aria-labelledby="nm-spread-title">
+    <div class="nm-heading"><h2 id="nm-spread-title">Områdesskillnader</h2><label>Jämför mot<select id="nm-anchor"></select></label></div>
+    <div class="nm-scroll"><table id="nm-spreads" class="nm-table"></table></div>
+  </section>
+  <section class="nm-panel" aria-labelledby="nm-history-title">
+    <div class="nm-heading"><h2 id="nm-history-title">Historiska priser &amp; solcapture</h2><span id="nm-history-label"></span></div>
+    <div class="nm-toolbar nm-toolbar-inner">
+      <label>Upplösning<select id="nm-history-kind"><option value="year">År</option><option value="quarter">Kvartal</option><option value="month">Månad</option></select></label>
+      <label id="nm-year-label">År<select id="nm-history-year"></select></label>
+      <label>Prisserie<select id="nm-metric"><option value="baseload">Baseload</option><option value="capture_reference">Solcapture · referensprofil</option><option value="capture_actual">Solcapture · rapporterad produktion</option></select></label>
+      <label>Diagramområde<select id="nm-zone"></select></label>
+    </div>
+    <div class="nm-scroll"><table id="nm-history" class="nm-table"></table></div>
+    <div id="nm-history-chart" class="nm-chart" role="img" aria-label="Historisk baseload och två typer av solcapture"></div>
+    <p class="nm-note" id="nm-history-note"></p>
+  </section>
+  <details class="nm-method"><summary>Metod, datatäckning och källor</summary><div id="nm-method"></div></details>
+</div>

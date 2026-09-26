@@ -20,6 +20,7 @@ Google Fonts CDN, all other CSS/JS inlined).
 from __future__ import annotations
 
 from typing import Any, Dict
+from pathlib import Path
 
 from .dashboard_common import JS_HELPERS, esc, script_json
 
@@ -96,12 +97,22 @@ def render_track_c(data: Dict[str, Any]) -> str:
     data_json = script_json(payload)
     generated = data.get("generated", "")
 
-    return _SHELL.format(
+    web = Path(__file__).parent / 'web'
+    nm_html = (web / 'nordic-market.html').read_text(encoding='utf-8')
+    nm_css = (web / 'nordic-market.css').read_text(encoding='utf-8')
+    nm_js = (web / 'nordic-market.js').read_text(encoding='utf-8')
+    # Close the retained historical panel immediately before the Assets section.
+    boundary = '      </div>\n    </section>\n\n    <!-- ===== ASSETS ===== -->'
+    # Inserting after format avoids interpreting JavaScript/CSS braces as fields.
+    rendered = _SHELL.format(
         data_json=data_json,
         generated=esc(generated),
-        css=_CSS,
-        js=_JS.replace("__COMMON_HELPERS__", JS_HELPERS),
+        css=_CSS + '\n' + nm_css,
+        js=_JS.replace("__COMMON_HELPERS__", JS_HELPERS).replace('//  Boot\n', '//  Boot\n' + nm_js + '\n'),
     )
+    rendered = rendered.replace('<div id="futures-content">', nm_html + '\n<details class="nm-legacy" id="nm-legacy"><summary>Tidigare terminskurvor och konvergens · separat historiskt underlag</summary><div id="futures-content">', 1)
+    rendered = rendered.replace(boundary, '      </div></details>\n    </section>\n\n    <!-- ===== ASSETS ===== -->', 1)
+    return rendered
 
 
 # ---------------------------------------------------------------------------
@@ -2453,6 +2464,12 @@ function computeInvest() {
 var FUTURES_STATE = { zone: 'SE3', convergenceContract: null };
 
 function renderFutures() {
+    renderNordicMarket();
+    var legacy = el('nm-legacy');
+    if (legacy) {
+        legacy.ontoggle = function() { if (legacy.open) renderFutures(); };
+        if (!legacy.open) return;
+    }
     var fwd = DATA.forward;
     if (!fwd) {
         el('futures-content').innerHTML = '<div class="empty-note">No forward curve data loaded. Run <span class="num">nasdaq_download.py</span> to fetch settlement prices.</div>';
@@ -4961,8 +4978,8 @@ _SHELL = r"""<!DOCTYPE html>
       <header class="page-head">
         <div class="page-head-left">
           <div class="page-eyebrow">Forward</div>
-          <h1 class="page-title">Forward Curve</h1>
-          <p class="page-sub">Nasdaq history plus Euronext/Nord Pool settlement snapshots for the SYS baseload future, EPAD differentials per Swedish zone, and realised spot for delivered contracts.</p>
+          <h1 class="page-title">Terminer &amp; prishistorik</h1>
+          <p class="page-sub">SE1–SE4 &amp; DK1–DK2 · år, kvartal och månad · baseload och solcapture.</p>
         </div>
       </header>
       <div id="futures-content">

@@ -690,6 +690,8 @@ def build_unified_data() -> Dict[str, Any]:
         - meta: zoner, profiler, färger (för frontend-rendering)
     """
     market = _build_market_section()
+    from .nordic_market_data import build_nordic_market_data
+    market['nordic_market'] = build_nordic_market_data()
     assets = _build_assets_section(market)
     return {
         "generated": datetime.now().isoformat(timespec="seconds"),
