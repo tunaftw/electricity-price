@@ -239,7 +239,11 @@ def park_records(park: str) -> Tuple[dict, ...]:
 def fmt_period_end(epoch: int) -> str:
     """Sista dag med data, t.ex. '21 sep 2026' (epoch = exklusivt slut)."""
     d = datetime.fromtimestamp(epoch - 1, SWEDEN_TZ)
-    return f"{d.day} {SV_MONTHS_SHORT[d.month - 1]} {d.year}"
+    return f"{d.day} {EN_MONTHS_SHORT[d.month - 1]} {d.year}"
+
+
+# Gränssnittet är på engelska (Electricity Price).
+EN_MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 
 SV_MONTHS = ["januari", "februari", "mars", "april", "maj", "juni", "juli",

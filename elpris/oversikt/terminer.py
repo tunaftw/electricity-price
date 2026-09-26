@@ -35,17 +35,18 @@ UPCOMING_QUARTERS = 2
 UPCOMING_YEARS = 3
 FRESH_DAYS = 14        # kontrakt måste ha noterats inom så här många dagar
 
-_SV_MONTHS = ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "aug", "sep", "okt", "nov", "dec"]
+# Gränssnittet är på engelska (Electricity Price); texterna här visas på sidan.
+_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 
 def delivery_label(meta: Dict[str, str]) -> str:
     start = date.fromisoformat(meta["delivery_start"])
     end = date.fromisoformat(meta["delivery_end"])
     if meta["kind"] == "YR":
-        return f"helår {start.year}"
+        return f"calendar year {start.year}"
     if meta["kind"] == "Q":
-        return f"{_SV_MONTHS[start.month - 1]}–{_SV_MONTHS[end.month - 1]} {start.year}"
-    return f"{_SV_MONTHS[start.month - 1]} {start.year}"
+        return f"{_MONTHS[start.month - 1]}–{_MONTHS[end.month - 1]} {start.year}"
+    return f"{_MONTHS[start.month - 1]} {start.year}"
 
 
 def _on_or_before(series: List[Tuple], target: str) -> Optional[Tuple]:
@@ -180,11 +181,11 @@ def build_terminer_data(data_end: int) -> Dict[str, Any]:
             if not r:
                 continue
             ch = r["changes"].get("3m")
-            s = f"<b>{_fmt(r['value'])} €/MWh</b> i {z}"
+            s = f"<b>{_fmt(r['value'])} EUR/MWh</b> in {z}"
             if ch and ch["delta"] is not None:
-                s += f" ({_signed(ch['delta'])} sedan {_fmt_day(ch['ref_date'])})"
+                s += f" ({_change_words(ch['delta'])} since {_fmt_day(ch['ref_date'])})"
             parts.append(s)
-        lede = (f"Terminen för {delivery_label(contracts[front])} ({front}) kostar nu " + " och ".join(parts) + ".")
+        lede = (f"The {delivery_label(contracts[front])} contract ({front}) now trades at " + " and ".join(parts) + ".")
         full = [r for r in convergence if not r.get("partial")][:3]
         if full:
             per_zone = []
@@ -195,24 +196,23 @@ def build_terminer_data(data_end: int) -> Dict[str, Any]:
                     diffs.extend(d)
                     per_zone.append(f"{z} {_signed(sum(d) / len(d))}")
             if per_zone:
-                word = "dyrare" if sum(diffs) > 0 else "billigare"
+                word = "above" if sum(diffs) > 0 else "below"
                 if len(full) == 1:
-                    head = f" Under {full[0]['label']} blev spotpriset {word} än terminen strax före leverans: "
+                    head = f" In {full[0]['label']} spot settled {word} the last forward before delivery: "
                 else:
-                    head = (f" De senaste {len(full)} levererade kvartalen blev spotpriset i snitt {word} "
-                            "än terminen strax före leverans: ")
-                lede += head + ", ".join(per_zone) + " €/MWh."
+                    head = (f" Over the last {len(full)} delivered quarters spot settled on average {word} "
+                            "the last forward before delivery: ")
+                lede += head + ", ".join(per_zone) + " EUR/MWh."
 
     recent = [d for d in all_dates if _days(latest, d) < 30]
     flags = []
     for g in gaps:
         if g["from"] >= "2026-01-01":
-            flags.append(f"Inga terminsnoteringar {_fmt_day(g['from'])}–{_fmt_day(g['to'])}. Förändringar som "
-                         "jämför över luckan använder senaste noteringen före (märkt †).")
+            flags.append(f"No futures prices were recorded from {_fmt_day(g['from'])} to {_fmt_day(g['to'])}. "
+                         "Changes measured across this gap use the last price before it and are marked as old.")
     if len(recent) < 15:
-        flags.append(f"Bara {len(recent)} handelsdagar med noteringar de senaste 30 dagarna. Sedan flytten till "
-                     "Euronext sparas priset bara de dagar hämtningen körs. Det dagliga hämtjobbet "
-                     "(scripts/README.md) fyller i framåt.")
+        flags.append(f"Only {len(recent)} trading days with prices in the last 30 days. Since trading moved to "
+                     "Euronext, prices are stored only on days the daily download runs.")
 
     return {
         "latest_date": latest,
@@ -230,14 +230,23 @@ def build_terminer_data(data_end: int) -> Dict[str, Any]:
     }
 
 
+NARROW_NBSP = " "   # tusentalsavgränsare i det engelska talformatet
+
+
 def _fmt(v: float, d: int = 1) -> str:
-    return f"{v:,.{d}f}".replace(",", " ").replace(".", ",")
+    return f"{v:,.{d}f}".replace(",", NARROW_NBSP)
 
 
 def _signed(v: float) -> str:
     return ("+" if v > 0 else "−" if v < 0 else "") + _fmt(abs(v))
 
 
+def _change_words(v: float) -> str:
+    if abs(v) < 0.05:
+        return "unchanged"
+    return ("up " if v > 0 else "down ") + _fmt(abs(v))
+
+
 def _fmt_day(day: str) -> str:
     d = date.fromisoformat(day)
-    return f"{d.day} {_SV_MONTHS[d.month - 1]} {d.year}"
+    return f"{d.day} {_MONTHS[d.month - 1]} {d.year}"

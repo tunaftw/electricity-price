@@ -1,0 +1,4 @@
+# De delade filerna ska vara byte-identiska med mastern i SveaSolar/Nattariffer/web
+# (tests/test_electricity_price_render.py), och Plotly bäddas in som den är.
+elpris/oversikt/web/*.js -text
+elpris/oversikt/vendor/*.js -text

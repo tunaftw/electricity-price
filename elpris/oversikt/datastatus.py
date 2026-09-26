@@ -72,18 +72,18 @@ def build_datastatus(ref_day: str, portfolj: Dict[str, Any],
     for z in available_zones():
         end = spot_end_epoch(z)
         last = CAL.day(end - 1) if end else None
-        sources.append({"group": "Spotpriser", "name": f"Spotpris {z}",
+        sources.append({"group": "Spot prices", "name": f"Spot price {z}",
                         "source": "elprisetjustnu.se" if z.startswith("SE") else "ENTSO-E",
                         "last": last, "status": _status(last, ref_day)})
     for z in available_zones():
         sq = solar_quarters(z)
         last = CAL.day(max(sq)) if sq else None
-        sources.append({"group": "Solproduktion per zon", "name": f"Sol {z}", "source": "ENTSO-E",
+        sources.append({"group": "Solar output by zone", "name": f"Solar {z}", "source": "ENTSO-E",
                         "last": last, "status": _status(last, ref_day)})
     if terminer:
         last = terminer.get("latest_date")
-        sources.append({"group": "Terminer", "name": "SYS + EPAD (SE1–SE4)",
-                        "source": "Nasdaq t.o.m. 29 apr 2026, därefter Euronext",
+        sources.append({"group": "Futures", "name": "SYS + EPAD (SE1–SE4)",
+                        "source": "Nasdaq to 29 Apr 2026, then Euronext",
                         "last": last, "status": _status(last, ref_day, warn_days=4)})
 
     issues: List[Dict[str, str]] = []
@@ -101,16 +101,17 @@ def build_datastatus(ref_day: str, portfolj: Dict[str, Any],
         if last_meter and _status(last_meter, ref_day) != "ok":
             issues.append({
                 "park": info["name"],
-                "text": f"Elmätaren har inte rapporterat sedan {_fmt_day(last_meter)}. "
-                        "Invertervärdena efter det är fastfrusna och räknas inte som produktion.",
+                "text": f"The grid meter has not reported since {_fmt_day(last_meter)}. "
+                        "Inverter values after that are frozen and are not counted as production.",
             })
         poa = poa_issues(key)
         if poa and poa["too_high"] >= 8:
             issues.append({
                 "park": info["name"],
-                "text": f"Instrålningsgivaren visar orimliga värden (över {POA_MAX_PLAUSIBLE:.0f} W/m²) "
-                        f"sedan {_fmt_day(poa['first_bad'])}. Produktionen påverkas inte, men PR och "
-                        "väderförklaringar i månadsrapporterna går inte att lita på.",
+                "text": "The irradiance sensor (POA) has shown implausible values (above "
+                        + f"{POA_MAX_PLAUSIBLE:,.0f}".replace(",", " ")
+                        + f" W/m²) since {_fmt_day(poa['first_bad'])}. Production is not "
+                        "affected, but PR and weather explanations in the monthly reports cannot be trusted.",
             })
         if poa and poa["shift_min"] is not None and abs(poa["shift_min"]) > POA_SHIFT_WARN_MIN:
             shifted.append((info["name"], poa["shift_min"]))
@@ -119,20 +120,20 @@ def build_datastatus(ref_day: str, portfolj: Dict[str, Any],
         if low:
             issues.append({
                 "park": info["name"],
-                "text": "Mätdata saknas för mer än 20 % av dagsljuset i "
+                "text": "Metered data is missing for more than 20% of daylight in "
                         + ", ".join(_fmt_month(mk) for mk in low)
-                        + " — ingen budgetjämförelse för de månaderna.",
+                        + ", so those months have no budget comparison.",
             })
     if shifted:
         mean_shift = sum(m for _, m in shifted) / len(shifted)
         issues.insert(0, {
-            "park": "Alla parker" if len(shifted) == len(portfolj["parks"]) else ", ".join(n for n, _ in shifted),
-            "text": f"Instrålningsdatan (POA) ligger i snitt {abs(mean_shift) / 60:.1f} timmar "
-                    f"{'efter' if mean_shift > 0 else 'före'} produktionen de senaste 60 dygnen, "
-                    "fast båda borde toppa vid solens middag. Produktionens tidsstämplar stämmer, så den här "
-                    "sidans siffror påverkas inte. Allt som parar ihop instrålning och produktion timme för "
-                    "timme (PR på giltiga intervall, dagsvisa väderförklaringar) blir fel; månadssummor "
-                    "av instrålning påverkas knappt.",
+            "park": "All parks" if len(shifted) == len(portfolj["parks"]) else ", ".join(n for n, _ in shifted),
+            "text": f"Irradiance (POA) runs on average {abs(mean_shift) / 60:.1f} hours "
+                    f"{'behind' if mean_shift > 0 else 'ahead of'} production over the last 60 days, although "
+                    "both should peak at solar noon. Production timestamps are correct, so the figures on "
+                    "this page are not affected. Anything that pairs irradiance with production hour by hour "
+                    "(PR on valid intervals, daily weather explanations) is wrong; monthly irradiance totals "
+                    "are barely affected.",
         })
     # En rad per park: slå ihop parkens problem.
     merged: Dict[str, List[str]] = {}
@@ -142,12 +143,13 @@ def build_datastatus(ref_day: str, portfolj: Dict[str, Any],
     return {"ref_day": ref_day, "sources": sources, "parks": parks_status, "issues": issues}
 
 
-_MONTHS = ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "aug", "sep", "okt", "nov", "dec"]
+# Texterna visas på sidan, som är på engelska.
+_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 
 def _fmt_day(day: Optional[str]) -> str:
     if not day:
-        return "okänt datum"
+        return "an unknown date"
     d = datetime.fromisoformat(day)
     return f"{d.day} {_MONTHS[d.month - 1]} {d.year}"
 

@@ -219,7 +219,7 @@ def test_render_embeds_data_and_escapes_script_end():
     html = render_oversikt(data)
     assert html.startswith("<!DOCTYPE html>")
     assert "<\\/script><b>x" in html          # kan inte avsluta script-blocket
-    assert 'lang="sv"' in html and "Portföljen" in html
+    assert 'lang="en"' in html and ">Portfolio<" in html   # gränssnittet är på engelska (Electricity Price)
 
 
 def test_page_javascript_parses(tmp_path):
@@ -230,7 +230,7 @@ def test_page_javascript_parses(tmp_path):
         pytest.skip("node saknas")
     from elpris.oversikt.render import JS
     path = tmp_path / "page.js"
-    path.write_text("const D = {};\n" + JS, encoding="utf-8")
+    path.write_text("const D = {};\nconst ICONS = {};\n" + JS, encoding="utf-8")
     subprocess.run([node, "--check", str(path)], check=True)
 
 
@@ -250,5 +250,5 @@ def test_render_inlines_plotly_when_vendored():
         pytest.skip("vendor/plotly.min.js saknas")
     html = render_oversikt({"generated": "", "dataset": "", "portfolj": {}, "marknad": {},
                             "terminer": None, "batteri": {}, "datastatus": {}, "definitions": []})
-    assert '<script src="https://cdn.plot.ly' not in html   # ingen extern skripttagg
-    assert "plotly.js v" in html
+    assert '<script src="' not in html                     # ingen extern skripttagg
+    assert "plotly.js (cartesian - minified) v" in html

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Generera Översikt — solportföljen och elmarknaden på en sida.
+"""Generera Electricity Price — huvudversionen, byggd på Översikt.
 
-Fem delar: Portföljen, Elmarknaden, Terminer, Batteri och Datastatus.
-Design: docs/plans/2026-09-22-oversikt-design.md.
+Solportföljen och elmarknaden på en sida, på engelska i Primoras profil.
+Fem delar: Portfolio, Market, Futures, Battery och Data, samt en vy per park.
+Design: docs/plans/2026-09-22-oversikt-design.md och vaultens
+Projects/electricity-prices/01-produktversion.md.
 
 Användning:
     python3 generate_oversikt.py
@@ -15,7 +17,7 @@ Användning:
     python3 generate_oversikt.py --save-data /tmp/oversikt.json
     python3 generate_oversikt.py --from-data /tmp/oversikt.json
 
-Skriver Resultat/rapporter/oversikt_YYYYMMDD.html och sökvägen till stdout.
+Skriver Resultat/rapporter/electricity_price_YYYYMMDD.html och sökvägen till stdout.
 """
 
 from __future__ import annotations
@@ -31,9 +33,9 @@ from elpris.config import REPORTS_DIR
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Generera Översikt som fristående HTML.")
+    parser = argparse.ArgumentParser(description="Generera Electricity Price som fristående HTML.")
     parser.add_argument("--output", type=Path, default=None,
-                        help="Utfil (default: Resultat/rapporter/oversikt_YYYYMMDD.html)")
+                        help="Utfil (default: Resultat/rapporter/electricity_price_YYYYMMDD.html)")
     parser.add_argument("--save-data", type=Path, default=None,
                         help="Spara den insamlade datan som JSON")
     parser.add_argument("--from-data", type=Path, default=None,
@@ -55,7 +57,7 @@ def main() -> int:
 
     from elpris.oversikt.render import render_oversikt, render_oversikt_fragment
     html = render_oversikt_fragment(data) if args.artifact else render_oversikt(data)
-    out = args.output or REPORTS_DIR / f"oversikt_{date.today():%Y%m%d}.html"
+    out = args.output or REPORTS_DIR / f"electricity_price_{date.today():%Y%m%d}.html"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html, encoding="utf-8")
     print(f"  klart på {time.time() - t0:.1f} s, {len(html) / 1024:.0f} kB", file=sys.stderr)
