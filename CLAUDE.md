@@ -1,7 +1,22 @@
 # Elpris - Swedish Electricity Price Analysis
 
 System för att ladda ner och analysera svenska elpriser, reglerpriser, futures
-och solparksproduktion. Genererar dashboards och per-park månadsrapporter.
+och solparksproduktion. Genererar dashboarden Electricity Price, per-park
+månadsrapporter, investerarrapporten och den dagliga pulsen.
+
+## Huvudversionen: Electricity Price
+
+Repot har **en** dashboard: **Electricity Price**, byggd på Översikt med
+`generate_oversikt.py` och `elpris/oversikt/`. Den är på engelska i Primoras profil
+och publiceras på https://claude.ai/artifact/WNYnDJsiK6D75AhUPdfWUT. Track C, Rework och
+Insikt-sidan är arkiverade i git-taggarna `arkiv/track-c-2026-09`, `arkiv/rework-2026-09`
+och `arkiv/insikt-2026-09` (se avsnittet Arkiv nedan). Bygg inga nya varianter
+parallellt; förbättra huvudversionen.
+
+- Dokumentation: `../SveaSolarObsidianv2/Projects/electricity-prices/` (produktversionen
+  i `01-produktversion.md`) och indexnoten `../SveaSolarObsidianv2/Electricity Price.md`.
+- Gemensam standard för Primoras verktyg: `../SveaSolarObsidianv2/Projects/Primora-Energy/verktygsstandard.md`.
+- Gränssnittet är på engelska; dokumentation och kommentarer på svenska.
 
 ## Projektstruktur
 
@@ -28,7 +43,9 @@ electricity-price/
 │   ├── inverter_registry.py             # Auto-genererad av discover_inverters.py
 │   ├── mimer.py                         # Svenska kraftnät reglerpriser
 │   ├── nasdaq.py                        # Terminer: Nasdaq-historik + Euronext (daterad historik)
-│   ├── oversikt/                        # Översikt: portfölj, marknad, terminer, batteri, datastatus
+│   ├── nordic_market_data.py            # Nordiska terminer (sex zoner) + historisk baseload
+│   ├── oversikt/                        # Electricity Price: data (portfolj, marknad, terminer, batteri,
+│   │                                    #   datastatus, tillagg) + render.py, assets/, web/, vendor/
 │   ├── operations_dashboard_data.py     # Specific yield, neg-pris, tracker, meterförlust
 │   ├── park_config.py                   # Park-metadata + budget (PVsyst TMY)
 │   ├── park_product_data.py             # Cowork SharePoint-extrakt (källa)
@@ -36,22 +53,19 @@ electricity-price/
 │   ├── performance_report_html.py       # HTML-rendering månadsrapport
 │   ├── ppm_schedule.py                  # Underhållsschema (lazy-laddad)
 │   ├── processing.py                    # Tim → quarterly (15-min)
-│   ├── rework_capture_analysis.py       # Rework: cannibalisering + orientering
-│   ├── rework_dashboard_data.py         # Rework: komponerar + beskär payload
-│   ├── rework_dashboard_html.py         # Rework-renderaren (Nordic Clarity)
-│   ├── rework_imbalance.py              # Rework: eSett-obalansstatistik
-│   ├── rework_market_analysis.py        # Rework: duck curve, neg-timmar, spreadar
-│   ├── rework_portfolio.py              # Rework: portföljaggregat + klartext-insikter
+│   ├── rework_capture_analysis.py       # Installerad kapacitet (används av investerarrapporten)
+│   ├── rework_market_analysis.py        # Kvartalsanalys per zon (investerarrapporten)
+│   ├── rework_portfolio.py              # Talformat + PPA-vy (investerarrapporten)
 │   ├── solar_geometry.py                # Solhöjd (NOAA) — natt/dagsljus i parkdatan
 │   ├── solar_profile.py                 # PVsyst + ENTSO-E solprofiler
 │   ├── storage.py                       # CSV-läs/skriv för spotpriser
-│   ├── unified_dashboard_data.py        # Aggregerar all data till JSON
-│   └── unified_dashboard_v3_html.py     # Track C — Nordic Editorial-renderaren
+│   ├── insikt/                          # parkoversikt, obalans, investerare, puls (Insikt-sidan arkiverad)
+│   └── unified_dashboard_data.py        # Parkmånader (_build_assets_section, används av investerarrapporten)
 ├── tests/                               # Pytest-tester (begränsad täckning)
 ├── Resultat/                            # All nedladdad data + analyser (se nedan)
 ├── data/                                # Symlinks till Resultat/ (delvis — se nedan)
 ├── docs/                                # Insikter + planer (active vs archive)
-├── update_all.py                        # Master pipeline (15 steg)
+├── update_all.py                        # Master pipeline (14 steg)
 ├── download.py                          # Spotpriser, full historik
 ├── update.py                            # Spotpriser, inkrementellt
 ├── process.py                           # Konvertera tim → quarterly
@@ -63,14 +77,15 @@ electricity-price/
 ├── nasdaq_download.py                   # Hämta Nasdaq-futures
 ├── installed_download.py                # Hämta installerad kapacitet
 ├── bazefield_download.py                # Synka Bazefield-solparker
-├── generate_oversikt.py                 # Översikt — portfölj + marknad på en sida (primär)
+├── generate_oversikt.py                 # Electricity Price — huvudversionen
 ├── futures_daily.py                     # Daglig terminshämtning (launchd vardagar 19:15)
-├── generate_unified_dashboard.py        # Bygg unified dashboard (Track C)
-├── generate_rework_dashboard.py         # Bygg rework-dashboard (Nordic Clarity)
+├── nordic_market_download.py            # Nordiska terminer (Euronext) + Energinet-underlag
 ├── generate_performance_report.py       # Bygg per-park månadsrapport
 ├── generate_puls.py                     # Daglig puls (avvikelsedetektion + digest)
-├── generate_insikt.py                   # Insikt-dashboard (slutsats-först, 3 sektioner)
 ├── generate_investor_report.py          # Investerarrapport (kurerad månadsexport)
+├── generate_intelligence_dashboard.py   # Export till React-appen energy_dashboard/ (orörd)
+├── scripts/jamfor_facit.py              # Jämför Electricity Price-data mot ett sparat facit
+├── scripts/granska_sidan.mjs            # Granskar sidan i huvudlös Chrome (bredder, teman)
 └── discover_inverters.py                # Maintenance: regenerera inverter_registry.py
 ```
 
@@ -160,7 +175,7 @@ Resultat/
 Slash commands i `.claude/commands/`. Master-kommandot rekommenderas för rutinkörningar.
 
 ### Master Update (rekommenderad)
-- `/elpris-update-all` — Hela pipelinen (15 steg: spotpriser → Bazefield → temperatur → ENTSO-E (+DK) → Mimer → terminer → eSett → process → capture → Excel → unified dashboard → Översikt → parkrapporter → daglig puls → status). Lägg till `--reports` för per-park månadsrapport.
+- `/elpris-update-all` — Hela pipelinen (14 steg: spotpriser → Bazefield → temperatur → ENTSO-E (+DK) → Mimer → terminer (Nasdaq/Euronext + nordiska) → eSett → process → capture → Excel → Electricity Price → parkrapporter → daglig puls → status). Lägg till `--reports` för per-park månadsrapport.
 
 ### Datakällor
 - `/elpris-download` — Spotpriser, full historik
@@ -173,12 +188,10 @@ Slash commands i `.claude/commands/`. Master-kommandot rekommenderas för rutink
 - `/elpris-bazefield` — Bazefield solparker
 
 ### Analys och rapporter
-- `/elpris-oversikt` — **Översikt** (primär sida: portfölj, marknad, terminer, batteri)
+- `/elpris-oversikt` — **Electricity Price** (huvudversionen: portfölj, marknad, terminer, batteri, data)
 - `/elpris-status` — Datastatus
 - `/elpris-capture` — Capture prices
 - `/elpris-excel` — Excel-rapporter (capture + battery arbitrage)
-- `/elpris-dashboard` — Unified dashboard (Track C — Nordic Editorial)
-- `/elpris-rework` — Rework-dashboard (Nordic Clarity — portfölj & marknad)
 - `/elpris-reports` — Per-park månadsrapport (alla 8 parker)
 
 ## Kommandon (CLI)
@@ -236,48 +249,49 @@ python3 capture.py SE3 --period year
 python3 status.py                                # Datastatus
 ```
 
-### Översikt — portföljen och elmarknaden på en sida (primär)
+### Electricity Price — huvudversionen (byggd på Översikt)
 ```bash
-python3 generate_oversikt.py                                  # ~15 s
-python3 generate_oversikt.py --save-data /tmp/oversikt.json   # cacha data
-python3 generate_oversikt.py --from-data /tmp/oversikt.json   # iterera på renderaren
+python3 generate_oversikt.py                                  # ~80–90 s
+python3 generate_oversikt.py --also-artifact                  # + electricity_price_YYYYMMDD_artifact.html
+python3 generate_oversikt.py --save-data /tmp/ep.json         # cacha data
+python3 generate_oversikt.py --from-data /tmp/ep.json         # iterera på renderaren (< 1 s)
+python3 scripts/jamfor_facit.py facit.json ny.json            # talen oförändrade mot ett facit?
+node scripts/granska_sidan.mjs <url> <utkatalog>              # 1440/390 px, ljust/mörkt/system
 ```
-Skapar `Resultat/rapporter/oversikt_YYYYMMDD.html` (~5,4 MB — Plotly är inbäddat från
-`elpris/oversikt/vendor/`, så sidan fungerar offline, i appens förhandsvisning och som mejlbilaga). Byggd från grunden
-2026-09-22 efter granskning av Insikt/Track C. Fem delar: **Portföljen**
-(produktion, mot budget för tid med mätdata, spotvärde, capture, datatäckning +
-dagremsor per park; parkdetalj vid klick), **Elmarknaden** (spotpris + solens capture
-rate på faktisk ENTSO-E-sol, SE1–SE4 + DK1/DK2), **Terminer** (SYS+EPAD SE3/SE4,
-förändring 1 v–12 m, "vad marknaden trodde"), **Batteri** (dagsspread + arbitrage-tak
-1 cykel/dag), **Datastatus** (automatiskt upptäckta problem + definitioner).
-Regler: okänt är inte noll; "mot budget" visas bara vid ≥ 80 % datatäckning.
-Backend: `elpris/oversikt/`. Design: `docs/plans/2026-09-22-oversikt-design.md`.
+Skapar `Resultat/rapporter/electricity_price_YYYYMMDD.html` (**2,6 MB**; artefaktversionen
+lika stor). Plotly-delpaketet cartesian (1,4 MB), typsnitten (Figtree, IBM Plex Sans och
+Mono), loggorna och Iconoir-ikonerna är inbäddade, så sidan fungerar offline, i appens
+förhandsvisning och som mejlbilaga. Gränssnittet är på engelska i Primoras profil med
+växlaren (`primora-tema.js`) och Ge feedback (`primora-feedback.js`), kopior i
+`elpris/oversikt/web/` som ska vara identiska med `SveaSolar/Nattariffer/web/`.
 
-### Unified Dashboard (Track C — Nordic Editorial)
-```bash
-python3 generate_unified_dashboard.py
-```
-Skapar `Resultat/rapporter/dashboard_unified_v3_YYYYMMDD.html` (~17 MB, fristående HTML med inbäddad data + Plotly.js via CDN). 4 flikar: **CAPTURE**, **BESS**, **FUTURES**, **ASSETS**.
+Avsnitt: **Portfolio** (produktion, mot budget för tid med mätdata, spotvärde, capture,
+datatäckning, dagremsor, CSV-export; en egen vy per park med fakta och bästa/sämsta dagar),
+**Market** (spotpris, solens capture rate på faktisk ENTSO-E-sol, heatmap timme × månad,
+capture per panelutformning), **Futures** (SYS+EPAD SE3/SE4 med förändring 1 v–12 m,
+"vad marknaden trodde", alla sex nordiska zoner mot historisk baseload och zonspreadar),
+**Battery** (dagsspread, arbitrage-tak 1 cykel/dag, stödtjänster som övre gräns), **Data**
+(källor, kända problem, ordlista, vad som inte visas). Adressen speglar avsnitt, park,
+månad, zoner och kontrakt (`#park?p=hova&m=2026-08`, `#market?zones=SE3,SE4`).
 
-Backend: `elpris.unified_dashboard_data.build_unified_data` aggregerar all data till JSON. Renderaren `elpris.unified_dashboard_v3_html.render_track_c` bygger HTML.
+Regler: okänt är inte noll; "mot budget" visas bara vid ≥ 80 % datatäckning. Översikts
+beräkningar ändras inte vid presentationsarbete: kontrollera med `--save-data` +
+`scripts/jamfor_facit.py`. Det som förts över från Track C (`elpris/oversikt/tillagg.py`)
+anropar Track C:s egna beräkningar och ger samma tal.
+Backend: `elpris/oversikt/`. Design: `docs/plans/2026-09-22-oversikt-design.md` och
+vaultens `Projects/electricity-prices/01-produktversion.md`.
 
-### Rework-dashboard (Nordic Clarity — portfölj & marknad)
-```bash
-python3 generate_rework_dashboard.py
-python3 generate_rework_dashboard.py --save-data /tmp/rework_data.json   # cacha data
-python3 generate_rework_dashboard.py --from-data /tmp/rework_data.json   # iterera på renderaren (sekunder)
-```
-Skapar `Resultat/rapporter/dashboard_rework_YYYYMMDD.html` (~0,5 MB, fristående HTML).
-Sex sektioner i rapport-läsordning med automatgenererade klartext-insikter:
-**Översikt**, **Marknaden** (duck curve, negativtimmar, zonspreadar),
-**Capture & cannibalisering** (installerad sol vs ratio, orientering EUR/kWp),
-**Parkerna** (league table + drilldown), **Risk & intäkt** (forward, PPA-bok,
-eSett-obalans), **Datakvalitet**. Byggd parallellt med Track C — ersätter den inte.
+### Arkiv (borttaget från main, finns i git-taggar)
+| Variant | Tagg |
+|---|---|
+| Track C (Nordic Editorial), nordisk terminsmodul i egen stil, `update_market_site.py` | `arkiv/track-c-2026-09` |
+| Rework (Nordic Clarity) | `arkiv/rework-2026-09` |
+| Insikt-sidan (render, cache, marknad, bess_*, kannibalisering) | `arkiv/insikt-2026-09` |
+| Engångsskript för parkanalyser (sep 2026) | `arkiv/engangsskript-2026-09` |
 
-Backend: `elpris.rework_dashboard_data.build_rework_data` (komponerar
-`build_unified_data()` + rework-analysmodulerna, beskär payloaden).
-Renderare: `elpris.rework_dashboard_html.render_rework`.
-Design: `docs/plans/2026-06-09-fable-rework-design.md`.
+Återskapa en fil: `git show arkiv/track-c-2026-09:elpris/unified_dashboard_v3_html.py`.
+Senaste Track C-filen ligger i `Resultat/arkiv/`. ChatGPT Sites-versionen (`sites/`) är ett
+eget git-repo utanför huvudrepot.
 
 ### Per-park månadsrapport
 ```bash
@@ -293,22 +307,6 @@ Degradering −0,5 %/år från `PVSYST_BASE_YEAR = 2026` appliceras centralt i `
 Förlustkaskaden är uppdelad: instrålning, tillgänglighet, temperaturavvikelse mot
 ERA5-klimatologi (gamma per park i `PARK_TEMP_COEFF_PCT_PER_C`), clipping mot exportgräns,
 residual ("Övrigt").
-
-### Insikt — produktdashboard (slutsats först)
-```bash
-python3 generate_insikt.py                                   # ~35 s
-python3 generate_insikt.py --save-data /tmp/insikt.json      # cacha data
-python3 generate_insikt.py --from-data /tmp/insikt.json      # iterera på renderaren
-```
-Skapar `Resultat/rapporter/insikt_YYYYMMDD.html` (~325 kB). Tre sektioner, var och en
-leder med klartextinsikter: **Parkerna** (league table, parkkort, kaskad-drilldown),
-**Marknad & intäkt** (capture/PPA-bok, realiserad obalanskostnad, kannibaliserings-
-regression, forward-konvergens + lookback), **Batteri & investering** (revenue stacking,
-capex-kalkyl med break-even som beslutssiffra, BTM mot verkliga parkprofiler).
-Backend: `elpris/insikt/` (parkoversikt, marknad, bess_sektion, obalans,
-kannibalisering, bess_stack, bess_kalkyl, cache, render).
-Spec: `docs/plans/2026-08-22-insikt-produkt-spec.md` — byggs funktion för funktion;
-gamla dashboards rivs i takt med att Insikt ersätter dem.
 
 ### Investerarrapport
 ```bash
@@ -391,8 +389,8 @@ blir saknad data "dålig prestation". Den gamla regeln (`power > 0 else inverter
 
 ## Operations Dashboard
 
-Operations-vyn (i ASSETS-fliken på unified dashboard) beräknas i
-`elpris/operations_dashboard_data.py`:
+Driftmåtten beräknas i `elpris/operations_dashboard_data.py` (visades i Track C:s
+ASSETS-flik, som är arkiverad; laddaren `load_park_15min` används av alla produkter):
 
 | Feature | Beskrivning |
 |---------|-------------|
@@ -481,7 +479,8 @@ date,contract,daily_fix_eur,bid_eur,ask_eur,high_eur,low_eur,open_interest
 - `docs/insights/` — analys- och valideringsnotat (PVsyst vs ENTSO-E mm).
 - `docs/plans/` — aktiva designer/planer. Shippade designer ligger i `docs/plans/archive/`.
 - Kringgående produktdokumentation finns i Obsidian-vaulten:
-  `../SveaSolarObsidianv2/Projects/Elpris/`.
+  `../SveaSolarObsidianv2/Projects/electricity-prices/` (indexnot:
+  `../SveaSolarObsidianv2/Electricity Price.md`).
 
 ## Framtida utveckling
 
@@ -497,7 +496,9 @@ date,contract,daily_fix_eur,bid_eur,ask_eur,high_eur,low_eur,open_interest
 - [x] Månadsrapport: SCADA-integration (inverter-nivå, alarm/fault) — implementation klar; `bazefield_download.py --inverters --backfill` hämtar data, sektion 14/15/18 renderas i månadsrapporten
 - [x] Daglig automation (macOS launchd plist i `scripts/`, manuell installation per `scripts/README.md`)
 - [x] Översikt (2026-09-22) — ny primär sida, strikt energiregel, DK1/DK2, daterad Euronext-historik
-- [ ] Byt Track C mot Översikt på Sites efter Pontus granskning
+- [x] Electricity Price (2026-09-26) — Översikt blir huvudversionen på engelska i Primoras profil; Track C, Rework och Insikt-sidan arkiverade
+- [ ] Byt Track C mot Electricity Price på ChatGPT Sites (`sites/`, utanför repot)
+- [ ] Snabba upp `_build_assets_section` (investerarrapporten och `tests/test_unified_dashboard_data.py`): `generate_report` räknar hela portföljens intäkt för varje park-månad
 - [ ] Rätta POA-tidsförskjutningen (~2 h efter produktionen sedan apr 2026) och återinför PR i Översikt
 - [ ] Migrera till hosted version med autentisering (Vercel/Netlify privat)
 - [ ] Historiska solprofiler per region

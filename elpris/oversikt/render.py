@@ -1321,6 +1321,7 @@ def render_oversikt_fragment(data: Dict[str, Any]) -> str:
     """
     return (
         f"<title>{esc(TITLE)}</title>\n"
+        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
         '<meta name="description" content="Primora solar portfolio and Nordic electricity market: production, '
         'capture prices, futures and battery value.">\n'
         f"<script>{_shared('primora-tema.js')}</script>\n"
