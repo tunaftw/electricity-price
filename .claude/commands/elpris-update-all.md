@@ -1,7 +1,7 @@
 # Master Update — Uppdatera allt
 
-Kör hela uppdateringskedjan (12 steg): hämta ny data, processera och
-generera Track C unified dashboard.
+Kör hela uppdateringskedjan (14 steg): hämta ny data, processera och
+generera Electricity Price (huvudversionen).
 
 ## Vad som körs
 
@@ -14,9 +14,12 @@ generera Track C unified dashboard.
  7. **Process** — Konvertera raw till quarterly (15-min)
  8. **Capture** — Beräkna capture prices
  9. **Excel** — Generera capture_prices + battery_arbitrage rapporter
-10. **Unified Dashboard** — Generera Track C (Nordic Editorial) HTML
+10. **Electricity Price** — Huvudversionen och dess artefaktversion (`generate_oversikt.py --also-artifact`)
 11. **Park reports** — Per-park månadsrapport (endast med `--reports`)
-12. **Status** — Visa datastatus
+12. **Daglig puls** — Avvikelser för igår
+13. **Status** — Visa datastatus
+
+Listan är förenklad; skriptet har även steg för temperatur och nordiska terminer (14 steg).
 
 ## Instruktioner
 
@@ -55,5 +58,5 @@ cron-jobb kan larma.
 Rapporter sparas till `Resultat/rapporter/`:
 - `capture_prices_YYYYMMDD.xlsx`
 - `battery_arbitrage_YYYYMMDD.xlsx`
-- `dashboard_unified_v3_YYYYMMDD.html` (Track C)
+- `electricity_price_YYYYMMDD.html` och `electricity_price_YYYYMMDD_artifact.html`
 - `performance_<park>_<zone>_YYYY-MM.html` (med `--reports`)

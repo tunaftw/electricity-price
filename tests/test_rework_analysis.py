@@ -1,4 +1,7 @@
-"""Enhetstester för rework-dashboardens rena analysfunktioner.
+"""Enhetstester för de rework-analysfunktioner som investerarrapporten använder.
+
+Rework-sidan är arkiverad (git-taggen arkiv/rework-2026-09); modulerna här
+används av elpris/insikt/investerare.py och parkoversikt.py.
 
 Alla tester använder syntetisk data — inga filberoenden — så de är
 snabba och kan köras i CI utan Resultat/-katalogen.
@@ -11,11 +14,6 @@ from elpris.rework_capture_analysis import (
     aggregate_installed_wind,
     calculate_orientation_yearly,
 )
-from elpris.rework_dashboard_data import (
-    prune_capture_data,
-    prune_forward,
-)
-from elpris.rework_imbalance import aggregate_imbalance_monthly
 from elpris.rework_market_analysis import (
     analyze_zone_quarters,
     calculate_zone_spreads,
@@ -221,67 +219,6 @@ def test_calculate_orientation_yearly_premium_and_eur_kwp():
     assert ekwp["ov"] == pytest.approx(40.1, abs=0.1)
     # tracker: 42.0 × 1202/1000 = 50.5
     assert ekwp["tracker"] == pytest.approx(50.5, abs=0.1)
-
-
-# ---------------------------------------------------------------------------
-# rework_imbalance
-# ---------------------------------------------------------------------------
-
-def test_aggregate_imbalance_monthly():
-    rows = [
-        {"time_start": "2025-03-01T00:00:00Z",
-         "imbl_spot_diff_eur_mwh": "10.0", "main_dir_reg_power": "1.0"},
-        {"time_start": "2025-03-01T00:15:00Z",
-         "imbl_spot_diff_eur_mwh": "-30.0", "main_dir_reg_power": "-1.0"},
-        {"time_start": "2025-03-01T00:30:00Z",
-         "imbl_spot_diff_eur_mwh": "0.0", "main_dir_reg_power": "0"},
-        # Trasig rad ignoreras
-        {"time_start": "2025-03-01T00:45:00Z",
-         "imbl_spot_diff_eur_mwh": "", "main_dir_reg_power": "1"},
-    ]
-    result = aggregate_imbalance_monthly(rows)
-    assert len(result) == 1
-    m = result[0]
-    assert m["month"] == "2025-03"
-    assert m["n"] == 3
-    assert m["mean_abs_diff"] == pytest.approx(13.33, abs=0.01)
-    assert m["mean_diff"] == pytest.approx(-6.67, abs=0.01)
-    assert m["share_up"] == pytest.approx(33.3, abs=0.1)
-    assert m["share_down"] == pytest.approx(33.3, abs=0.1)
-
-
-# ---------------------------------------------------------------------------
-# rework_dashboard_data (pruning)
-# ---------------------------------------------------------------------------
-
-def test_prune_capture_data_drops_daily_and_extra_profiles():
-    market_data = {
-        "SE3": {
-            "baseload": {"yearly": [1], "monthly": [2], "daily": [3]},
-            "sol_syd": {"yearly": [1], "monthly": [2], "daily": [3]},
-            "park_horby": {"yearly": [1], "monthly": [2]},
-            "bess_tb2": {"yearly": [1]},
-        }
-    }
-    pruned = prune_capture_data(market_data)
-    assert set(pruned["SE3"].keys()) == {"baseload", "sol_syd"}
-    assert set(pruned["SE3"]["baseload"].keys()) == {"yearly", "monthly"}
-
-
-def test_prune_forward_drops_history():
-    forward = {
-        "settlement_date": "2026-04-29",
-        "contracts": [{"label": "YR-27", "type": "year"}],
-        "sys": {"YR-27": 47.15},
-        "zone_fwd": {"SE3": {"YR-27": 50.0}},
-        "forward_history": {"YR-27": {"sys_series": [1] * 1000}},
-        "forward_health": {"stale_finals": []},
-    }
-    pruned = prune_forward(forward)
-    assert "forward_history" not in pruned
-    assert "forward_health" not in pruned
-    assert pruned["settlement_date"] == "2026-04-29"
-    assert prune_forward(None) is None
 
 
 # ---------------------------------------------------------------------------

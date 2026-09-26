@@ -12,11 +12,10 @@ This script runs the entire update pipeline:
  8. Process raw data to quarterly format
  9. Calculate capture prices
 10. Generate Excel reports
-11. Generate Unified Dashboard (Track C — Nordic Editorial)
-12. Generate Översikt (portfolio + market on one page)
-13. Generate park performance reports (only with --reports / --auto-reports)
-14. Daily puls (anomaly digest for yesterday)
-15. Show status
+11. Generate Electricity Price (the main dashboard, built on Översikt) and its artifact version
+12. Generate park performance reports (only with --reports / --auto-reports)
+13. Daily puls (anomaly digest for yesterday)
+14. Show status
 """
 
 from __future__ import annotations
@@ -170,7 +169,7 @@ def main():
     parser.add_argument(
         "--skip-oversikt",
         action="store_true",
-        help="Skip the Översikt page",
+        help="Skip the Electricity Price page (Översikt)",
     )
     parser.add_argument(
         "--skip-puls",
@@ -208,7 +207,7 @@ def main():
     print(f"Bazefield key: {'Found' if BAZEFIELD_API_KEY else 'Not found'}")
     print("=" * 60)
 
-    total_steps = 15
+    total_steps = 14
     current_step = 0
     success_count = 0
     failures: list[str] = []
@@ -369,30 +368,22 @@ def main():
             print(f"  Error generating Excel: {e}")
             failures.append(f"step {current_step}")
 
-    # Step 11: Generate Unified Dashboard (Track C — Nordic Editorial)
-    current_step += 1
-    step(current_step, total_steps, "Generating Unified Dashboard (Track C)")
-    if run_script("generate_unified_dashboard.py", quiet=args.quiet):
-        success_count += 1
-        print("  Done!")
-    else:
-        print("  Failed")
-        failures.append(f"step {current_step}")
-
-    # Step 12: Översikt — portfolio, market, futures and battery on one page
+    # Step 11: Electricity Price — the main dashboard (built on Översikt). Track C
+    # is archived (git tag arkiv/track-c-2026-09). --also-artifact writes the
+    # version for publishing as a Claude artifact from the same data.
     current_step += 1
     if args.skip_oversikt:
-        step(current_step, total_steps, "Översikt (SKIPPED)")
+        step(current_step, total_steps, "Electricity Price (SKIPPED)")
     else:
-        step(current_step, total_steps, "Generating Översikt")
-        if run_script("generate_oversikt.py", quiet=args.quiet):
+        step(current_step, total_steps, "Generating Electricity Price")
+        if run_script("generate_oversikt.py", ["--also-artifact"], quiet=args.quiet):
             success_count += 1
             print("  Done!")
         else:
             print("  Failed")
             failures.append(f"step {current_step}")
 
-    # Step 13: Park performance reports (conditional on --reports or --auto-reports)
+    # Step 12: Park performance reports (conditional on --reports or --auto-reports)
     current_step += 1
     if args.reports:
         step(current_step, total_steps, "Generating park performance reports")
@@ -422,7 +413,7 @@ def main():
     else:
         step(current_step, total_steps, "Park reports (SKIPPED — use --reports or --auto-reports)")
 
-    # Step 14: Daily puls (anomaly digest for yesterday)
+    # Step 13: Daily puls (anomaly digest for yesterday)
     # Runs after reports so it sees the freshly synced data. Findings are not
     # process failures — generate_puls.py always exits 0 — so this step only
     # counts as failed if the script itself crashes.
@@ -437,7 +428,7 @@ def main():
             print("  Failed")
             failures.append(f"step {current_step}")
 
-    # Step 15: Show status
+    # Step 14: Show status
     current_step += 1
     step(current_step, total_steps, "Data status")
     run_script("status.py", quiet=False)

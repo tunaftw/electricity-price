@@ -42,6 +42,8 @@ def main() -> int:
                         help="Rendera från sparad JSON i stället för att räkna om")
     parser.add_argument("--artifact", action="store_true",
                         help="Skriv sidan utan dokumentskal, för publicering som Claude-artifact")
+    parser.add_argument("--also-artifact", action="store_true",
+                        help="Skriv även artefaktversionen (<utfil>_artifact.html) från samma data")
     args = parser.parse_args()
 
     t0 = time.time()
@@ -62,6 +64,10 @@ def main() -> int:
     out.write_text(html, encoding="utf-8")
     print(f"  klart på {time.time() - t0:.1f} s, {len(html) / 1024:.0f} kB", file=sys.stderr)
     print(out)
+    if args.also_artifact and not args.artifact:
+        art = out.with_name(f"{out.stem}_artifact.html")
+        art.write_text(render_oversikt_fragment(data), encoding="utf-8")
+        print(art)
     return 0
 
 

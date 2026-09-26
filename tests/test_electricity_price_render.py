@@ -169,13 +169,6 @@ def test_ancillary_last_12m_matches_track_c_rule():
     assert tillagg.anc_last_12m(months[:5]) is None
     with_base = [{"year": 2025, "month": 1, "baseload": 5.0, "capture": 99.0}] * 12
     assert tillagg.anc_last_12m(with_base) == 60.0
-
-
-def test_track_c_ancillary_rule_is_the_same_in_the_old_renderer():
-    """Jämför regeln med Track C:s JavaScript så länge renderaren finns kvar."""
-    old = ROOT / "elpris" / "unified_dashboard_v3_html.py"
-    if not old.exists():
-        pytest.skip("Track C är arkiverad (git-taggen arkiv/track-c-2026-09)")
-    src = old.read_text(encoding="utf-8")
-    assert "var tail = monthly.slice(-12);" in src and "if (tail.length < 6) return null;" in src
-    assert "return months === 12 ? sum : (sum / months) * 12;" in src
+# Regeln ovan är kontrollerad mot Track C:s ancLast12mRevenue i
+# unified_dashboard_v3_html.py (git-taggen arkiv/track-c-2026-09) och mot
+# Track C:s data för samma dag: alla 12-månaderstal var identiska.

@@ -28,6 +28,12 @@ Resultat/rapporter/dashboard_*.xlsx
 Resultat/rapporter/performance_*.html
 Resultat/rapporter/oversikt_*.html
 Resultat/rapporter/electricity_price_*.html
+
+# Arkiverade genererade sidor (Track C m.fl.)
+Resultat/arkiv/
+
+# ChatGPT Sites-versionen är ett eget git-repo och ingår inte i huvudversionen
+sites/
 data/reports/battery_arbitrage_*.xlsx
 data/reports/capture_prices_*.xlsx
 
