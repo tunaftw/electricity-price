@@ -8,7 +8,10 @@ månadsrapporter, investerarrapporten och den dagliga pulsen.
 
 Repot har **en** dashboard: **Electricity Price**, byggd på Översikt med
 `generate_oversikt.py` och `elpris/oversikt/`. Den är på engelska i Primoras profil
-och publiceras på https://claude.ai/artifact/WNYnDJsiK6D75AhUPdfWUT. Track C, Rework och
+och publiceras på https://solportfoljen-intelligence.pontus-skog.chatgpt.site.
+Claude-artefakten finns på https://claude.ai/artifact/WNYnDJsiK6D75AhUPdfWUT och
+uppdateras separat. GitHub-push publicerar inte automatiskt någon av sidorna.
+Track C, Rework och
 Insikt-sidan är arkiverade i git-taggarna `arkiv/track-c-2026-09`, `arkiv/rework-2026-09`
 och `arkiv/insikt-2026-09` (se avsnittet Arkiv nedan). Bygg inga nya varianter
 parallellt; förbättra huvudversionen.
@@ -497,7 +500,7 @@ date,contract,daily_fix_eur,bid_eur,ask_eur,high_eur,low_eur,open_interest
 - [x] Daglig automation (macOS launchd plist i `scripts/`, manuell installation per `scripts/README.md`)
 - [x] Översikt (2026-09-22) — ny primär sida, strikt energiregel, DK1/DK2, daterad Euronext-historik
 - [x] Electricity Price (2026-09-26) — Översikt blir huvudversionen på engelska i Primoras profil; Track C, Rework och Insikt-sidan arkiverade
-- [ ] Byt Track C mot Electricity Price på ChatGPT Sites (`sites/`, utanför repot)
+- [x] Byt Track C mot Electricity Price på ChatGPT Sites (`sites/`, utanför repot; publicerat 2026-09-29)
 - [ ] Snabba upp `_build_assets_section` (investerarrapporten och `tests/test_unified_dashboard_data.py`): `generate_report` räknar hela portföljens intäkt för varje park-månad
 - [ ] Rätta POA-tidsförskjutningen (~2 h efter produktionen sedan apr 2026) och återinför PR i Översikt
 - [ ] Migrera till hosted version med autentisering (Vercel/Netlify privat)
