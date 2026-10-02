@@ -10,7 +10,8 @@ Repot har **en** dashboard: **Electricity Price**, byggd på Översikt med
 `generate_oversikt.py` och `elpris/oversikt/`. Den är på engelska i Primoras profil
 och publiceras på https://solportfoljen-intelligence.pontus-skog.chatgpt.site.
 Claude-artefakten finns på https://claude.ai/artifact/WNYnDJsiK6D75AhUPdfWUT och
-uppdateras separat. GitHub-push publicerar inte automatiskt någon av sidorna.
+publiceras automatiskt av Claude-uppgiften `elpris-publicera` (se Daglig automation).
+GitHub-push publicerar inte någon av sidorna.
 Track C, Rework och
 Insikt-sidan är arkiverade i git-taggarna `arkiv/track-c-2026-09`, `arkiv/rework-2026-09`
 och `arkiv/insikt-2026-09` (se avsnittet Arkiv nedan). Bygg inga nya varianter
@@ -359,9 +360,18 @@ och `{park}_events.csv`. När data finns visar `generate_performance_report.py`
 sektion 14 (Inverter Yield), 15 (Inverter Efficiency) och 18 (Alarm & Fault Summary)
 i månadsrapporten — annars graceful "Begränsad data"-notis.
 
-### Daglig automation (macOS launchd / cron)
-Färdig launchd-plist + installationsinstruktioner finns i [`scripts/README.md`](scripts/README.md).
-Kör `python3 update_all.py --quiet --auto-reports` dagligen 06:00, loggar till `Resultat/logs/`.
+### Daglig automation (Windows, sedan 2026-10-02)
+Två lager, se [`scripts/windows/README.md`](scripts/windows/README.md) och
+`docs/plans/2026-10-02-automatisk-datasync-design.md`:
+1. **Windows Schemaläggaren** (`\Elpris\`) kör `scripts/windows/elpris_sync.ps1`. Morgonen 06:30
+   kör `update_all.py` och hämtar igen var 30:e minut till 11:00 tills `scripts/datastatus_klar.py`
+   säger att gårdagen är komplett. Sedan committas och pushas datan. Kvällen (mån–fre 19:15) kör
+   `futures_daily.py` och bygger om. Ett granskat bygge lämnas i `Resultat/publicera/klar.json`.
+2. **Claude-appens schemalagda uppgift `elpris-publicera`** publicerar `klar.json` till artefakten
+   när kontrollsumman är ny och skriver `Resultat/publicera/senast_publicerad.json`.
+
+Loggar finns i `Resultat/logs/sync_<morgon|kvall>_YYYYMMDD.log`. macOS-plistarna i `scripts/`
+gäller den gamla Mac-installationen.
 
 ## Viktiga koncept
 
@@ -498,6 +508,7 @@ date,contract,daily_fix_eur,bid_eur,ask_eur,high_eur,low_eur,open_interest
 - [x] Bazefield utökat format (POA, availability, active power)
 - [x] Månadsrapport: SCADA-integration (inverter-nivå, alarm/fault) — implementation klar; `bazefield_download.py --inverters --backfill` hämtar data, sektion 14/15/18 renderas i månadsrapporten
 - [x] Daglig automation (macOS launchd plist i `scripts/`, manuell installation per `scripts/README.md`)
+- [x] Automatisk sync och publicering på Windows (2026-10-02): `scripts/windows/`, Claude-uppgiften `elpris-publicera`
 - [x] Översikt (2026-09-22) — ny primär sida, strikt energiregel, DK1/DK2, daterad Euronext-historik
 - [x] Electricity Price (2026-09-26) — Översikt blir huvudversionen på engelska i Primoras profil; Track C, Rework och Insikt-sidan arkiverade
 - [x] Byt Track C mot Electricity Price på ChatGPT Sites (`sites/`, utanför repot; publicerat 2026-09-29)

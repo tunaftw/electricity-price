@@ -50,7 +50,7 @@ inte; står repot inte på `main` hoppas commiten över och det loggas.
 
 ### Lager 2 – Claude-appens schemalagda uppgift `elpris-publicera`
 
-Körs 07:30, 11:30 och 19:45. Läser `klar.json`; är SHA-256 samma som i
+Körs 07:45, 11:45 och 19:45 (cron `45 7,11,19 * * *`). Läser `klar.json`; är SHA-256 samma som i
 `Resultat/publicera/senast_publicerad.json` avslutas den direkt. Annars publiceras
 `_artifact.html` till https://claude.ai/artifact/WNYnDJsiK6D75AhUPdfWUT med `url` och utan
 `capabilities` (db, user och downloads behålls). Den publicerade sidan läses tillbaka och
