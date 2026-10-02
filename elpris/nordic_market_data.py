@@ -164,6 +164,11 @@ def fetch_energinet(dataset, start, end, cache=CACHE):
     if not data.get('records'):
         raise ValueError(f'Empty Energinet dataset: {dataset}')
     _save(path, {'url': response.url, 'data': data, 'retrieved_at': datetime.now(UTC).isoformat()})
+    # The newest extract covers every older one with the same start; keep only it so the
+    # cache (and git) does not grow by a full extract per run day.
+    for older in cache.glob(f'{dataset}_{start}_*.json'):
+        if older != path:
+            older.unlink()
 
 
 def refresh_inputs(cache=CACHE, today=None):

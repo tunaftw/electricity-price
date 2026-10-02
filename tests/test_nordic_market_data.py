@@ -77,3 +77,30 @@ def test_system_and_epad_require_same_settlement_date():
 def test_period_end_rollover():
     assert period_bounds('quarter',2026,4)==(date(2026,10,1),date(2027,1,1))
     assert period_bounds('month',2026,12)==(date(2026,12,1),date(2027,1,1))
+
+
+def test_fetch_energinet_keeps_only_newest_rolling_extract(tmp_path, monkeypatch):
+    import json as _json
+
+    import elpris.nordic_market_data as nmd
+
+    older = tmp_path / 'DayAheadPrices_2025-10-01_2026-09-30.json'
+    older.write_text('{}', encoding='utf-8')
+    static = tmp_path / 'Elspotprices_2024-01-01_2025-10-01.json'
+    static.write_text('{}', encoding='utf-8')
+
+    class Svar:
+        url = 'https://api.energidataservice.dk/dataset/DayAheadPrices'
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {'records': [{'TimeUTC': '2026-10-01T00:00:00', 'PriceArea': 'SE3', 'DayAheadPriceEUR': 1.0}]}
+
+    monkeypatch.setattr(nmd.requests, 'get', lambda *a, **k: Svar())
+    nmd.fetch_energinet('DayAheadPrices', '2025-10-01', '2026-10-02', tmp_path)
+
+    names = sorted(p.name for p in tmp_path.glob('*.json'))
+    assert names == ['DayAheadPrices_2025-10-01_2026-10-02.json', 'Elspotprices_2024-01-01_2025-10-01.json']
+    assert _json.loads((tmp_path / names[0]).read_text(encoding='utf-8'))['data']['records']

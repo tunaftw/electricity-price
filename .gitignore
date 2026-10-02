@@ -46,6 +46,13 @@ Resultat/logs/
 # Quarterly data is derived from raw via process.py — regenerate, don't track
 data/quarterly/*/*.csv
 
+# Energinet extracts are refetched on every run (about 29 MB per run day) — don't track
+Resultat/marknadsdata/nordic_market/DayAheadPrices_*.json
+Resultat/marknadsdata/nordic_market/ProductionConsumptionSettlement*.json
+
+# Automatic sync: lock and handover files (scripts/windows/elpris_sync.ps1)
+Resultat/publicera/
+
 # Browser-automation debug output
 .playwright-mcp/
 
